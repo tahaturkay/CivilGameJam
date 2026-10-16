@@ -21,6 +21,11 @@ public class GameManager : MonoBehaviour
     [Header("Panel ve Durum Kontrolleri")]
     public bool oyunDurduMu = false; // Quiz veya Afet ekranı açıkken zamanı durdurmak için
 
+    [Header("Afet Özet Verileri (UI İçin)")]
+    public bool afetOlduMu = false;       // 4. Kişi bu true olunca Afet Paneli'ni açacak
+    public string sonAfetMesaji = "";     // "Şiddetli Deprem Oldu! 2 Bina Hasar Aldı." gibi bir metin
+    public int sonVefatSayisi = 0;        // O afette ölen kişi sayısı
+
     private void Awake()
     {
         if (Instance == null) Instance = this;
