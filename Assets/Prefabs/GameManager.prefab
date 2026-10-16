@@ -55,3 +55,6 @@ MonoBehaviour:
   setLevel: 1
   altyapiLevel: 1
   oyunDurduMu: 0
+  afetOlduMu: 0
+  sonAfetMesaji: 
+  sonVefatSayisi: 0
