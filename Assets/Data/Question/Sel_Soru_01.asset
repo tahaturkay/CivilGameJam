@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f708de71f40c04bd58581e8cb3286186, type: 3}
+  m_Name: Sel_Soru_01
+  m_EditorClassIdentifier: Assembly-CSharp::QuestionSO
+  soruMetni: "\u015Eiddetli ya\u011F\u0131\u015F nedeniyle bulundu\u011Fun b\xF6lgede sel uyar\u0131s\u0131 yap\u0131ld\u0131. En do\u011Fru davran\u0131\u015F hangisidir?"
+  siklar:
+  - "    Dere yata\u011F\u0131na giderek su seviyesini kontrol etmelisin."
+  - "    Su seviyesinin hen\xFCz d\xFC\u015F\xFCk oldu\u011Funu d\xFC\u015F\xFCnerek b\xF6lgede kalmal\u0131s\u0131n."
+  - "    Yetkililerin uyar\u0131lar\u0131n\u0131 takip etmeli ve g\xFCvenli, y\xFCksek bir b\xF6lgeye y\xF6nelmelisin."
+  - "    Su birikintilerinin i\xE7inden y\xFCr\xFCyerek k\u0131sa yoldan ilerlemelisin."
+  dogruSikIndex: 2
+  aciklama: "Sel uyar\u0131s\u0131 yap\u0131ld\u0131\u011F\u0131nda dere yataklar\u0131ndan ve su basabilecek b\xF6lgelerden uzakla\u015Fmal\u0131, yetkililerin y\xF6nlendirmelerine g\xF6re g\xFCvenli bir y\xFCksek b\xF6lgeye gitmelisin."

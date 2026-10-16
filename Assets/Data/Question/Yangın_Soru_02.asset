@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f708de71f40c04bd58581e8cb3286186, type: 3}
+  m_Name: "Yang\u0131n_Soru_02"
+  m_EditorClassIdentifier: Assembly-CSharp::QuestionSO
+  soruMetni: "Elektrikli bir cihazdan yang\u0131n \xE7\u0131kt\u0131\u011F\u0131n\u0131 fark ettin. A\u015Fa\u011F\u0131daki davran\u0131\u015Flardan hangisi en do\u011Frudur?"
+  siklar:
+  - "    Cihaz\u0131n \xFCzerine do\u011Frudan su d\xF6kmelisin."
+  - "    Yang\u0131n k\xFC\xE7\xFCk g\xF6r\xFCnse bile \xF6nce g\xFCvenli\u011Fini sa\u011Flamal\u0131, elektrik kaynakl\u0131 yang\u0131na suyla m\xFCdahale etmemeli ve acil yard\u0131m istemelisin."
+  - "    Cihaz\u0131 elinle d\u0131\u015Far\u0131 ta\u015F\u0131mal\u0131s\u0131n."
+  - "    Yang\u0131n\u0131n kendili\u011Finden s\xF6nmesini beklerken odada kalmal\u0131s\u0131n."
+  dogruSikIndex: 1
+  aciklama: "Elektrik kaynakl\u0131 yang\u0131nlara suyla m\xFCdahale etmek elektrik \xE7arpmas\u0131na neden olabilir. G\xFCvenli\u011Fini sa\u011Flamal\u0131, gerekti\u011Finde alan\u0131 tahliye etmeli ve acil yard\u0131m istemelisin."

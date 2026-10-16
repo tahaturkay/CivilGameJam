@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f708de71f40c04bd58581e8cb3286186, type: 3}
+  m_Name: Sel_Soru_02
+  m_EditorClassIdentifier: Assembly-CSharp::QuestionSO
+  soruMetni: "Sel sular\u0131 bir yolun \xFCzerini kaplam\u0131\u015F durumda. Ara\xE7la bu yoldan ge\xE7men gerekiyor. Ne yapmal\u0131s\u0131n?"
+  siklar:
+  - "    Arac\u0131n y\xFCksekli\u011Fine g\xFCvenerek yava\u015F\xE7a ilerlemelisin."
+  - "    Yolun g\xFCvenli oldu\u011Fundan emin olmadan ge\xE7memeli ve alternatif, g\xFCvenli bir g\xFCzerg\xE2h se\xE7melisin."
+  - "    \xD6n\xFCndeki ara\xE7 ge\xE7ebiliyorsa sen de ge\xE7melisin."
+  - "    Suyun derinli\u011Fini anlamak i\xE7in arac\u0131n kap\u0131s\u0131n\u0131 a\xE7\u0131p \xF6l\xE7melisin."
+  dogruSikIndex: 1
+  aciklama: "Sel sular\u0131yla kapl\u0131 yollardan ara\xE7la veya y\xFCr\xFCyerek ge\xE7memelisin. Suyun derinli\u011Fi ve ak\u0131nt\u0131n\u0131n g\xFCc\xFC yan\u0131lt\u0131c\u0131 olabilir."

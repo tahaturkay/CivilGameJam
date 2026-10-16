@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f708de71f40c04bd58581e8cb3286186, type: 3}
+  m_Name: Tsunami_Soru_03
+  m_EditorClassIdentifier: Assembly-CSharp::QuestionSO
+  soruMetni: "Tsunami tehlikesi bulunan bir k\u0131y\u0131 b\xF6lgesindesin ve g\xFCvenli bir y\xFCksek noktaya ula\u015Fman gerekiyor. En uygun se\xE7im hangisidir?"
+  siklar:
+  - "    K\u0131y\u0131 \xE7izgisini takip ederek denize paralel ilerlemek."
+  - "    Limana giderek teknelere binmeye \xE7al\u0131\u015Fmak."
+  - "    Sahildeki insan kalabal\u0131\u011F\u0131n\u0131 takip etmek."
+  - "    M\xFCmk\xFCnse belirlenmi\u015F tahliye g\xFCzerg\xE2h\u0131n\u0131 kullanarak k\u0131y\u0131dan uzakla\u015Fmak ve y\xFCksek bir b\xF6lgeye ula\u015Fmak."
+  dogruSikIndex: 3
+  aciklama: "Tsunami tehlikesinde belirlenmi\u015F tahliye g\xFCzerg\xE2hlar\u0131n\u0131 kullanarak k\u0131y\u0131dan uzakla\u015Fmal\u0131 ve m\xFCmk\xFCnse y\xFCksek bir b\xF6lgeye ula\u015Fmal\u0131s\u0131n."

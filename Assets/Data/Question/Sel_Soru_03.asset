@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f708de71f40c04bd58581e8cb3286186, type: 3}
+  m_Name: Sel_Soru_03
+  m_EditorClassIdentifier: Assembly-CSharp::QuestionSO
+  soruMetni: "Sel s\u0131ras\u0131nda bodrum kattas\u0131n ve suyun h\u0131zla y\xFCkseldi\u011Fini fark ettin. En do\u011Fru davran\u0131\u015F hangisidir?"
+  siklar:
+  - "    E\u015Fyalar\u0131n\u0131 kurtarmak i\xE7in bodrumda kalmal\u0131s\u0131n."
+  - "    Elektrikli cihazlar\u0131 fi\u015Ften \xE7ekmek i\xE7in suyun i\xE7ine girmelisin."
+  - "    Pencereleri a\xE7arak suyun d\u0131\u015Far\u0131 \xE7\u0131kmas\u0131n\u0131 beklemelisin."
+  - "    G\xFCvenliyse derh\xE2l daha y\xFCksek bir kata veya g\xFCvenli y\xFCksek bir b\xF6lgeye \xE7\u0131kmal\u0131 ve yard\u0131m istemelisin."
+  dogruSikIndex: 3
+  aciklama: "Bodrumda su h\u0131zla y\xFCkseliyorsa g\xFCvenli bir \u015Fekilde y\xFCksek bir yere \xE7\u0131kmal\u0131s\u0131n. Ka\xE7\u0131\u015F yolun kapanm\u0131\u015Fsa suya girmeden acil yard\u0131m istemelisin"

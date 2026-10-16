@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f708de71f40c04bd58581e8cb3286186, type: 3}
+  m_Name: "Yang\u0131n_Soru_03"
+  m_EditorClassIdentifier: Assembly-CSharp::QuestionSO
+  soruMetni: "Yang\u0131n s\u0131ras\u0131nda bulundu\u011Fun binadan \xE7\u0131kman gerekiyor. A\u015Fa\u011F\u0131dakilerden hangisi do\u011Fru tahliye davran\u0131\u015F\u0131d\u0131r?"
+  siklar:
+  - "    Asans\xF6r\xFC kullanarak h\u0131zl\u0131ca a\u015Fa\u011F\u0131 inmek."
+  - "    Duman\u0131 kontrol etmek i\xE7in yang\u0131n\u0131n oldu\u011Fu kata geri d\xF6nmek."
+  - "    E\u015Fyalar\u0131n\u0131 toplamak i\xE7in tahliyeyi geciktirmek."
+  - "    G\xFCvenli ka\xE7\u0131\u015F yolunu kullanmak, asans\xF6rden ka\xE7\u0131nmak ve binadan \xE7\u0131kt\u0131ktan sonra i\xE7eri tekrar girmemek."
+  dogruSikIndex: 3
+  aciklama: "Yang\u0131nda g\xFCvenli ka\xE7\u0131\u015F yolunu kullanmal\u0131, asans\xF6rden ka\xE7\u0131nmal\u0131 ve binadan \xE7\u0131kt\u0131ktan sonra i\xE7eri tekrar girmemelisin."

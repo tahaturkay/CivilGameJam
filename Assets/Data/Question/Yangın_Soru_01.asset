@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f708de71f40c04bd58581e8cb3286186, type: 3}
+  m_Name: "Yang\u0131n_Soru_01"
+  m_EditorClassIdentifier: Assembly-CSharp::QuestionSO
+  soruMetni: "Kapal\u0131 bir alanda yang\u0131n \xE7\u0131kt\u0131 ve koridor dumanla dolmaya ba\u015Flad\u0131. Ne yapmal\u0131s\u0131n?"
+  siklar:
+  - "D    uman\u0131n \xFCst\xFCnden ge\xE7mek i\xE7in h\u0131zl\u0131ca ko\u015Fmal\u0131s\u0131n."
+  - "    E\u015Fyalar\u0131n\u0131 toplamak i\xE7in odana geri d\xF6nmelisin."
+  - "    Dumanl\u0131 b\xF6lgeden uzak durmal\u0131, g\xFCvenli tahliye yolunu kullanmal\u0131 ve m\xFCmk\xFCn oldu\u011Funca temiz havada kalmal\u0131s\u0131n."
+  - "    Duman\u0131n kayna\u011F\u0131n\u0131 bulmak i\xE7in yang\u0131n\u0131n \xE7\u0131kt\u0131\u011F\u0131 odaya girmelisin."
+  dogruSikIndex: 2
+  aciklama: "Yang\u0131nda duman ciddi bir tehlikedir. G\xFCvenli bir \xE7\u0131k\u0131\u015F yolu kullanarak tahliye olmal\u0131 ve dumanla dolu g\xFCzerg\xE2hlara girmemelisin."

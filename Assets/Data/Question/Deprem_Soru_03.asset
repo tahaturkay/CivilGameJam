@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f708de71f40c04bd58581e8cb3286186, type: 3}
+  m_Name: Deprem_Soru_03
+  m_EditorClassIdentifier: Assembly-CSharp::QuestionSO
+  soruMetni: "Deprem sars\u0131nt\u0131s\u0131 bittikten sonra binadan \xE7\u0131kman gerekti\u011Finde nas\u0131l hareket etmelisin?"
+  siklar:
+  - "    Asans\xF6r\xFC kullanarak h\u0131zl\u0131ca a\u015Fa\u011F\u0131 inmelisin."
+  - "    E\u015Fyalar\u0131n\u0131 toplamak i\xE7in odana geri d\xF6nmelisin."
+  - "    Binan\u0131n hasarl\u0131 olup olmad\u0131\u011F\u0131n\u0131 kontrol etmek i\xE7in duvarlara dokunmal\u0131s\u0131n."
+  - "    G\xFCvenli \u015Fekilde merdivenleri kullanmal\u0131, \xE7evrendeki tehlikelere dikkat etmeli ve yetkililerin talimatlar\u0131na uymal\u0131s\u0131n."
+  dogruSikIndex: 3
+  aciklama: "Sars\u0131nt\u0131 sonras\u0131nda hasarl\u0131 binalardan g\xFCvenli \u015Fekilde uzakla\u015Fmal\u0131, asans\xF6r kullanmamal\u0131 ve yetkililerin talimatlar\u0131na uymal\u0131s\u0131n."
