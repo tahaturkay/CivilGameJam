@@ -2099,7 +2099,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 4742381166406414597}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 181604331531138036}
+        m_TargetAssemblyTypeName: BinaPopup, Assembly-CSharp
+        m_MethodName: YukseltTiklandi
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!1 &6335087488904586629
 GameObject:
   m_ObjectHideFlags: 0
@@ -3038,7 +3050,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 8862716708257147509}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 181604331531138036}
+        m_TargetAssemblyTypeName: BinaPopup, Assembly-CSharp
+        m_MethodName: QuizTiklandi
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!1 &7422161617715362739
 GameObject:
   m_ObjectHideFlags: 0
