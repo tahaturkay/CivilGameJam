@@ -1,0 +1,77 @@
+Shader "CivilIsland/Stylized Ocean"
+{
+    Properties
+    {
+        _DeepColor ("Deep water", Color) = (0.018, 0.17, 0.26, 1)
+        _ShallowColor ("Wave color", Color) = (0.025, 0.38, 0.45, 1)
+        _GlintColor ("Sunlit ripples", Color) = (0.35, 0.73, 0.77, 1)
+        _WaveScale ("Wave scale", Float) = 0.12
+        _Speed ("Wave speed", Float) = 0.22
+    }
+    SubShader
+    {
+        Tags { "RenderPipeline"="UniversalPipeline" "RenderType"="Opaque" "Queue"="Geometry" }
+        Pass
+        {
+            Name "Ocean"
+            Tags { "LightMode"="UniversalForwardOnly" }
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Frag
+            #pragma target 3.0
+            #pragma multi_compile_fog
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            CBUFFER_START(UnityPerMaterial)
+                half4 _DeepColor;
+                half4 _ShallowColor;
+                half4 _GlintColor;
+                float _WaveScale;
+                float _Speed;
+            CBUFFER_END
+            struct Attributes { float4 positionOS : POSITION; };
+            struct Varyings { float4 positionCS : SV_POSITION; float3 world : TEXCOORD0; half fog : TEXCOORD1; };
+            float Hash(float2 p)
+            {
+                p = frac(p * float2(123.34, 456.21));
+                p += dot(p, p + 45.32);
+                return frac(p.x * p.y);
+            }
+            float Noise(float2 p)
+            {
+                float2 cell = floor(p), u = frac(p);
+                u = u * u * (3.0 - 2.0 * u);
+                return lerp(lerp(Hash(cell), Hash(cell + float2(1, 0)), u.x),
+                    lerp(Hash(cell + float2(0, 1)), Hash(cell + 1), u.x), u.y);
+            }
+            Varyings Vert(Attributes input)
+            {
+                Varyings output;
+                output.world = TransformObjectToWorld(input.positionOS.xyz);
+                output.positionCS = TransformWorldToHClip(output.world);
+                output.fog = ComputeFogFactor(output.positionCS.z);
+                return output;
+            }
+            half4 Frag(Varyings input) : SV_Target
+            {
+                float time = _Time.y * _Speed;
+                float2 uv = input.world.xz * _WaveScale;
+                float swell = Noise(uv + float2(time * .45, -time * .22));
+                float detail = Noise(uv * 3.2 + float2(-time * .8, time * .5));
+                float waveLine = sin(uv.x * 3.1 + uv.y * 6.5 + swell * 5.0 - time * 2.2);
+                float width = max(fwidth(waveLine) * .8, .025);
+                float ripple = smoothstep(.88 - width, .97 + width, waveLine) * smoothstep(.32, .80, detail);
+                half3 color = lerp(_DeepColor.rgb, _ShallowColor.rgb, saturate(swell * .8 + detail * .18));
+                color = lerp(color, _GlintColor.rgb, ripple * .08);
+                float sparkle = smoothstep(.86, .98, Noise(uv * 8.0 + float2(time, 0))) * ripple;
+                color += sparkle * half3(.025, .045, .04);
+                Light sun = GetMainLight(TransformWorldToShadowCoord(input.world));
+                color *= lerp(.68h, 1.0h, sun.shadowAttenuation);
+                return half4(MixFog(color, input.fog), 1);
+            }
+            ENDHLSL
+        }
+    }
+}

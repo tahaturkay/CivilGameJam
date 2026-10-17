@@ -28,6 +28,9 @@ public class BuildingVisuals : MonoBehaviour
     [Tooltip("Her level icin bir child obje surukle. Bos birakirsan asagidaki olceklemeye duser.")]
     public GameObject[] levelModelleri;
 
+    [Tooltip("Aktif level modelinin sınırlarına göre kök BoxCollider'ı günceller.")]
+    public bool colliderModeleUysun = true;
+
     [Header("Model yoksa: kup buyutme (ilk gun icin)")]
     public Transform olceklenecekGorsel; // bos ise bu obje
     public float levelBasinaBuyume = 0.4f; // her level boyu %40 uzatir
@@ -65,16 +68,7 @@ public class BuildingVisuals : MonoBehaviour
     private int MevcutLevel()
     {
         var gm = GameManager.Instance;
-        switch (binaTuru)
-        {
-            case BinaTuru.TemelBina: return gm.temelBinaLevel;
-            case BinaTuru.Okul: return gm.okulLevel;
-            case BinaTuru.Akut: return gm.akutLevel;
-            case BinaTuru.Itfaiye: return gm.itfaiyeLevel;
-            case BinaTuru.DenizSeti: return gm.setLevel;
-            case BinaTuru.Altyapi: return gm.altyapiLevel;
-            default: return 1;
-        }
+        return gm != null ? gm.Level(binaTuru) : 1;
     }
 
     private void Guncelle()
@@ -93,6 +87,8 @@ public class BuildingVisuals : MonoBehaviour
                 if (levelModelleri[i] != null)
                     levelModelleri[i].SetActive(i == aktifIndex);
             }
+            if (colliderModeleUysun && levelModelleri[aktifIndex] != null)
+                ColliderGuncelle(levelModelleri[aktifIndex]);
         }
         else
         {
@@ -108,21 +104,41 @@ public class BuildingVisuals : MonoBehaviour
             levelYazisi.text = "Lvl " + level;
     }
 
+    // Kök sabit kalır; afet referansları ve tıklama hedefi model değişince kaybolmaz.
+    private void ColliderGuncelle(GameObject model)
+    {
+        BoxCollider kutu = GetComponent<BoxCollider>();
+        if (kutu == null) return;
+
+        Bounds sinir = default;
+        bool bulundu = false;
+        foreach (Renderer renderer in model.GetComponentsInChildren<Renderer>())
+        {
+            Bounds yerel = renderer.localBounds;
+            Matrix4x4 matris = transform.worldToLocalMatrix * renderer.transform.localToWorldMatrix;
+            for (int k = 0; k < 8; k++)
+            {
+                Vector3 kose = yerel.center + Vector3.Scale(yerel.extents,
+                    new Vector3((k & 1) == 0 ? -1 : 1, (k & 2) == 0 ? -1 : 1, (k & 4) == 0 ? -1 : 1));
+                Vector3 nokta = matris.MultiplyPoint3x4(kose);
+                if (!bulundu) { sinir = new Bounds(nokta, Vector3.zero); bulundu = true; }
+                else sinir.Encapsulate(nokta);
+            }
+        }
+        if (!bulundu) return;
+        kutu.center = sinir.center;
+        kutu.size = sinir.size + Vector3.one * .08f;
+    }
+
     void OnMouseDown()
     {
-        Debug.Log("1) Tıklandı: " + name);
-
-        if (UnityEngine.EventSystems.EventSystem.current != null &&
-            UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
-        {
-            Debug.Log("2) UI tıklamayı engelledi");
-            return;
-        }
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
+        var gm = GameManager.Instance;
+        if (PauseMenu.DurdurulduMu || (gm != null && (gm.afetOlduMu || gm.oyunBittiMi))) return;
 
         BinaTiklandi?.Invoke(binaTuru);
         if (BinaPopup.Instance == null) { Debug.LogError("3) BinaPopup sahnede yok!"); return; }
 
-        Debug.Log("4) Popup açılıyor: " + binaTuru);
         BinaPopup.Instance.Ac(binaTuru);
     }
 }

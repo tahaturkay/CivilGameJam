@@ -9,6 +9,13 @@ public class DisasterController : MonoBehaviour
 
     [Header("Yeni Görsel Efektler (VFX)")]
     public Transform tsunamiDalgasi;      
+    [Tooltip("Güneyden gelen tsunami dalgasının kıyı setine çarptığı dünya Z koordinatı.")]
+    public float tsunamiSetZ = 10f;
+    public float tsunamiBaslangicZ = -45f;
+    public float tsunamiBitisZ = 102f;
+    public float tsunamiDalgaY = 1f;
+    public float tsunamiSuYuksekligi = 1.5f;
+    public float selSuYuksekligi = 5f;
     public GameObject yanginEfekti;       
     public GameObject yagmurEfekti;       
     // --- YENİ YANGIN SİSTEMİ ---
@@ -98,7 +105,7 @@ public class DisasterController : MonoBehaviour
                 break;
 
             case AfetTuru.Tsunami:
-                yield return StartCoroutine(TsunamiDalgaVeSuEfekti(1.5f, yeterli));
+                yield return StartCoroutine(TsunamiDalgaVeSuEfekti(tsunamiSuYuksekligi, yeterli));
                 break;
         }
 
@@ -183,7 +190,7 @@ public class DisasterController : MonoBehaviour
         {
             yield return new WaitForSeconds(2.0f); // 2s yağmur yağar
             // Su 3s çıkar, 7s bekler, 3s iner (Toplam 13s + 2s = 15s)
-            yield return StartCoroutine(SuYukseltIndir(5f, 6f, 7f, 3f)); 
+            yield return StartCoroutine(SuYukseltIndir(selSuYuksekligi, 6f, 7f, 3f));
         }
         else
         {
@@ -289,12 +296,10 @@ public class DisasterController : MonoBehaviour
             tsunamiDalgasi.gameObject.SetActive(true);
             
             // Dalganın başlangıç ve bitiş noktaları
-            Vector3 dalgaBaslangic = new Vector3(baslangicX, 1f, -45f); 
-            Vector3 dalgaBitis = new Vector3(baslangicX, 1f, 102f);
+            Vector3 dalgaBaslangic = new Vector3(baslangicX, tsunamiDalgaY, tsunamiBaslangicZ);
+            Vector3 dalgaBitis = new Vector3(baslangicX, tsunamiDalgaY, tsunamiBitisZ);
 
-            // *** YENİ AYAR: Setin Haritadaki Z Pozisyonu ***
-            // Unity'den set modeline tıkla, Z değerine bak ve buraya yaz (Örn: -15f)
-            float setinZPozisyonu = 10f; 
+            float setinZPozisyonu = tsunamiSetZ;
 
             // Dalganın sete yüzde kaçlık ilerlemede çarpacağını otomatik hesaplıyoruz!
             float carpmaYuzdesi = Mathf.InverseLerp(dalgaBaslangic.z, dalgaBitis.z, setinZPozisyonu);
@@ -317,7 +322,7 @@ public class DisasterController : MonoBehaviour
 
                         // 2. Çarptığı an duvarda parçalanıp hızla küçülerek yerin dibine girsin
                         float erimeOrani = Mathf.Clamp01((ilerleme - carpmaYuzdesi) * 5f); 
-                        mevcutPozisyon.y = Mathf.Lerp(1f, -10f, erimeOrani); 
+                        mevcutPozisyon.y = Mathf.Lerp(tsunamiDalgaY, -10f, erimeOrani);
                         float yeniScaleY = Mathf.Lerp(orijinalScale.y, 0.05f, erimeOrani);
                         tsunamiDalgasi.localScale = new Vector3(orijinalScale.x, yeniScaleY, orijinalScale.z);
                     }
@@ -329,7 +334,7 @@ public class DisasterController : MonoBehaviour
                         float sehirIlerleme = Mathf.InverseLerp(carpmaYuzdesi, 1f, ilerleme);
                         float gomulmeOrani = Mathf.SmoothStep(0f, 1f, sehirIlerleme);
 
-                        mevcutPozisyon.y = Mathf.Lerp(1f, -10f, gomulmeOrani);
+                        mevcutPozisyon.y = Mathf.Lerp(tsunamiDalgaY, -10f, gomulmeOrani);
                         float yeniScaleY = Mathf.Lerp(orijinalScale.y, 0.05f, gomulmeOrani);
                         tsunamiDalgasi.localScale = new Vector3(orijinalScale.x, yeniScaleY, orijinalScale.z);
                     }

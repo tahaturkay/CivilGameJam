@@ -48,6 +48,12 @@ public class LowPolyDenizVeDalgaAnimator : MonoBehaviour
     void MeshHazirla()
     {
         if (meshFilter == null || meshFilter.sharedMesh == null) return;
+        if (!meshFilter.sharedMesh.isReadable)
+        {
+            Debug.LogWarning(name + ": Dalga animasyonu için modelin Read/Write ayarını açın.", this);
+            enabled = false;
+            return;
+        }
 
         // Orijinal FBX meshini bozmamak için çalışma zamanı kopyası oluşturuyoruz
         calismaMeshi = Instantiate(meshFilter.sharedMesh);
@@ -108,6 +114,7 @@ public class LowPolyDenizVeDalgaAnimator : MonoBehaviour
         }
 
         calismaMeshi.vertices = guncelNoktalar;
+        calismaMeshi.RecalculateBounds();
         if (normalleriGuncelle)
         {
             calismaMeshi.RecalculateNormals();
