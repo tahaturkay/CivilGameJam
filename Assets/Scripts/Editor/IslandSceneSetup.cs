@@ -107,6 +107,12 @@ public static class IslandSceneSetup
         navigation.FrameCity();
         IslandNightLighting night=island.GetComponent<IslandNightLighting>();
         if(night==null)night=island.AddComponent<IslandNightLighting>();
+        Texture2D chosenCursor=AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Cursors/FenerOku.png");
+        if(chosenCursor!=null)
+        {
+            IslandCursor cursor=camera.GetComponent<IslandCursor>();if(cursor==null)cursor=camera.gameObject.AddComponent<IslandCursor>();
+            cursor.pointer=chosenCursor;cursor.hotspot=new Vector2(6,5);
+        }
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
     }

@@ -1,5 +1,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
+using TMPro;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -9,6 +11,7 @@ using UnityEngine.InputSystem;
 /// at boundsCenter.y, so navigation also works on the island's raised ground.
 /// </summary>
 [RequireComponent(typeof(Camera))]
+[DefaultExecutionOrder(-100)]
 public class IslandCameraController : MonoBehaviour
 {
     [Header("Island bounds (world X/Z)")]
@@ -25,6 +28,13 @@ public class IslandCameraController : MonoBehaviour
     [Header("Keyboard pan")]
     public bool keyboardPanEnabled = true;
     [Min(1f)] public float keyboardPanSpeed = 45f;
+    [Min(0.01f)] public float keyboardPanSmoothTime = 0.09f;
+    [Min(1f)] public float keyboardZoomSpeed = 36f;
+
+    [Header("Input smoothing")]
+    [Min(0.01f)] public float zoomSmoothTime = 0.12f;
+    [Min(1f)] public float maxPointerDeltaPerFrame = 140f;
+    [Min(1f)] public float trackpadPanPixelsPerUnit = 36f;
 
     [Header("Scene references")]
     public DisasterController disasterController;
@@ -32,6 +42,17 @@ public class IslandCameraController : MonoBehaviour
     private Camera cachedCamera;
     private bool dragging;
     private Vector2 lastPointerPosition;
+    private Vector3 keyboardPanVelocity;
+    private Vector3 keyboardPanDampingVelocity;
+    private float targetOrthographicSize;
+    private float zoomVelocity;
+    private bool zoomAnchorActive;
+    private Vector3 zoomAnchorWorld;
+    private Vector2 zoomAnchorScreen;
+
+    /// <summary>True in frames where a camera pan gesture owns the pointer, preventing accidental building clicks.</summary>
+    static bool gestureOwnsPointer;
+    public static bool SuppressWorldClick { get=>gestureOwnsPointer||SpaceHeld(); private set=>gestureOwnsPointer=value; }
 
     private void Awake()
     {
@@ -44,11 +65,17 @@ public class IslandCameraController : MonoBehaviour
         }
 
         NormalizeZoomSettings();
+        targetOrthographicSize = cachedCamera != null ? cachedCamera.orthographicSize : startOrthographicSize;
     }
 
     private void OnDisable()
     {
         dragging = false;
+        keyboardPanVelocity = Vector3.zero;
+        keyboardPanDampingVelocity = Vector3.zero;
+        zoomVelocity = 0f;
+        zoomAnchorActive = false;
+        SuppressWorldClick = false;
     }
 
     private void Start(){FrameCity();}
@@ -58,37 +85,44 @@ public class IslandCameraController : MonoBehaviour
     {
         EnsureCameraReference();if(cachedCamera==null)return;
         cachedCamera.orthographicSize=Mathf.Clamp(startOrthographicSize,minOrthographicSize,maxOrthographicSize);
+        keyboardPanVelocity = Vector3.zero;
+        keyboardPanDampingVelocity = Vector3.zero;
+        ResetZoomTarget();
         SetCameraCenter(boundsCenter+new Vector3(0,0,-7));
     }
 
     private void Update()
     {
+        SuppressWorldClick = false;
         if (cachedCamera == null || !cachedCamera.orthographic) return;
 
-        if (ControlsBlocked() || IsPointerOverUi())
+        if (ControlsBlocked())
         {
-            dragging = false;
+            ResetNavigationMotion();
             return;
         }
 
-        if (HomePressed())
+        bool textInputFocused = IsTextInputFocused();
+        if (!textInputFocused && HomePressed())
         {
             FrameHome();
-            dragging = false;
+            ResetNavigationMotion();
             return;
         }
 
-        Vector2 pointerPosition;
-        float wheel;
-        bool middlePressed, middleHeld, rightPressed, rightHeld;
-        bool hasMouse = ReadMouse(out pointerPosition, out wheel,
-            out middlePressed, out middleHeld, out rightPressed, out rightHeld);
+        Vector2 pointerPosition, scrollDelta;
+        bool middlePressed, middleHeld, rightPressed, rightHeld, leftPressed, leftHeld;
+        bool hasMouse = ReadMouse(out pointerPosition, out scrollDelta,
+            out middlePressed, out middleHeld, out rightPressed, out rightHeld, out leftPressed, out leftHeld);
+        bool pointerOverUi = IsPointerOverUi();
+        bool shiftHeld = ShiftHeld();
+        bool spaceHeld = SpaceHeld();
 
         if (hasMouse)
         {
-            bool panPressed = middlePressed || rightPressed;
-            bool panHeld = middleHeld || rightHeld;
-            if (panPressed)
+            bool panHeld = middleHeld || rightHeld || (spaceHeld && leftHeld);
+            bool panStarted = middlePressed || rightPressed || (spaceHeld && leftPressed);
+            if (panStarted && !pointerOverUi)
             {
                 dragging = true;
                 lastPointerPosition = pointerPosition;
@@ -96,44 +130,28 @@ public class IslandCameraController : MonoBehaviour
 
             if (dragging && panHeld)
             {
-                Vector3 previousGroundPoint;
-                Vector3 currentGroundPoint;
-                if (TryGetGroundPoint(lastPointerPosition, out previousGroundPoint) &&
-                    TryGetGroundPoint(pointerPosition, out currentGroundPoint))
-                {
-                    Vector3 pan = previousGroundPoint - currentGroundPoint;
-                    pan.y = 0f;
-                    MoveCamera(pan);
-                    ClampCameraCenterToBounds();
-                }
-
+                SuppressWorldClick = true;
+                if (!pointerOverUi) ApplyPointerPan(lastPointerPosition, pointerPosition);
                 lastPointerPosition = pointerPosition;
             }
-            else if (!panHeld)
+            else
             {
                 dragging = false;
+                lastPointerPosition = pointerPosition;
             }
 
-            if (Mathf.Abs(wheel) > 0.001f)
-                ZoomAt(pointerPosition, wheel);
+            if (!pointerOverUi && scrollDelta.sqrMagnitude > 0.0001f)
+                ApplyScrollDelta(scrollDelta, pointerPosition, shiftHeld);
         }
+        else dragging = false;
 
-        if (keyboardPanEnabled)
-        {
-            Vector2 keyboardDirection = ReadKeyboardPan();
-            if (keyboardDirection.sqrMagnitude > 0f)
-            {
-                Vector3 forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
-                Vector3 right = Vector3.ProjectOnPlane(transform.right, Vector3.up).normalized;
-                if (forward.sqrMagnitude < 0.001f) forward = Vector3.forward;
-                if (right.sqrMagnitude < 0.001f) right = Vector3.right;
-
-                Vector3 movement = right * keyboardDirection.x + forward * keyboardDirection.y;
-                if (movement.sqrMagnitude > 1f) movement.Normalize();
-                MoveCamera(movement * keyboardPanSpeed * Time.unscaledDeltaTime);
-                ClampCameraCenterToBounds();
-            }
-        }
+        Vector2 keyboardDirection = keyboardPanEnabled && !textInputFocused ? ReadKeyboardPan() : Vector2.zero;
+        ApplyKeyboardPan(keyboardDirection, Time.unscaledDeltaTime);
+        float keyboardZoom = textInputFocused ? 0f : ReadKeyboardZoom();
+        if (Mathf.Abs(keyboardZoom) > 0.001f)
+            targetOrthographicSize = Mathf.Clamp(targetOrthographicSize - keyboardZoom * keyboardZoomSpeed * Time.unscaledDeltaTime,
+                minOrthographicSize, maxOrthographicSize);
+        UpdateSmoothZoom(Time.unscaledDeltaTime);
     }
 
     /// <summary>
@@ -162,26 +180,129 @@ public class IslandCameraController : MonoBehaviour
         float fitSize = CalculateIslandFitSize();
         cachedCamera.orthographicSize = Mathf.Clamp(
             Mathf.Max(homeOrthographicSize, fitSize), minOrthographicSize, maxOrthographicSize);
+        keyboardPanVelocity = Vector3.zero;
+        keyboardPanDampingVelocity = Vector3.zero;
+        ResetZoomTarget();
         SetCameraCenter(boundsCenter);
     }
 
-    private void ZoomAt(Vector2 screenPosition, float wheel)
+    /// <summary>Applies normalized WASD/arrow input. Exposed so navigation can be verified without device input.</summary>
+    public void ApplyKeyboardPan(Vector2 direction, float deltaTime)
     {
-        Vector3 anchorBefore;
-        bool hasAnchor = TryGetGroundPoint(screenPosition, out anchorBefore);
+        EnsureCameraReference();
+        if (cachedCamera == null || deltaTime <= 0f) return;
+        if (direction.sqrMagnitude > 1f) direction.Normalize();
+        if(direction.sqrMagnitude>.0001f)zoomAnchorActive=false;
 
-        float newSize = cachedCamera.orthographicSize * Mathf.Exp(-wheel * zoomSensitivity);
-        cachedCamera.orthographicSize = Mathf.Clamp(newSize, minOrthographicSize, maxOrthographicSize);
+        Vector3 forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
+        Vector3 right = Vector3.ProjectOnPlane(transform.right, Vector3.up).normalized;
+        if (forward.sqrMagnitude < 0.001f) forward = Vector3.forward;
+        if (right.sqrMagnitude < 0.001f) right = Vector3.right;
+        Vector3 desiredVelocity = (right * direction.x + forward * direction.y) * keyboardPanSpeed;
+        if (desiredVelocity.sqrMagnitude > keyboardPanSpeed * keyboardPanSpeed)
+            desiredVelocity = desiredVelocity.normalized * keyboardPanSpeed;
+        keyboardPanVelocity = Vector3.SmoothDamp(keyboardPanVelocity, desiredVelocity,
+            ref keyboardPanDampingVelocity, Mathf.Max(0.01f, keyboardPanSmoothTime), float.PositiveInfinity, deltaTime);
+        MoveCamera(keyboardPanVelocity * deltaTime);
+        ClampCameraCenterToBounds();
+    }
+
+    /// <summary>Applies a bounded screen-space drag. The island point under the pointer follows the drag.</summary>
+    public void ApplyPointerPan(Vector2 pointerFrom, Vector2 pointerTo)
+    {
+        EnsureCameraReference();
+        if (cachedCamera == null) return;
+        SuppressWorldClick = true;
+        zoomAnchorActive=false;
+        keyboardPanVelocity=keyboardPanDampingVelocity=Vector3.zero;
+        Vector2 delta = pointerTo - pointerFrom;
+        float maximum = Mathf.Max(1f, maxPointerDeltaPerFrame);
+        if (delta.sqrMagnitude > maximum * maximum) delta = delta.normalized * maximum;
+        Vector3 previousGroundPoint, currentGroundPoint;
+        if (TryGetGroundPoint(pointerFrom, out previousGroundPoint) &&
+            TryGetGroundPoint(pointerFrom + delta, out currentGroundPoint))
+        {
+            MoveCamera(previousGroundPoint - currentGroundPoint);
+            ClampCameraCenterToBounds();
+        }
+    }
+
+    /// <summary>
+    /// Consumes normalized scroll input: vertical scroll zooms toward the cursor; Shift+scroll pans both axes.
+    /// Horizontal trackpad scroll pans horizontally. Exposed for deterministic navigation tests.
+    /// </summary>
+    public void ApplyScrollDelta(Vector2 scrollDelta, Vector2 screenPosition, bool shiftPan)
+    {
+        EnsureCameraReference();
+        if (cachedCamera == null) return;
+        scrollDelta.x = Mathf.Clamp(scrollDelta.x, -3f, 3f);
+        scrollDelta.y = Mathf.Clamp(scrollDelta.y, -3f, 3f);
+        if (shiftPan)
+        {
+            Vector2 pixels = scrollDelta * Mathf.Max(1f, trackpadPanPixelsPerUnit);
+            float maximum = Mathf.Max(1f, maxPointerDeltaPerFrame);
+            if (pixels.sqrMagnitude > maximum * maximum) pixels = pixels.normalized * maximum;
+            ApplyPointerPan(screenPosition, screenPosition + pixels);
+            return;
+        }
+
+        if (Mathf.Abs(scrollDelta.x) > 0.001f)
+        {
+            float pixels = Mathf.Clamp(scrollDelta.x * trackpadPanPixelsPerUnit,
+                -maxPointerDeltaPerFrame, maxPointerDeltaPerFrame);
+            ApplyPointerPan(screenPosition, screenPosition + new Vector2(pixels, 0f));
+        }
+
+        if (Mathf.Abs(scrollDelta.y) < 0.001f) return;
+        Vector3 anchorBefore;
+        if (!TryGetGroundPoint(screenPosition, out anchorBefore)) return;
+        zoomAnchorWorld = anchorBefore;
+        zoomAnchorScreen = screenPosition;
+        targetOrthographicSize = Mathf.Clamp(targetOrthographicSize * Mathf.Exp(-scrollDelta.y * zoomSensitivity),
+            minOrthographicSize, maxOrthographicSize);
+        zoomVelocity = 0f;
+        zoomAnchorActive = Mathf.Abs(targetOrthographicSize - cachedCamera.orthographicSize) > 0.001f;
+        if (!zoomAnchorActive) zoomAnchorWorld = Vector3.zero;
+    }
+
+    private void UpdateSmoothZoom(float deltaTime)
+    {
+        if (cachedCamera == null || deltaTime <= 0f) return;
+        float current = Mathf.SmoothDamp(cachedCamera.orthographicSize, targetOrthographicSize,
+            ref zoomVelocity, Mathf.Max(0.01f, zoomSmoothTime), float.PositiveInfinity, deltaTime);
+        cachedCamera.orthographicSize = Mathf.Clamp(current, minOrthographicSize, maxOrthographicSize);
 
         Vector3 anchorAfter;
-        if (hasAnchor && TryGetGroundPoint(screenPosition, out anchorAfter))
+        if (zoomAnchorActive && TryGetGroundPoint(zoomAnchorScreen, out anchorAfter))
         {
-            Vector3 correction = anchorBefore - anchorAfter;
-            correction.y = 0f;
-            MoveCamera(correction);
+            MoveCamera(zoomAnchorWorld - anchorAfter);
         }
 
         ClampCameraCenterToBounds();
+        if (Mathf.Abs(cachedCamera.orthographicSize - targetOrthographicSize) < 0.01f)
+        {
+            cachedCamera.orthographicSize = targetOrthographicSize;
+            zoomVelocity = 0f;
+            zoomAnchorActive = false;
+        }
+    }
+
+    private void ResetZoomTarget()
+    {
+        if (cachedCamera == null) return;
+        targetOrthographicSize = cachedCamera.orthographicSize;
+        zoomVelocity = 0f;
+        zoomAnchorActive = false;
+    }
+
+    private void ResetNavigationMotion()
+    {
+        dragging = false;
+        keyboardPanVelocity = Vector3.zero;
+        keyboardPanDampingVelocity = Vector3.zero;
+        zoomVelocity = 0f;
+        targetOrthographicSize = cachedCamera != null ? cachedCamera.orthographicSize : targetOrthographicSize;
+        zoomAnchorActive = false;
     }
 
     private float CalculateIslandFitSize()
@@ -256,34 +377,39 @@ public class IslandCameraController : MonoBehaviour
         return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
     }
 
-    private static bool ReadMouse(out Vector2 position, out float wheel,
-        out bool middlePressed, out bool middleHeld, out bool rightPressed, out bool rightHeld)
+    private static bool ReadMouse(out Vector2 position, out Vector2 scrollDelta,
+        out bool middlePressed, out bool middleHeld, out bool rightPressed, out bool rightHeld,
+        out bool leftPressed, out bool leftHeld)
     {
         position = Vector2.zero;
-        wheel = 0f;
-        middlePressed = middleHeld = rightPressed = rightHeld = false;
+        scrollDelta = Vector2.zero;
+        middlePressed = middleHeld = rightPressed = rightHeld = leftPressed = leftHeld = false;
 
 #if ENABLE_INPUT_SYSTEM
         Mouse mouse = Mouse.current;
         if (mouse != null)
         {
             position = mouse.position.ReadValue();
-            wheel = mouse.scroll.ReadValue().y / 120f;
+            scrollDelta = mouse.scroll.ReadValue() / 120f;
             middlePressed = mouse.middleButton.wasPressedThisFrame;
             middleHeld = mouse.middleButton.isPressed;
             rightPressed = mouse.rightButton.wasPressedThisFrame;
             rightHeld = mouse.rightButton.isPressed;
+            leftPressed = mouse.leftButton.wasPressedThisFrame;
+            leftHeld = mouse.leftButton.isPressed;
             return true;
         }
 #endif
 
 #if ENABLE_LEGACY_INPUT_MANAGER
         position = Input.mousePosition;
-        wheel = Input.GetAxisRaw("Mouse ScrollWheel") * 10f;
+        scrollDelta = new Vector2(0f, Input.GetAxisRaw("Mouse ScrollWheel") * 10f);
         middlePressed = Input.GetMouseButtonDown(2);
         middleHeld = Input.GetMouseButton(2);
         rightPressed = Input.GetMouseButtonDown(1);
         rightHeld = Input.GetMouseButton(1);
+        leftPressed = Input.GetMouseButtonDown(0);
+        leftHeld = Input.GetMouseButton(0);
         return true;
 #else
         return false;
@@ -326,12 +452,64 @@ public class IslandCameraController : MonoBehaviour
         return false;
     }
 
+    private static float ReadKeyboardZoom()
+    {
+#if ENABLE_INPUT_SYSTEM
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard != null)
+            return (keyboard.eKey.isPressed ? 1f : 0f) - (keyboard.qKey.isPressed ? 1f : 0f);
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+        return (Input.GetKey(KeyCode.E) ? 1f : 0f) - (Input.GetKey(KeyCode.Q) ? 1f : 0f);
+#else
+        return 0f;
+#endif
+    }
+
+    private static bool ShiftHeld()
+    {
+#if ENABLE_INPUT_SYSTEM
+        if (Keyboard.current != null && (Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed))
+            return true;
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+        return Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+#else
+        return false;
+#endif
+    }
+
+    private static bool SpaceHeld()
+    {
+#if ENABLE_INPUT_SYSTEM
+        if (Keyboard.current != null && Keyboard.current.spaceKey.isPressed) return true;
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+        return Input.GetKey(KeyCode.Space);
+#else
+        return false;
+#endif
+    }
+
+    private static bool IsTextInputFocused()
+    {
+        if (EventSystem.current == null || EventSystem.current.currentSelectedGameObject == null) return false;
+        GameObject selected = EventSystem.current.currentSelectedGameObject;
+        return selected.GetComponent<InputField>() != null || selected.GetComponent<TMP_InputField>() != null ||
+               selected.GetComponentInParent<InputField>() != null || selected.GetComponentInParent<TMP_InputField>() != null;
+    }
+
     private void NormalizeZoomSettings()
     {
         minOrthographicSize = Mathf.Max(1f, minOrthographicSize);
         maxOrthographicSize = Mathf.Max(minOrthographicSize, maxOrthographicSize);
         homeOrthographicSize = Mathf.Clamp(homeOrthographicSize, minOrthographicSize, maxOrthographicSize);
         boundsHalfExtents = new Vector2(Mathf.Abs(boundsHalfExtents.x), Mathf.Abs(boundsHalfExtents.y));
+        maxPointerDeltaPerFrame = Mathf.Max(1f, maxPointerDeltaPerFrame);
+        trackpadPanPixelsPerUnit = Mathf.Max(1f, trackpadPanPixelsPerUnit);
+        zoomSmoothTime = Mathf.Max(0.01f, zoomSmoothTime);
+        keyboardPanSmoothTime = Mathf.Max(0.01f, keyboardPanSmoothTime);
+        keyboardZoomSpeed = Mathf.Max(1f, keyboardZoomSpeed);
     }
 
     private void EnsureCameraReference()

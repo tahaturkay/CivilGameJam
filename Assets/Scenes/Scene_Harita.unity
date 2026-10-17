@@ -2890,6 +2890,7 @@ GameObject:
   - component: {fileID: 1835757092}
   - component: {fileID: 1835757095}
   - component: {fileID: 1835757096}
+  - component: {fileID: 1835757097}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -3036,7 +3037,26 @@ MonoBehaviour:
   zoomSensitivity: 0.2
   keyboardPanEnabled: 1
   keyboardPanSpeed: 45
+  keyboardPanSmoothTime: 0.09
+  keyboardZoomSpeed: 36
+  zoomSmoothTime: 0.12
+  maxPointerDeltaPerFrame: 140
+  trackpadPanPixelsPerUnit: 36
   disasterController: {fileID: 336906880}
+--- !u!114 &1835757097
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1835757091}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7490bc5680e1347e29f56844ef02892f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::IslandCursor
+  pointer: {fileID: 2800000, guid: 59fb6007217ac4cd9b46d0722ef974a6, type: 3}
+  hotspot: {x: 6, y: 5}
 --- !u!1 &1937866960
 GameObject:
   m_ObjectHideFlags: 0

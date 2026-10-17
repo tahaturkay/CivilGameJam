@@ -12,12 +12,16 @@ public class IslandWeather : MonoBehaviour
     public bool RainActive => RainObject!=null&&RainObject.activeSelf;
     public float StormAmount => storm;
     public float NightAmount {get;private set;}
+    public float DawnAmount {get;private set;}
+    public float DuskAmount {get;private set;}
     public bool IsNight => dayClock!=null&&dayClock.DayProgress>=.6f;
     EconomyAndTime dayClock;
 
     Light sun;
     Color sunColor,sky,equator,ground,ambientLight;
     float sunIntensity,ambientIntensity;
+    Quaternion originalSunRotation;
+    IslandSolarCycle.Sample solar;
     Volume weatherVolume;
     VolumeProfile runtimeProfile;
     ColorAdjustments colors;
@@ -58,7 +62,7 @@ public class IslandWeather : MonoBehaviour
             Light[] lights=FindObjectsByType<Light>();
             for(int i=0;i<lights.Length;i++)if(lights[i].type==LightType.Directional&&lights[i].enabled){sun=lights[i];break;}
         }
-        if(sun!=null){sunColor=sun.color;sunIntensity=sun.intensity;}
+        if(sun!=null){sunColor=sun.color;sunIntensity=sun.intensity;originalSunRotation=sun.transform.rotation;}
         sky=RenderSettings.ambientSkyColor;equator=RenderSettings.ambientEquatorColor;ground=RenderSettings.ambientGroundColor;
         ambientLight=RenderSettings.ambientLight;ambientIntensity=RenderSettings.ambientIntensity;
         Volume source=null;
@@ -124,8 +128,11 @@ public class IslandWeather : MonoBehaviour
         }
         lightningRemaining=flood?Mathf.Max(0,lightningRemaining-Time.deltaTime):0;
         float phase=dayClock!=null?dayClock.DayProgress:0;
-        NightAmount=Mathf.SmoothStep(0,1,Mathf.InverseLerp(.56f,.64f,phase))*(1-Mathf.SmoothStep(0,1,Mathf.InverseLerp(.94f,1,phase)));
+        solar=IslandSolarCycle.Evaluate(phase);
+        NightAmount=solar.night;DawnAmount=solar.dawn;DuskAmount=solar.dusk;
         Shader.SetGlobalFloat("_IslandNight",NightAmount);
+        Shader.SetGlobalFloat("_IslandTwilight",solar.Twilight);
+        Shader.SetGlobalColor("_IslandTwilightColor",Color.Lerp(new Color(1,.70f,.42f),new Color(.98f,.40f,.30f),DuskAmount));
         float flash=lightningRemaining>0?Mathf.Abs(Mathf.Sin(lightningRemaining*44))*.7f:0;
         ApplyAtmosphere(flash);
         UpdateClouds();
@@ -134,10 +141,15 @@ public class IslandWeather : MonoBehaviour
     void ApplyAtmosphere(float flash)
     {
         Color cool=new Color(.67f,.76f,.82f),warm=new Color(1,.49f,.35f);
+        float twilight=solar.Twilight;
+        Color sunrise=new Color(1,.72f,.46f),sunset=new Color(1,.42f,.25f);
+        Color sunTint=Color.Lerp(Color.Lerp(sunColor,new Color(.42f,.57f,.85f),NightAmount),sunrise,DawnAmount*.7f);
+        sunTint=Color.Lerp(sunTint,sunset,DuskAmount*.72f);
         if(sun!=null)
         {
-            sun.color=Color.Lerp(Color.Lerp(Color.Lerp(sunColor,new Color(.42f,.57f,.85f),NightAmount),cool,storm*.55f),warm,warmth*.48f);
-            sun.intensity=sunIntensity*Mathf.Lerp(1,.28f,NightAmount)*(1-storm*.55f-warmth*.08f)+flash*.8f;
+            sun.transform.rotation=Quaternion.Euler(solar.elevation,solar.azimuth,0);
+            sun.color=Color.Lerp(Color.Lerp(sunTint,cool,storm*.55f),warm,warmth*.48f);
+            sun.intensity=sunIntensity*Mathf.Lerp(1,.28f,NightAmount)*Mathf.Lerp(1,.78f,twilight)*(1-storm*.55f-warmth*.08f)+flash*.8f;
         }
         RenderSettings.ambientSkyColor=Color.Lerp(sky,sky*new Color(.65f,.73f,.83f),storm*.8f)+Color.white*(flash*.12f);
         RenderSettings.ambientEquatorColor=Color.Lerp(equator,equator*new Color(.70f,.76f,.80f),storm*.8f);
@@ -148,16 +160,20 @@ public class IslandWeather : MonoBehaviour
         RenderSettings.ambientEquatorColor=Color.Lerp(RenderSettings.ambientEquatorColor,new Color(.10f,.13f,.19f),NightAmount);
         RenderSettings.ambientGroundColor=Color.Lerp(RenderSettings.ambientGroundColor,new Color(.08f,.11f,.13f),NightAmount);
         RenderSettings.ambientIntensity*=Mathf.Lerp(1,.85f,NightAmount);
-        if(viewCamera!=null)viewCamera.backgroundColor=Color.Lerp(new Color(.48f,.66f,.73f),new Color(.025f,.055f,.12f),NightAmount);
+        Color horizon=Color.Lerp(new Color(.73f,.50f,.34f),new Color(.56f,.27f,.31f),DuskAmount);
+        RenderSettings.ambientSkyColor=Color.Lerp(RenderSettings.ambientSkyColor,horizon,twilight*.45f*(1-storm*.7f));
+        RenderSettings.ambientEquatorColor=Color.Lerp(RenderSettings.ambientEquatorColor,new Color(.32f,.24f,.22f),twilight*.3f);
+        if(viewCamera!=null)viewCamera.backgroundColor=Color.Lerp(Color.Lerp(new Color(.48f,.66f,.73f),new Color(.025f,.055f,.12f),NightAmount),horizon,twilight*.65f);
         if(colors!=null)
         {
             Color filter=Color.Lerp(baseFilter,new Color(.78f,.85f,.90f),storm*.65f);
+            filter=Color.Lerp(filter,Color.Lerp(new Color(1,.90f,.76f),new Color(1,.77f,.68f),DuskAmount),twilight*.25f*(1-storm*.6f));
             colors.colorFilter.value=Color.Lerp(filter,new Color(1,.63f,.53f),warmth*.4f);
-            colors.postExposure.value=baseExposure-storm*.20f-NightAmount*.12f+flash*.35f;
+            colors.postExposure.value=baseExposure-storm*.20f-NightAmount*.12f-twilight*.06f+flash*.35f;
             colors.saturation.value=baseSaturation-storm*14-warmth*2;
             colors.contrast.value=baseContrast-storm*3+warmth*3;
         }
-        if(weatherVolume!=null)weatherVolume.weight=Mathf.Max(NightAmount,Mathf.Max(storm,warmth));
+        if(weatherVolume!=null)weatherVolume.weight=Mathf.Max(twilight,Mathf.Max(NightAmount,Mathf.Max(storm,warmth)));
     }
 
     void UpdateClouds()
@@ -183,10 +199,11 @@ public class IslandWeather : MonoBehaviour
     void OnDisable()
     {
         Shader.SetGlobalFloat("_IslandNight",0);
+        Shader.SetGlobalFloat("_IslandTwilight",0);
         NightAmount=0;
         if(viewCamera!=null)viewCamera.backgroundColor=originalCameraBackground;
         if(!initialized)return;
-        if(sun!=null){sun.color=sunColor;sun.intensity=sunIntensity;}
+        if(sun!=null){sun.color=sunColor;sun.intensity=sunIntensity;sun.transform.rotation=originalSunRotation;}
         RenderSettings.ambientSkyColor=sky;RenderSettings.ambientEquatorColor=equator;RenderSettings.ambientGroundColor=ground;
         RenderSettings.ambientLight=ambientLight;RenderSettings.ambientIntensity=ambientIntensity;
         if(RainObject!=null){RainObject.SetActive(false);Destroy(RainObject);RainObject=null;}

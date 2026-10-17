@@ -9,8 +9,8 @@ using UnityEngine.InputSystem;
 public class EconomyAndTime : MonoBehaviour
 {
     private float gunSayaci;
-    public float DayProgress => Mathf.Clamp01(gunSayaci / Mathf.Max(.1f,
-        DengeAyarlari.Aktif.birGunSuresi / Mathf.Max(1, GameManager.Instance != null ? GameManager.Instance.hizCarpani : 1)));
+    // Counter uses 1x game seconds. Changing speed changes its rate, never the current time of day.
+    public float DayProgress => Mathf.Clamp01(gunSayaci / Mathf.Max(.1f,DengeAyarlari.Aktif.birGunSuresi));
 
     private void Update()
     {
@@ -29,8 +29,8 @@ public class EconomyAndTime : MonoBehaviour
         }
 #endif
 
-        gunSayaci += Time.deltaTime;
-        float sure = DengeAyarlari.Aktif.birGunSuresi / Mathf.Max(1, gm.hizCarpani);
+        gunSayaci += Time.deltaTime * Mathf.Max(1,gm.hizCarpani);
+        float sure = Mathf.Max(.1f,DengeAyarlari.Aktif.birGunSuresi);
 
         if (gunSayaci >= sure)
         {
@@ -41,13 +41,13 @@ public class EconomyAndTime : MonoBehaviour
     }
 
 #if UNITY_EDITOR
-    // Sadece editörde test için: Space bir gün ilerletir
+    // Editor shortcut avoids colliding with Space + drag camera navigation.
     private bool DebugSpaceBasildi()
     {
 #if ENABLE_INPUT_SYSTEM
-        return Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
+        return Keyboard.current != null && Keyboard.current.ctrlKey.isPressed && Keyboard.current.shiftKey.isPressed && Keyboard.current.spaceKey.wasPressedThisFrame;
 #elif ENABLE_LEGACY_INPUT_MANAGER
-        return Input.GetKeyDown(KeyCode.Space);
+        return Input.GetKey(KeyCode.LeftControl) && Input.GetKey(KeyCode.LeftShift) && Input.GetKeyDown(KeyCode.Space);
 #else
         return false;
 #endif

@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1380" height="860" viewBox="0 0 1380 860"><rect width="1380" height="860" fill="#F3EFE5"/>
+<text x="48" y="47.3" font-family="Arial, sans-serif" font-size="17" fill="#777E73" font-weight="700">ADANIN İMLECİ</text>
+<text x="48" y="96.4" font-family="Arial, sans-serif" font-size="36" fill="#243F48" font-weight="700">Şehrin diliyle çizilmiş üç seçenek</text>
+<text x="48" y="133.1" font-family="Arial, sans-serif" font-size="19" fill="#64756E">Keskin sol üst uç · özgün vektör çizim · gündüz ve gece okunabilirlik</text>
+<rect x="48" y="174" width="414" height="600" rx="20" fill="#FFFFFF"/>
+<text x="72" y="213.8" font-family="Arial, sans-serif" font-size="22" fill="#B36B49" font-weight="700">A</text>
+<text x="108" y="214.3" font-family="Arial, sans-serif" font-size="27" fill="#243F48" font-weight="700">Ada Pusulası</text>
+<text x="72" y="254.3" font-family="Arial, sans-serif" font-size="17" fill="#68796F">Fildişi yüzey</text>
+<rect x="68" y="283" width="374" height="205" rx="12" fill="#AEBF8D"/>
+<text x="86" y="310.7" font-family="Arial, sans-serif" font-size="13" fill="#3F574B" font-weight="700">GÜNDÜZ</text>
+<g transform="translate(185 319) scale(2.34375)"><polygon fill="#193E47" points="6,5 50,35 32,39 41,54 30,60 23,44 12,54"/><polygon fill="#F2E7CD" points="9,11 43,33 28,36 36,52 31,55 23,38 15,47"/><polygon fill="#B2CDBD" points="9,11 26,33 23,38 15,47"/><polygon fill="#3E8B88" points="9,11 15,47 14,50 8,15"/><polygon fill="#C96F4B" points="27,24 32,29 27,34 23,29"/></g>
+<g transform="translate(95 400) scale(0.5)"><polygon fill="#193E47" points="6,5 50,35 32,39 41,54 30,60 23,44 12,54"/><polygon fill="#F2E7CD" points="9,11 43,33 28,36 36,52 31,55 23,38 15,47"/><polygon fill="#B2CDBD" points="9,11 26,33 23,38 15,47"/><polygon fill="#3E8B88" points="9,11 15,47 14,50 8,15"/><polygon fill="#C96F4B" points="27,24 32,29 27,34 23,29"/></g>
+<text x="136" y="424.6" font-family="Arial, sans-serif" font-size="14" fill="#3F574B">32 px</text>
+<rect x="68" y="505" width="374" height="205" rx="12" fill="#173347"/>
+<text x="86" y="532.7" font-family="Arial, sans-serif" font-size="13" fill="#A4C4CD" font-weight="700">GECE</text>
+<g transform="translate(185 541) scale(2.34375)"><polygon fill="#193E47" points="6,5 50,35 32,39 41,54 30,60 23,44 12,54"/><polygon fill="#F2E7CD" points="9,11 43,33 28,36 36,52 31,55 23,38 15,47"/><polygon fill="#B2CDBD" points="9,11 26,33 23,38 15,47"/><polygon fill="#3E8B88" points="9,11 15,47 14,50 8,15"/><polygon fill="#C96F4B" points="27,24 32,29 27,34 23,29"/></g>
+<g transform="translate(95 622) scale(0.5)"><polygon fill="#193E47" points="6,5 50,35 32,39 41,54 30,60 23,44 12,54"/><polygon fill="#F2E7CD" points="9,11 43,33 28,36 36,52 31,55 23,38 15,47"/><polygon fill="#B2CDBD" points="9,11 26,33 23,38 15,47"/><polygon fill="#3E8B88" points="9,11 15,47 14,50 8,15"/><polygon fill="#C96F4B" points="27,24 32,29 27,34 23,29"/></g>
+<text x="136" y="646.6" font-family="Arial, sans-serif" font-size="14" fill="#A4C4CD">32 px</text>
+<text x="72" y="744.5" font-family="Arial, sans-serif" font-size="15" fill="#68796F">64 × 64 PNG + SVG  /  uç: (6, 5)</text>
+<rect x="492" y="174" width="414" height="600" rx="20" fill="#FFFFFF"/>
+<text x="516" y="213.8" font-family="Arial, sans-serif" font-size="22" fill="#B36B49" font-weight="700">B</text>
+<text x="552" y="214.3" font-family="Arial, sans-serif" font-size="27" fill="#243F48" font-weight="700">Kıyı Kristali</text>
+<text x="516" y="254.3" font-family="Arial, sans-serif" font-size="17" fill="#68796F">İnce asimetrik siluet</text>
+<rect x="512" y="283" width="374" height="205" rx="12" fill="#AEBF8D"/>
+<text x="530" y="310.7" font-family="Arial, sans-serif" font-size="13" fill="#3F574B" font-weight="700">GÜNDÜZ</text>
+<g transform="translate(629 319) scale(2.34375)"><polygon fill="#173B49" points="6,5 47,36 32,38 40,55 29,60 22,43 14,52"/><polygon fill="#69C7C6" points="9,11 40,34 27,35 35,53 30,55 22,37 16,45"/><polygon fill="#B5E6D9" points="9,11 27,35 22,37 16,45"/><polygon fill="#318D9E" points="9,11 40,34 27,35"/><polygon fill="#E4CEA3" points="27,35 35,53 30,55 22,37"/></g>
+<g transform="translate(539 400) scale(0.5)"><polygon fill="#173B49" points="6,5 47,36 32,38 40,55 29,60 22,43 14,52"/><polygon fill="#69C7C6" points="9,11 40,34 27,35 35,53 30,55 22,37 16,45"/><polygon fill="#B5E6D9" points="9,11 27,35 22,37 16,45"/><polygon fill="#318D9E" points="9,11 40,34 27,35"/><polygon fill="#E4CEA3" points="27,35 35,53 30,55 22,37"/></g>
+<text x="580" y="424.6" font-family="Arial, sans-serif" font-size="14" fill="#3F574B">32 px</text>
+<rect x="512" y="505" width="374" height="205" rx="12" fill="#173347"/>
+<text x="530" y="532.7" font-family="Arial, sans-serif" font-size="13" fill="#A4C4CD" font-weight="700">GECE</text>
+<g transform="translate(629 541) scale(2.34375)"><polygon fill="#173B49" points="6,5 47,36 32,38 40,55 29,60 22,43 14,52"/><polygon fill="#69C7C6" points="9,11 40,34 27,35 35,53 30,55 22,37 16,45"/><polygon fill="#B5E6D9" points="9,11 27,35 22,37 16,45"/><polygon fill="#318D9E" points="9,11 40,34 27,35"/><polygon fill="#E4CEA3" points="27,35 35,53 30,55 22,37"/></g>
+<g transform="translate(539 622) scale(0.5)"><polygon fill="#173B49" points="6,5 47,36 32,38 40,55 29,60 22,43 14,52"/><polygon fill="#69C7C6" points="9,11 40,34 27,35 35,53 30,55 22,37 16,45"/><polygon fill="#B5E6D9" points="9,11 27,35 22,37 16,45"/><polygon fill="#318D9E" points="9,11 40,34 27,35"/><polygon fill="#E4CEA3" points="27,35 35,53 30,55 22,37"/></g>
+<text x="580" y="646.6" font-family="Arial, sans-serif" font-size="14" fill="#A4C4CD">32 px</text>
+<text x="516" y="744.5" font-family="Arial, sans-serif" font-size="15" fill="#68796F">64 × 64 PNG + SVG  /  uç: (6, 5)</text>
+<rect x="936" y="174" width="414" height="600" rx="20" fill="#FFFFFF"/>
+<text x="960" y="213.8" font-family="Arial, sans-serif" font-size="22" fill="#B36B49" font-weight="700">C</text>
+<text x="996" y="214.3" font-family="Arial, sans-serif" font-size="27" fill="#243F48" font-weight="700">Fener Oku</text>
+<text x="960" y="254.3" font-family="Arial, sans-serif" font-size="17" fill="#68796F">Lacivert çerçeve</text>
+<rect x="956" y="283" width="374" height="205" rx="12" fill="#AEBF8D"/>
+<text x="974" y="310.7" font-family="Arial, sans-serif" font-size="13" fill="#3F574B" font-weight="700">GÜNDÜZ</text>
+<g transform="translate(1073 319) scale(2.34375)"><polygon fill="#182E42" points="6,5 53,34 34,39 43,54 30,61 22,44 12,54"/><polygon fill="#EFE6CF" points="9,11 45,33 29,37 37,52 31,56 22,38 15,47"/><polygon fill="#D7AA59" points="9,11 29,37 37,52 31,56 22,38"/><polygon fill="#F5D79A" points="9,11 45,33 29,37"/><polygon fill="#748D94" points="9,11 15,47 14,50 8,16"/></g>
+<g transform="translate(983 400) scale(0.5)"><polygon fill="#182E42" points="6,5 53,34 34,39 43,54 30,61 22,44 12,54"/><polygon fill="#EFE6CF" points="9,11 45,33 29,37 37,52 31,56 22,38 15,47"/><polygon fill="#D7AA59" points="9,11 29,37 37,52 31,56 22,38"/><polygon fill="#F5D79A" points="9,11 45,33 29,37"/><polygon fill="#748D94" points="9,11 15,47 14,50 8,16"/></g>
+<text x="1024" y="424.6" font-family="Arial, sans-serif" font-size="14" fill="#3F574B">32 px</text>
+<rect x="956" y="505" width="374" height="205" rx="12" fill="#173347"/>
+<text x="974" y="532.7" font-family="Arial, sans-serif" font-size="13" fill="#A4C4CD" font-weight="700">GECE</text>
+<g transform="translate(1073 541) scale(2.34375)"><polygon fill="#182E42" points="6,5 53,34 34,39 43,54 30,61 22,44 12,54"/><polygon fill="#EFE6CF" points="9,11 45,33 29,37 37,52 31,56 22,38 15,47"/><polygon fill="#D7AA59" points="9,11 29,37 37,52 31,56 22,38"/><polygon fill="#F5D79A" points="9,11 45,33 29,37"/><polygon fill="#748D94" points="9,11 15,47 14,50 8,16"/></g>
+<g transform="translate(983 622) scale(0.5)"><polygon fill="#182E42" points="6,5 53,34 34,39 43,54 30,61 22,44 12,54"/><polygon fill="#EFE6CF" points="9,11 45,33 29,37 37,52 31,56 22,38 15,47"/><polygon fill="#D7AA59" points="9,11 29,37 37,52 31,56 22,38"/><polygon fill="#F5D79A" points="9,11 45,33 29,37"/><polygon fill="#748D94" points="9,11 15,47 14,50 8,16"/></g>
+<text x="1024" y="646.6" font-family="Arial, sans-serif" font-size="14" fill="#A4C4CD">32 px</text>
+<text x="960" y="744.5" font-family="Arial, sans-serif" font-size="15" fill="#68796F">64 × 64 PNG + SVG  /  uç: (6, 5)</text>
+<text x="48" y="818.3" font-family="Arial, sans-serif" font-size="17" fill="#68796F">Büyük çizimler ayrıntı önizlemesidir. Küçük örnekler gerçek 32 px boyutundadır.</text>
+</svg>

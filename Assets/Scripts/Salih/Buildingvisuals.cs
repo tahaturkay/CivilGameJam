@@ -180,6 +180,7 @@ public class BuildingVisuals : MonoBehaviour
 
     void OnMouseDown()
     {
+        if(IslandCameraController.SuppressWorldClick)return;
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
         var gm = GameManager.Instance;
         if (PauseMenu.DurdurulduMu || (gm != null && (gm.afetSuruyor || gm.afetOlduMu || gm.oyunBittiMi))) return;
