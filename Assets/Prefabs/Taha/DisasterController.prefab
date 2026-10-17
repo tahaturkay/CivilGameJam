@@ -26,13 +26,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 794204710659820662}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.5, y: 0.5, z: -0.5, w: 0.5}
-  m_LocalPosition: {x: -0.0092, y: -0.0056, z: 0.00012}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.36, y: -3.68, z: 2.8}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1335204948105420623}
-  m_LocalEulerAnglesHint: {x: 90, y: 0, z: -90}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!198 &1278465247524817571
 ParticleSystem:
   m_ObjectHideFlags: 0
@@ -4693,6 +4693,7 @@ GameObject:
   - component: {fileID: 5785354108793713267}
   - component: {fileID: 1841415869960878451}
   - component: {fileID: 2430788172268664792}
+  - component: {fileID: 5684050468431677892}
   m_Layer: 0
   m_Name: Wave
   m_TagString: Untagged
@@ -4722,7 +4723,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5684050468431677891}
-  m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: 4d8e2f6071924453bd445e6f708192a3, type: 3}
 --- !u!23 &1841415869960878451
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -4748,7 +4749,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 919086f015be143b69484d82a8714329, type: 2}
+  - {fileID: 2100000, guid: 2b6c0d4e5f7042319b223c4d5e6f7081, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -4794,6 +4795,23 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!114 &5684050468431677892
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5684050468431677891}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 84e7c91a3b524f109d428e7b6c913f20, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LowPolyDenizVeDalgaAnimator
+  mod: 0
+  dalgaHizi: 2.2
+  dalgaYuksekligi: 0.22
+  dalgaFrekansi: 1.15
+  normalleriGuncelle: 1
 --- !u!1 &6125762450332286156
 GameObject:
   m_ObjectHideFlags: 0
@@ -4839,6 +4857,7 @@ GameObject:
   - component: {fileID: 1020688028343777950}
   - component: {fileID: 1496285992152891405}
   - component: {fileID: 8930051078719510413}
+  - component: {fileID: 6966613735442036304}
   m_Layer: 0
   m_Name: Wave (1)
   m_TagString: Untagged
@@ -4868,7 +4887,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6966613735442036303}
-  m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: 4d8e2f6071924453bd445e6f708192a3, type: 3}
 --- !u!23 &1496285992152891405
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -4894,7 +4913,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 919086f015be143b69484d82a8714329, type: 2}
+  - {fileID: 2100000, guid: 2b6c0d4e5f7042319b223c4d5e6f7081, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -4940,6 +4959,23 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!114 &6966613735442036304
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6966613735442036303}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 84e7c91a3b524f109d428e7b6c913f20, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LowPolyDenizVeDalgaAnimator
+  mod: 0
+  dalgaHizi: 2.2
+  dalgaYuksekligi: 0.22
+  dalgaFrekansi: 1.15
+  normalleriGuncelle: 1
 --- !u!1 &8819925718676682026
 GameObject:
   m_ObjectHideFlags: 0
@@ -4951,6 +4987,7 @@ GameObject:
   - component: {fileID: 1335204948105420623}
   - component: {fileID: 3881804532296393811}
   - component: {fileID: 7340997003068575413}
+  - component: {fileID: 8819925718676682027}
   m_Layer: 0
   m_Name: TsunamiWave2
   m_TagString: Untagged
@@ -4966,9 +5003,9 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8819925718676682026}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.50000006, y: 0.50000006, z: -0.49999997, w: -0.49999994}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 5.2, z: -30.2}
-  m_LocalScale: {x: 400, y: 500, z: 3000}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2304472812476955964}
@@ -4981,7 +5018,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8819925718676682026}
-  m_Mesh: {fileID: 2534964839176971238, guid: 2033bf8a7d7ef4d10843e3c21220b60f, type: 3}
+  m_Mesh: {fileID: 4300000, guid: 5e9f307182a34564ce556f708192a3b4, type: 3}
 --- !u!23 &7340997003068575413
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -5007,7 +5044,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: b62bdfa40112844a38308648e7d2ee47, type: 2}
+  - {fileID: 2100000, guid: 3c7d1e5f60814342ac334d5e6f708192, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -5031,3 +5068,20 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &8819925718676682027
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8819925718676682026}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 84e7c91a3b524f109d428e7b6c913f20, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LowPolyDenizVeDalgaAnimator
+  mod: 1
+  dalgaHizi: 2.5
+  dalgaYuksekligi: 0.35
+  dalgaFrekansi: 1.0
+  normalleriGuncelle: 1

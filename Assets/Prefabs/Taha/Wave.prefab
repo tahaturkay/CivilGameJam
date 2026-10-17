@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 7409079563191203682}
   - component: {fileID: 3392872471000005730}
   - component: {fileID: 1666339033693532873}
+  - component: {fileID: 8681303709208251603}
   m_Layer: 0
   m_Name: Wave
   m_TagString: Untagged
@@ -41,7 +42,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8681303709208251602}
-  m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: 4d8e2f6071924453bd445e6f708192a3, type: 3}
 --- !u!23 &3392872471000005730
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -67,7 +68,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 919086f015be143b69484d82a8714329, type: 2}
+  - {fileID: 2100000, guid: 2b6c0d4e5f7042319b223c4d5e6f7081, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -113,3 +114,20 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!114 &8681303709208251603
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8681303709208251602}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 84e7c91a3b524f109d428e7b6c913f20, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LowPolyDenizVeDalgaAnimator
+  mod: 0
+  dalgaHizi: 2.2
+  dalgaYuksekligi: 0.22
+  dalgaFrekansi: 1.15
+  normalleriGuncelle: 1

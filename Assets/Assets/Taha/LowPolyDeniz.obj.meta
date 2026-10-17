@@ -1,0 +1,26 @@
+fileFormatVersion: 2
+guid: 812c6304b5d64897f0889203b4c5d6e7
+ModelImporter:
+  serializedVersion: 18
+  fileIDToRecycleName:
+    100000: //RootNode
+    400000: //RootNode
+    2300000: //RootNode
+    3300000: //RootNode
+    4300000: LowPolyDeniz
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: LowPolyDeniz_Mat
+    second: {fileID: 2100000, guid: 2b6c0d4e5f7042319b223c4d5e6f7081, type: 2}
+  materials:
+    importMaterials: 1
+    materialName: 0
+    materialSearch: 1
+  meshes:
+    globalScale: 1
+    weldVertices: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

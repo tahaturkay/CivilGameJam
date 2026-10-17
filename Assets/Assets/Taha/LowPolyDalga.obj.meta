@@ -1,0 +1,26 @@
+fileFormatVersion: 2
+guid: a34e8526d7f84ab9120ab425d6e7f809
+ModelImporter:
+  serializedVersion: 18
+  fileIDToRecycleName:
+    100000: //RootNode
+    400000: //RootNode
+    2300000: //RootNode
+    3300000: //RootNode
+    4300000: LowPolyDalga
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: LowPolyDalga_Mat
+    second: {fileID: 2100000, guid: 3c7d1e5f60814342ac334d5e6f708192, type: 2}
+  materials:
+    importMaterials: 1
+    materialName: 0
+    materialSearch: 1
+  meshes:
+    globalScale: 1
+    weldVertices: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

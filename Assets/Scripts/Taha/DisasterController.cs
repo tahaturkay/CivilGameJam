@@ -275,11 +275,14 @@ public class DisasterController : MonoBehaviour
     {
         if (tsunamiDalgasi != null)
         {
+            Vector3 orijinalScale = tsunamiDalgasi.localScale;
+            float baslangicX = tsunamiDalgasi.position.x;
+
             tsunamiDalgasi.gameObject.SetActive(true);
             
             // Dalganın başlangıç ve bitiş noktaları
-            Vector3 dalgaBaslangic = new Vector3(0, 1f, -45f); 
-            Vector3 dalgaBitis = new Vector3(0, 1f, 102f);
+            Vector3 dalgaBaslangic = new Vector3(baslangicX, 1f, -45f); 
+            Vector3 dalgaBitis = new Vector3(baslangicX, 1f, 102f);
 
             // *** YENİ AYAR: Setin Haritadaki Z Pozisyonu ***
             // Unity'den set modeline tıkla, Z değerine bak ve buraya yaz (Örn: -15f)
@@ -296,22 +299,45 @@ public class DisasterController : MonoBehaviour
                 float ilerleme = gecenSure / dalgaSuresi; 
                 Vector3 mevcutPozisyon = Vector3.Lerp(dalgaBaslangic, dalgaBitis, ilerleme);
 
-                // EĞER SET YETERLİYSE VE DALGA SETE ULAŞTIYSA:
-                if (setYeterliMi && ilerleme >= carpmaYuzdesi)
+                if (ilerleme >= carpmaYuzdesi)
                 {
-                    // 1. Dalga seti delip geçemesin! İleri gitmeyi durdursun (Z'yi sete sabitliyoruz)
-                    mevcutPozisyon.z = setinZPozisyonu; 
+                    if (setYeterliMi)
+                    {
+                        // EĞER SET YETERLİYSE:
+                        // 1. Dalga seti delip geçemesin! İleri gitmeyi durdursun (Z'yi sete sabitliyoruz)
+                        mevcutPozisyon.z = setinZPozisyonu; 
 
-                    // 2. Çarptığı an duvarda parçalanıp hızla yerin dibine (Y: -4) girsin
-                    // * 5f çarpanı erimenin çok hızlı (şak diye) olmasını sağlar
-                    float erimeHizi = (ilerleme - carpmaYuzdesi) * 5f; 
-                    mevcutPozisyon.y = Mathf.Lerp(1f, -4f, Mathf.Clamp01(erimeHizi)); 
+                        // 2. Çarptığı an duvarda parçalanıp hızla küçülerek yerin dibine girsin
+                        float erimeOrani = Mathf.Clamp01((ilerleme - carpmaYuzdesi) * 5f); 
+                        mevcutPozisyon.y = Mathf.Lerp(1f, -10f, erimeOrani); 
+                        float yeniScaleY = Mathf.Lerp(orijinalScale.y, 0.05f, erimeOrani);
+                        tsunamiDalgasi.localScale = new Vector3(orijinalScale.x, yeniScaleY, orijinalScale.z);
+                    }
+                    else
+                    {
+                        // EĞER SET YETERSİZSE:
+                        // Dalga şehirden geçerken ilerlemeye devam eder, ancak enerjisini kaybedip
+                        // kademeli olarak küçülür (Y scale azalır) ve yavaşça yere gömülür (Y pozisyonu iner)
+                        float sehirIlerleme = Mathf.InverseLerp(carpmaYuzdesi, 1f, ilerleme);
+                        float gomulmeOrani = Mathf.SmoothStep(0f, 1f, sehirIlerleme);
+
+                        mevcutPozisyon.y = Mathf.Lerp(1f, -10f, gomulmeOrani);
+                        float yeniScaleY = Mathf.Lerp(orijinalScale.y, 0.05f, gomulmeOrani);
+                        tsunamiDalgasi.localScale = new Vector3(orijinalScale.x, yeniScaleY, orijinalScale.z);
+                    }
+                }
+                else
+                {
+                    tsunamiDalgasi.localScale = orijinalScale;
                 }
 
                 tsunamiDalgasi.position = mevcutPozisyon;
                 gecenSure += Time.deltaTime;
                 yield return null;
             }
+
+            // Süreç sonunda dalgayı kapatmadan önce orijinal boyutunu geri yükle
+            tsunamiDalgasi.localScale = orijinalScale;
         }
 
         // Dalga çarpması bitti. Şimdi su basacak mı?
