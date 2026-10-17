@@ -25,7 +25,7 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _Speed: 0.22
+    - _Speed: 0.36
     - _WaveScale: 0.16
     m_Colors:
     - _DeepColor: {r: 0.018, g: 0.17, b: 0.26, a: 1}

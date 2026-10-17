@@ -207,16 +207,15 @@ public class OyunTestRobotu : MonoBehaviour
             if (bv.binaTuru == BinaTuru.Itfaiye) { itf = bv.transform; break; }
         while (!gm.afetOlduMu && Time.realtimeSinceStartup < sinir)
         {
-            if (afet.yanginPrefab != null)
-                foreach (var ps in FindObjectsByType<ParticleSystem>())
-                {
-                    if (!ps.name.StartsWith(afet.yanginPrefab.name) || ps.transform.parent != null) continue;
-                    toplamAtes++;
-                    if (itf != null && Vector2.Distance(new Vector2(ps.transform.position.x, ps.transform.position.z), new Vector2(itf.position.x, itf.position.z)) < 1.5f) itfaiyedeAtes++;
-                }
+            foreach (Transform fx in afet.GetComponentsInChildren<Transform>())
+            {
+                if (fx.name != "KatmanliYangin") continue;
+                toplamAtes++;
+                if (itf != null && Vector2.Distance(new Vector2(fx.position.x, fx.position.z), new Vector2(itf.position.x, itf.position.z)) < 1.5f) itfaiyedeAtes++;
+            }
             yield return null;
         }
-        Kontrol(itf == null || itfaiyedeAtes == 0, "İtfaiye binasında ateş yok (görülen ateş karesi: " + toplamAtes + ", itfaiye " + (itf != null ? "bulundu" : "sahnede yok") + ")");
+        Kontrol(toplamAtes > 0 && (itf == null || itfaiyedeAtes == 0), "İtfaiye binasında ateş yok (görülen ateş karesi: " + toplamAtes + ", itfaiye " + (itf != null ? "bulundu" : "sahnede yok") + ")");
         Time.timeScale = 1f;
         Kontrol(gm.afetOlduMu, "Afet bitti, rapor bayrağı kalktı");
         yield return null;

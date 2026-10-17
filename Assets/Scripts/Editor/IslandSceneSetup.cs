@@ -18,6 +18,7 @@ public static class IslandSceneSetup
         if (EditorApplication.isPlayingOrWillChangePlaymode)
             throw new InvalidOperationException("Ada kurulumu için Play modundan çıkın.");
 
+        EnsureParticleShader();
         // Sahne değiştirirken editördeki mevcut çalışmayı koru.
         EditorSceneManager.SaveOpenScenes();
         Scene preview = EditorSceneManager.NewPreviewScene();
@@ -39,6 +40,17 @@ public static class IslandSceneSetup
         InstallScene(MainScenePath);
         AssetDatabase.SaveAssets();
         Debug.Log("Ada kuruldu: MainScene ve Scene_Harita; ortak LowPolyAda prefabı, ekonomi, afetler ve UI bağlı.");
+    }
+
+    // A Resources reference keeps the procedurally used particle shader in player builds.
+    static void EnsureParticleShader()
+    {
+        if (!AssetDatabase.IsValidFolder("Assets/Resources")) AssetDatabase.CreateFolder("Assets", "Resources");
+        if (!AssetDatabase.IsValidFolder("Assets/Resources/IslandEffects")) AssetDatabase.CreateFolder("Assets/Resources", "IslandEffects");
+        const string path = "Assets/Resources/IslandEffects/ParticleShader.mat";
+        Material template = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (template == null) AssetDatabase.CreateAsset(new Material(Shader.Find("CivilIsland/Soft Particle")), path);
+        else { template.shader = Shader.Find("CivilIsland/Soft Particle"); EditorUtility.SetDirty(template); }
     }
 
     static void InstallScene(string path)
@@ -122,8 +134,10 @@ public static class IslandSceneSetup
         disaster.tsunamiBaslangicZ = land.min.z - 28;
         disaster.tsunamiBitisZ = land.max.z + 30;
         disaster.tsunamiDalgaY = groundY - .6f;
-        disaster.tsunamiSuYuksekligi = groundY + 1.7f;
-        disaster.selSuYuksekligi = groundY + 2.3f;
+        disaster.kuruZeminY = groundY;
+        disaster.afetSuresi = 15;
+        disaster.tsunamiSuYuksekligi = groundY + .85f;
+        disaster.selSuYuksekligi = groundY + .42f;
 
         // Önceki haritanın ölçeğindeki su/dalga modellerini kapat; efekt mantığını aynen kullan.
         if (disaster.tsunamiSuyu != null) disaster.tsunamiSuyu.gameObject.SetActive(false);
@@ -133,17 +147,28 @@ public static class IslandSceneSetup
         GameObject effects = new GameObject("AdaEfektleri");
         effects.transform.SetParent(disaster.transform, false);
 
-        GameObject flood = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        flood.name = "SelVeTsunamiSuyu";
+        GameObject flood = new GameObject("SelVeTsunamiSuyu", typeof(MeshFilter), typeof(MeshRenderer));
         flood.transform.SetParent(effects.transform, false);
-        flood.transform.position = new Vector3(0, -4f, 0);
-        flood.transform.localScale = new Vector3(land.size.x + 24, .2f, land.size.z + 24);
-        UnityEngine.Object.DestroyImmediate(flood.GetComponent<Collider>());
-        Renderer sea = island.GetComponentsInChildren<Renderer>().FirstOrDefault(r => r.name == "Deniz");
-        if (sea != null) flood.GetComponent<Renderer>().sharedMaterial = sea.sharedMaterial;
-        flood.layer = 2; // Ignore Raycast: su bina etkileşimini yakalamasın.
-        flood.SetActive(false);
-        disaster.tsunamiSuyu = flood.transform;
+        flood.transform.position = new Vector3(0, groundY - .3f, 0);
+        Mesh source = island.transform.Find("Arazi/Ada_OtlakYuzey").GetComponent<MeshFilter>().sharedMesh;
+        Vector3[] vertices = source.vertices;
+        for (int i = 0; i < vertices.Length; i++) vertices[i] = new Vector3(vertices[i].x * .938f, 0, vertices[i].z * .938f);
+        Mesh waterMesh = new Mesh { name = "Ada_IcSelSiniri" }; waterMesh.vertices = vertices;
+        waterMesh.triangles = source.triangles; waterMesh.RecalculateNormals(); waterMesh.RecalculateBounds();
+        string meshPath = "Assets/Models/LowPolyAda/Ada_IcSelSiniri.asset";
+        Mesh existing = AssetDatabase.LoadAssetAtPath<Mesh>(meshPath);
+        if (existing == null) { AssetDatabase.CreateAsset(waterMesh, meshPath); existing = waterMesh; }
+        else { existing.Clear(); existing.vertices = waterMesh.vertices; existing.triangles = waterMesh.triangles; existing.RecalculateNormals(); existing.RecalculateBounds(); UnityEngine.Object.DestroyImmediate(waterMesh); EditorUtility.SetDirty(existing); }
+        flood.GetComponent<MeshFilter>().sharedMesh = existing;
+        string materialPath = "Assets/Materials/LowPolyAda/Ada_SaydamSelSuyu.mat";
+        Material waterMaterial = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+        if (waterMaterial == null) { waterMaterial = new Material(Shader.Find("CivilIsland/Transparent Interior Flood")); AssetDatabase.CreateAsset(waterMaterial, materialPath); }
+        waterMaterial.SetColor("_BaseColor", new Color(.06f,.34f,.39f,.27f));
+        flood.GetComponent<MeshRenderer>().sharedMaterial = waterMaterial;
+        flood.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        flood.layer = 2;
+        flood.SetActive(false); disaster.tsunamiSuyu = flood.transform;
+        Renderer sea = island.GetComponentsInChildren<Renderer>().First(r => r.name == "Deniz");
 
         GameObject wave = new GameObject("TsunamiDalgasi");
         wave.transform.SetParent(effects.transform, false);
@@ -159,19 +184,24 @@ public static class IslandSceneSetup
             new Vector3((land.size.x + 6) / Mathf.Max(bounds.size.x, .01f), 6f / Mathf.Max(bounds.size.y, .01f), 10f / Mathf.Max(bounds.size.z, .01f)));
         bounds = RendererBounds(model);
         model.transform.position += wave.transform.position - new Vector3(bounds.center.x, bounds.min.y, bounds.center.z);
+        foreach (Renderer renderer in model.GetComponentsInChildren<Renderer>(true))
+            renderer.sharedMaterials = Enumerable.Repeat(sea.sharedMaterial, renderer.sharedMaterials.Length).ToArray();
         wave.SetActive(false);
         disaster.tsunamiDalgasi = wave.transform;
 
-        if (disaster.yagmurEfekti != null)
-        {
-            disaster.yagmurEfekti.transform.position = new Vector3(land.center.x, groundY + 25, land.center.z);
-            foreach (ParticleSystem particles in disaster.yagmurEfekti.GetComponentsInChildren<ParticleSystem>(true))
-            {
-                var shape = particles.shape;
-                shape.scale = new Vector3(land.size.x / 3, land.size.z / 3, 1);
-            }
-            disaster.yagmurEfekti.SetActive(false);
-        }
+        if (disaster.yagmurEfekti != null) disaster.yagmurEfekti.SetActive(false);
+        disaster.yagmurEfekti = null;
+        IslandWeather weather = disaster.GetComponent<IslandWeather>();
+        if (weather == null) weather = disaster.gameObject.AddComponent<IslandWeather>();
+        weather.Configure(disaster, land);
+        IslandCityLife city = island.GetComponent<IslandCityLife>();
+        if (city == null) city = island.AddComponent<IslandCityLife>();
+        Transform beach = island.transform.Find("SabitAlanlar/Kumsal/ToplanmaNoktasi");
+        if (beach == null) { beach = new GameObject("ToplanmaNoktasi").transform; beach.SetParent(island.transform.Find("SabitAlanlar/Kumsal"), false); beach.position = new Vector3(-10,groundY+.35f,-58); }
+        city.Configure(disaster, land, buildings.Where(b => b.binaTuru == BinaTuru.TemelBina).ToArray(),
+            new[] { island.transform.Find("SabitAlanlar/Park"), island.transform.Find("SabitAlanlar/Otopark"), beach });
+        const string vehiclePath = "Assets/Assets/Salih/SimplePoly City - Low Poly Assets/Prefab/Vehicles/Vehicle with Static Wheels/";
+        city.vehiclePrefabs = Enumerable.Range(1,3).Select(i => AssetDatabase.LoadAssetAtPath<GameObject>(vehiclePath+"Vehicle_Car_color0"+i+".prefab")).ToArray();
         PrefabUtility.RecordPrefabInstancePropertyModifications(disaster);
         EditorUtility.SetDirty(disaster);
     }

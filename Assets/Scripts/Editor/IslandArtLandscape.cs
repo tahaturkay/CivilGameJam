@@ -91,13 +91,39 @@ public static partial class IslandLayoutInstaller
     static void RoadLink(Transform root,string name,Vector2 from,Vector2 to,float width=4.8f)
     {
         Vector2 delta=to-from,center=(from+to)*.5f;Quaternion rotation=Quaternion.Euler(0,Mathf.Atan2(delta.x,delta.y)*Mathf.Rad2Deg,0);
-        Cube(root,name+"_Kaldirim",new Vector3(center.x,.12f,center.y),new Vector3(width+2,.24f,delta.magnitude+width+2),Cream).transform.localRotation=rotation;
-        Cube(root,name,new Vector3(center.x,.22f,center.y),new Vector3(width,.18f,delta.magnitude+width),Road).transform.localRotation=rotation;
-        for(int i=1;i<delta.magnitude/3.4f;i++)
+        Transform road=Group(root,name,new Vector3(center.x,0,center.y));road.localRotation=rotation;
+        road.gameObject.AddComponent<BoxCollider>();
+        var visual=road.gameObject.AddComponent<BuildingVisuals>();visual.binaTuru=BinaTuru.Altyapi;
+        visual.colliderModeleUysun=false;visual.levelModelleri=new GameObject[3];
+        var collider=road.GetComponent<Collider>() as BoxCollider;
+        if(collider==null)collider=road.gameObject.AddComponent<BoxCollider>();
+        collider.center=new Vector3(0,.23f,0);collider.size=new Vector3(width,.46f,delta.magnitude+width);
+        Color[] surfaces={new Color32(151,115,76,255),new Color32(139,143,132,255),Road};
+        string[] labels={"Toprak","Cakil","Asfalt"};
+        for(int level=0;level<3;level++)
         {
-            Vector2 p=from+delta.normalized*i*3.4f;
-            Cube(root,name+"_Serit",new Vector3(p.x,.317f,p.y),new Vector3(.13f,.018f,1.4f),Cream).transform.localRotation=rotation;
+            Transform model=Group(road,"Level"+(level+1)+"_"+labels[level]);visual.levelModelleri[level]=model.gameObject;
+            Cube(model,"YolZemini",new Vector3(0,.22f,0),new Vector3(width,.18f,delta.magnitude+width),surfaces[level]);
+            if(level>0)
+            {
+                for(int side=-1;side<=1;side+=2)
+                    Cube(model,"YolBorduru",new Vector3(side*(width*.5f+.45f),.12f,0),new Vector3(.9f,.24f,delta.magnitude+width),Cream);
+            }
+            if(level<2)
+            {
+                int count=Mathf.CeilToInt(delta.magnitude/(level==0?3.8f:2.1f));
+                for(int k=0;k<count;k++)
+                {
+                    float z=-delta.magnitude*.48f+(k+.5f)*delta.magnitude/count;
+                    float x=Mathf.Sin(k*12.7f)*width*.38f;
+                    Shape(model,level==0?"ToprakIzi":"CakilTasi",RockMesh(),new Vector3(x,.318f,z),new Vector3(level==0?.7f:.25f,.018f,level==0?1.3f:.3f),level==0?new Color32(131,99,68,255):Stone);
+                }
+            }
+            else for(int k=1;k<delta.magnitude/3.4f;k++)
+                Cube(model,"KesikliSerit",new Vector3(0,.318f,-delta.magnitude*.5f+k*3.4f),new Vector3(.13f,.018f,1.4f),Cream);
+            CombineVisuals(model,name+"_"+labels[level]);model.gameObject.SetActive(level==0);
         }
+        Transform decoration=root.Find("YolDekorasyonu");
         int lampCount=Mathf.FloorToInt(delta.magnitude/16);
         for(int i=1;i<=lampCount;i++)
         {
@@ -105,9 +131,9 @@ public static partial class IslandLayoutInstaller
             for(int s=-1;s<=1;s+=2)
             {
                 Vector2 q=p+side*(width*.5f+.65f)*s;
-                Lamp(root,new Vector3(q.x,.25f,q.y));
+                Lamp(decoration,new Vector3(q.x,.25f,q.y));
                 q+=side*1.9f*s;
-                if(i%2==0)Tree(root,"BulvarAgaci",new Vector3(q.x,.05f,q.y),3.2f,1);
+                if(i%2==0)Tree(decoration,"BulvarAgaci",new Vector3(q.x,.05f,q.y),3.2f,1);
             }
         }
     }
@@ -129,23 +155,22 @@ public static partial class IslandLayoutInstaller
     }
     static void BuildRoadNetwork(Transform root)
     {
+        Transform decoration=Group(root,"YolDekorasyonu");
         foreach(float z in new[]{-42f,-14f,14f,40f})RoadLink(root,"DoguBatiBulvari_"+z,new Vector2(z==40?-72:z==-42?-71:-79,z),new Vector2(z==40?72:z==-42?71:79,z));
         foreach(float x in new[]{-60f,-30f,30f,60f})RoadLink(root,"KuzeyGuneyBulvari_"+x,new Vector2(x,-44),new Vector2(x,42));
         RoadLink(root,"MerkezGuney",new Vector2(0,-42),new Vector2(0,-14));
         RoadLink(root,"MerkezKuzey",new Vector2(0,14),new Vector2(0,40));
         RoadLink(root,"SahilBaglantisi",new Vector2(0,-42),new Vector2(0,-59),3.4f);
         RoadLink(root,"LimanYolu",new Vector2(60,-42),new Vector2(66,-45),3.4f);
+        Transform markings=Group(root,"AsfaltYayaGecitleri");
         foreach(float x in new[]{-60f,-30f,0f,30f,60f})foreach(float z in new[]{-42f,-14f,14f,40f})
         {
-            Crosswalk(root,x-4.7f,z,true);Crosswalk(root,x+4.7f,z,true);Crosswalk(root,x,z-4.7f,false);Crosswalk(root,x,z+4.7f,false);
+            Crosswalk(markings,x-4.7f,z,true);Crosswalk(markings,x+4.7f,z,true);Crosswalk(markings,x,z-4.7f,false);Crosswalk(markings,x,z+4.7f,false);
         }
-        for(int i=0;i<26;i++)
-        {
-            float x=-70+i*5.5f,z=i%2==0?-42:14;
-            GameObject car=FitAsset(root,"TrafikAraci_"+i,Vehicles+"Vehicle_Car_color0"+(i%3+1)+".prefab",new Vector3(x,.35f,z+(i%2==0?1.25f:-1.25f)),1.65f,3.3f,1.7f);
-            if(car!=null)car.transform.localRotation=Quaternion.Euler(0,i%2==0?90:-90,0);
-        }
-        for(int i=0;i<4;i++)Cube(root,"KuzeyMahalleGiris",new Vector3(new[]{-58f,-44f,44f,58f}[i],.10f,45.3f),new Vector3(1.4f,.1f,7.0f),Sand);
+        CombineVisuals(markings,"AsfaltGecitIsaretleri");markings.gameObject.SetActive(false);
+        root.gameObject.AddComponent<RoadNetworkState>().asphaltMarkings=markings.gameObject;
+        for(int i=0;i<4;i++)Cube(decoration,"KuzeyMahalleGiris",new Vector3(new[]{-58f,-44f,44f,58f}[i],.10f,45.3f),new Vector3(1.4f,.1f,7.0f),Sand);
+        CombineVisuals(decoration,"YolFenerleriVeAgaclar");
     }
     static void Mountain(Transform parent,string name,Vector3 center,float rx,float rz,float height,int seed)
     {

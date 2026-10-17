@@ -1,8 +1,11 @@
+using System;
 using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance; // Her yerden GameManager.Instance diyerek ulaşmak için
+    public event Action<int> GunlukGelirEklendi;
+    public event Action<BinaTuru> YapiIslemiTamamlandi;
 
     [Header("Genel Oyun Verileri")]
     public int gun = 1;
@@ -18,13 +21,14 @@ public class GameManager : MonoBehaviour
     public int setLevel = 1;       // Tsunamiyi önler
     public int altyapiLevel = 1;   // Seli önler (Yol ve altyapı)
 
-    [Header("Hasarlı Binalar (Lv1'deyken hasar alan bina onarılana kadar çalışmaz)")]
+    [Header("Hasarlı Binalar (onarılana kadar çalışmaz)")]
     public bool temelBinaHasarli;
     public bool okulHasarli;
     public bool akutHasarli;
     public bool itfaiyeHasarli;
     public bool setHasarli;
     public bool altyapiHasarli;
+    [SerializeField] private AfetTuru[] hasarTurleri = new AfetTuru[6];
 
     [Header("Zaman")]
     public int hizCarpani = 1;              // 1x, 2x, 3x
@@ -32,6 +36,7 @@ public class GameManager : MonoBehaviour
 
     [Header("Panel ve Durum Kontrolleri")]
     public bool oyunDurduMu = false; // Popup, quiz veya afet raporu açıkken zamanı durdurmak için
+    public bool afetSuruyor;
 
     [Header("Afet Özet Verileri (UI İçin)")]
     public bool afetOlduMu = false;       // true olunca afet raporu açılır, Devam'a basınca false olur
@@ -59,7 +64,7 @@ public class GameManager : MonoBehaviour
     // Gün sayacı bu true iken ilerlemez
     public bool ZamanDurduMu
     {
-        get { return oyunDurduMu || kullaniciDurdurdu || afetOlduMu || oyunBittiMi; }
+        get { return oyunDurduMu || kullaniciDurdurdu || afetSuruyor || afetOlduMu || oyunBittiMi; }
     }
 
     private void Awake()
@@ -140,6 +145,29 @@ public class GameManager : MonoBehaviour
             case BinaTuru.DenizSeti: setHasarli = hasarli;       break;
             default:                 altyapiHasarli = hasarli;   break;
         }
+    }
+
+    public AfetTuru HasarTuru(BinaTuru bina)
+    {
+        return hasarTurleri != null && (int)bina < hasarTurleri.Length ? hasarTurleri[(int)bina] : AfetTuru.Yangin;
+    }
+
+    // Seviye kaybı ve onarım ihtiyacı ayrı durumlar: üst seviyeden düşen yapı da onarılır.
+    public void HasarVer(BinaTuru bina, AfetTuru sebep)
+    {
+        if (hasarTurleri == null || hasarTurleri.Length != 6) Array.Resize(ref hasarTurleri, 6);
+        hasarTurleri[(int)bina] = sebep;
+        LevelAyarla(bina, Level(bina) - 1);
+        HasarliAyarla(bina, true);
+    }
+
+    public void YapiIsleminiBildir(BinaTuru bina) { YapiIslemiTamamlandi?.Invoke(bina); }
+
+    public void GelirKaydet(int miktar)
+    {
+        para += miktar;
+        toplamKazanc += miktar;
+        GunlukGelirEklendi?.Invoke(miktar);
     }
 
     // Afet raporundaki Devam butonu çağırır: oyun devam eder ya da biter

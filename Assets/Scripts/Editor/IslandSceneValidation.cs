@@ -19,6 +19,8 @@ public static class IslandSceneValidation
     static int phase;
     static double nextCheck;
     static double playStarted;
+    static double nextPlayStepAt;
+    const double VisualSettleSeconds = .3;
     static readonly List<string> RuntimeErrors = new List<string>();
     static readonly Dictionary<BuildingVisuals, float> LevelOneHeights = new Dictionary<BuildingVisuals, float>();
 
@@ -55,7 +57,8 @@ public static class IslandSceneValidation
     {
         if (SessionState.GetBool(PlayKey, false) && EditorApplication.isPlaying && phase > 0)
         {
-            if (EditorApplication.timeSinceStartup - playStarted < .75) return;
+            double now = EditorApplication.timeSinceStartup;
+            if (now - playStarted < .75 || now < nextPlayStepAt) return;
             try { PlayStep(); }
             catch (Exception ex) { FinishPlay("FAIL: " + ex); }
             return;
@@ -105,14 +108,22 @@ public static class IslandSceneValidation
         {
             Check(building.levelModelleri != null && building.levelModelleri.Length == 3 && building.levelModelleri.All(m => m != null), building.name + ": 3 model bağlı");
             Check(building.levelModelleri[0].activeSelf && !building.levelModelleri[1].activeSelf && !building.levelModelleri[2].activeSelf, building.name + ": başlangıç görseli Lv1");
-            Check(building.GetComponent<BoxCollider>() != null, building.name + ": kök tıklama collider'ı");
+            if (!IsNonFittingRoad(building))
+                Check(building.GetComponent<BoxCollider>() != null, building.name + ": kök tıklama collider'ı");
         }
+        Transform roadRoot = island.transform.Find("Yollar");
+        BuildingVisuals[] clickableRoads = buildings.Where(b => IsClickableThreeLevelRoad(b, roadRoot)).ToArray();
+        Check(clickableRoads.Length >= 12, "En az 12 tıklanabilir, üç seviyeli yol: " + clickableRoads.Length);
         Check(DengeAyarlari.Aktif.maxLevel == 3, "Seviye üst sınırı 3");
         Check(IslandSceneSetup.Components<GameManager>(scene).Count() == 1, "Tek GameManager");
         Check(IslandSceneSetup.Components<EconomyAndTime>(scene).Count() == 1, "Tek EconomyAndTime");
         Check(IslandSceneSetup.Components<BinaPopup>(scene).Count() == 1, "Mevcut BinaPopup bağlı");
         Check(IslandSceneSetup.Components<IslandCameraController>(scene).Count() == 1, "Ada yakınlaştırma/gezinme kamerası bağlı");
+        Check(island.GetComponentsInChildren<RoadNetworkState>(true).Length == 1, "RoadNetworkState bağlı");
+        Check(island.GetComponent<IslandCityLife>() != null, "IslandCityLife adaya bağlı");
+        Check(buildings.All(b => b.GetComponent<BuildingDamageVisuals>() != null), "Her yükseltilebilir yapıda BuildingDamageVisuals bağlı");
         DisasterController disaster = IslandSceneSetup.Components<DisasterController>(scene).Single();
+        Check(disaster.GetComponent<IslandWeather>() != null, "IslandWeather afet yöneticisine bağlı");
         Check(disaster.kamera != null && disaster.tsunamiSuyu != null && disaster.tsunamiDalgasi != null && disaster.yanginPrefab != null && disaster.tozBulutuPrefab != null, "Afet efektleri ve kamera bağlı");
         Check(disaster.okulObj != null && disaster.akutObj != null && disaster.itfaiyeObj != null, "Afet hizmet binaları bağlı");
         Check(disaster.temelBinalar.Length == buildings.Count(b => b.binaTuru == BinaTuru.TemelBina) && disaster.temelBinalar.All(t => t != null && t.IsChildOf(island.transform)), "Deprem konut referansları yeni adaya bağlı");
@@ -131,6 +142,7 @@ public static class IslandSceneValidation
         {
             phase = 1;
             playStarted = EditorApplication.timeSinceStartup;
+            nextPlayStepAt = playStarted + .75;
             Report.Clear();
             LevelOneHeights.Clear();
             RuntimeErrors.Clear();
@@ -171,6 +183,7 @@ public static class IslandSceneValidation
             gm.para = 50000;
             foreach (BinaTuru type in Enum.GetValues(typeof(BinaTuru))) Check(Ekonomi.Yukselt(type), type + ": ekonomi ile 1→2");
             phase = 2;
+            WaitForVisuals();
         }
         else if (phase == 2)
         {
@@ -182,12 +195,14 @@ public static class IslandSceneValidation
             wave.gameObject.SetActive(false);
             foreach (BinaTuru type in Enum.GetValues(typeof(BinaTuru))) Check(Ekonomi.Yukselt(type), type + ": ekonomi ile 2→3");
             phase = 3;
+            WaitForVisuals();
         }
         else if (phase == 3)
         {
             CheckVisuals(buildings, 3);
             foreach (BuildingVisuals b in buildings)
-                Check(ActiveBounds(b).size.y > LevelOneHeights[b] + .05f, b.name + ": Lv3 görseli daha yüksek");
+                if (!IsNonFittingRoad(b))
+                    Check(ActiveBounds(b).size.y > LevelOneHeights[b] + .05f, b.name + ": Lv3 görseli daha yüksek");
             foreach (BinaTuru type in Enum.GetValues(typeof(BinaTuru)))
             {
                 int money = gm.para;
@@ -202,11 +217,23 @@ public static class IslandSceneValidation
                 Check(Physics.RaycastAll(new Vector3(land.center.x, land.max.y + .7f, land.center.z), direction, land.extents.magnitude * 1.5f)
                     .Any(hit => hit.collider.GetComponent<BuildingVisuals>()?.binaTuru == BinaTuru.DenizSeti), "Set çevresi kapalı: " + i * 2 + "°");
             }
+            // Drain the graphics command queue between captures instead of rendering three extra cameras in one GUI event.
             Capture("Logs/LowPolyAda_Level3.png");
+            phase = 31;
+            WaitForVisuals();
+        }
+        else if (phase == 31)
+        {
+            Bounds land = IslandSceneSetup.LandBounds(GameObject.Find("LowPolyAda"));
             CaptureDetail("Logs/LowPolyAda_Detail.png", new Vector3(0, land.max.y, -8), 43);
+            phase = 32; WaitForVisuals();
+        }
+        else if (phase == 32)
+        {
+            Bounds land = IslandSceneSetup.LandBounds(GameObject.Find("LowPolyAda"));
             CaptureDetail("Logs/LowPolyAda_Breakwater.png", new Vector3(-30, land.max.y, land.min.z + 6), 28);
             foreach (BinaTuru type in Enum.GetValues(typeof(BinaTuru))) gm.LevelAyarla(type, 2);
-            phase = 4;
+            phase = 4; WaitForVisuals();
         }
         else if (phase == 4)
         {
@@ -220,6 +247,7 @@ public static class IslandSceneValidation
                 Check(Ekonomi.Onar(type) && !gm.Hasarli(type) && gm.para == money - Ekonomi.OnarimMaliyeti(type), type + ": mevcut onarım akışı");
             }
             phase = 5;
+            WaitForVisuals();
         }
         else if (phase == 5)
         {
@@ -239,17 +267,44 @@ public static class IslandSceneValidation
         {
             Check(b.levelModelleri.Select((m, i) => m.activeSelf == (i == level - 1)).All(x => x), b.name + ": yalnız Lv" + level + " modeli aktif");
             Bounds bounds = ActiveBounds(b);
-            Bounds collider = b.GetComponent<BoxCollider>().bounds;
-            Check(collider.min.y <= bounds.min.y + .02f && collider.max.y >= bounds.max.y - .02f, b.name + ": collider aktif yüksekliği kapsıyor");
+            if (!IsNonFittingRoad(b))
+            {
+                BoxCollider box = b.GetComponent<BoxCollider>();
+                Check(box != null, b.name + ": kök tıklama collider'ı mevcut");
+                Bounds collider = box.bounds;
+                Check(collider.min.y <= bounds.min.y + .02f && collider.max.y >= bounds.max.y - .02f, b.name + ": collider aktif yüksekliği kapsıyor");
+            }
         }
     }
 
     static Bounds ActiveBounds(BuildingVisuals building)
     {
-        Renderer[] renderers = building.GetComponentsInChildren<Renderer>();
+        GameObject[] models = building.levelModelleri;
+        if (models == null) throw new InvalidOperationException(building.name + ": level modelleri bağlı değil");
+        GameObject activeModel = models.FirstOrDefault(m => m != null && m.activeSelf);
+        if (activeModel == null) throw new InvalidOperationException(building.name + ": etkin level modeli bulunamadı");
+        Renderer[] renderers = activeModel.GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0) throw new InvalidOperationException(building.name + ": etkin level modelinde renderer yok");
         Bounds bounds = renderers[0].bounds;
         foreach (Renderer renderer in renderers.Skip(1)) bounds.Encapsulate(renderer.bounds);
         return bounds;
+    }
+
+    static bool IsNonFittingRoad(BuildingVisuals building)
+    {
+        return building.binaTuru == BinaTuru.Altyapi && !building.colliderModeleUysun;
+    }
+
+    static bool IsClickableThreeLevelRoad(BuildingVisuals building, Transform roadRoot)
+    {
+        Collider collider = building.GetComponent<Collider>();
+        return roadRoot != null && building.transform.IsChildOf(roadRoot) && building.binaTuru == BinaTuru.Altyapi &&
+            building.levelModelleri != null && building.levelModelleri.Length == 3 && collider != null && collider.enabled;
+    }
+
+    static void WaitForVisuals()
+    {
+        nextPlayStepAt = EditorApplication.timeSinceStartup + VisualSettleSeconds;
     }
 
     static void Capture(string path)

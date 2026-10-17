@@ -58,8 +58,7 @@ public class EconomyAndTime : MonoBehaviour
         var d = DengeAyarlari.Aktif;
 
         int kazanc = Ekonomi.GunlukGelir();
-        gm.para += kazanc;
-        gm.toplamKazanc += kazanc;
+        gm.GelirKaydet(kazanc);
 
         // Nüfus kapasitenin altındaysa göçle büyür (hasarlı konut yeni gelen almaz)
         int kapasite = Ekonomi.NufusKapasitesi();

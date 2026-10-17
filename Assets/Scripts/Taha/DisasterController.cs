@@ -1,55 +1,44 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class DisasterController : MonoBehaviour
 {
     [Header("Temel Bağlantılar")]
-    public Transform kamera;              
-    public Transform tsunamiSuyu;         
+    public Transform kamera;
+    public Transform tsunamiSuyu;
+    [Header("Ada ve dalga")]
+    public Transform tsunamiDalgasi;
+    public float tsunamiSetZ = 10f, tsunamiBaslangicZ = -45f, tsunamiBitisZ = 102f;
+    public float tsunamiDalgaY = 1f, tsunamiSuYuksekligi = 3.2f, selSuYuksekligi = 2.82f;
+    public float kuruZeminY = 2.4f;
+    [Min(1)] public float afetSuresi = 15f;
+    public GameObject yanginEfekti, yagmurEfekti, yanginPrefab, tozBulutuPrefab;
+    public Transform[] yanacakBinalar, temelBinalar;
+    public Transform okulObj, akutObj, itfaiyeObj;
+    public bool AfetDevamEdiyorMu { get; private set; }
+    public AfetTuru AktifAfetTuru { get; private set; }
+    public bool SavunmaYeterli { get; private set; }
 
-    [Header("Yeni Görsel Efektler (VFX)")]
-    public Transform tsunamiDalgasi;      
-    [Tooltip("Güneyden gelen tsunami dalgasının kıyı setine çarptığı dünya Z koordinatı.")]
-    public float tsunamiSetZ = 10f;
-    public float tsunamiBaslangicZ = -45f;
-    public float tsunamiBitisZ = 102f;
-    public float tsunamiDalgaY = 1f;
-    public float tsunamiSuYuksekligi = 1.5f;
-    public float selSuYuksekligi = 5f;
-    public GameObject yanginEfekti;       
-    public GameObject yagmurEfekti;       
-    // --- YENİ YANGIN SİSTEMİ ---
-    public GameObject yanginPrefab;        // Klasördeki Yangın Prefabını buraya atacağız
-    public Transform[] yanacakBinalar;     // Yangın çıkmasını istediğin binaları buraya sürükle
-
-    // --- YENİ DEPREM SİSTEMİ ---
-    [Header("Deprem Efektleri")]
-    public GameObject tozBulutuPrefab;     // Toz/Duman Particle Prefab'ı
-    public Transform[] temelBinalar;
-    public Transform okulObj;
-    public Transform akutObj;
-    public Transform itfaiyeObj;
-    private int sonKontrolEdilenGun = 0;
-    private bool afetDevamEdiyorMu = false;
-    private readonly System.Collections.Generic.HashSet<int> gerceklesenAfetler = new System.Collections.Generic.HashSet<int>();
-
-    public bool AfetDevamEdiyorMu { get { return afetDevamEdiyorMu; } }
+    int sonKontrolEdilenGun;
+    readonly HashSet<int> gerceklesenAfetler = new HashSet<int>();
+    readonly List<GameObject> geciciEfektler = new List<GameObject>();
+    MaterialPropertyBlock suBlock;
+    Renderer suRenderer;
+    Vector3 kameraIlk, dalgaOlcek = Vector3.one;
+    bool kameraSallaniyor;
 
     void Update()
     {
-        if (afetDevamEdiyorMu || GameManager.Instance == null) return;
-
-        // Afetler sabit sırayla ve sabit günlerde gelir (DengeAyarlari.afetler)
-        int gun = GameManager.Instance.gun;
-        if (gun != sonKontrolEdilenGun)
+        var gm = GameManager.Instance;
+        if (AfetDevamEdiyorMu || gm == null || gm.afetOlduMu || gm.oyunBittiMi || gm.oyunDurduMu || gm.kullaniciDurdurdu) return;
+        if (gm.gun != sonKontrolEdilenGun)
         {
-            sonKontrolEdilenGun = gun;
-            int index = DengeAyarlari.Aktif.BuGunkuAfetIndex(gun);
+            sonKontrolEdilenGun = gm.gun;
+            int index = DengeAyarlari.Aktif.BuGunkuAfetIndex(gm.gun);
             if (index >= 0 && !gerceklesenAfetler.Contains(index)) AfetBaslat(index);
         }
-
 #if UNITY_EDITOR
-        // Sadece editörde test için: 1-4 tuşları sıradaki afetleri (Yangın, Sel, Deprem, Tsunami) hemen başlatır
         if (Input.GetKeyDown(KeyCode.Alpha1)) AfetBaslat(0);
         if (Input.GetKeyDown(KeyCode.Alpha2)) AfetBaslat(1);
         if (Input.GetKeyDown(KeyCode.Alpha3)) AfetBaslat(2);
@@ -59,401 +48,193 @@ public class DisasterController : MonoBehaviour
 
     public void AfetBaslat(int index)
     {
-        if (afetDevamEdiyorMu) return;
+        var gm = GameManager.Instance;
         var afetler = DengeAyarlari.Aktif.afetler;
-        if (index < 0 || index >= afetler.Length) return;
-
+        if (AfetDevamEdiyorMu || gm == null || gm.oyunBittiMi || gm.afetOlduMu || index < 0 || index >= afetler.Length) return;
         gerceklesenAfetler.Add(index);
         StartCoroutine(AfetSureciYonet(afetler[index]));
     }
 
     IEnumerator AfetSureciYonet(DengeAyarlari.AfetAyari afet)
     {
-        afetDevamEdiyorMu = true;
         var gm = GameManager.Instance;
         var d = DengeAyarlari.Aktif;
-
-        // 1) Savunma yeterli mi? (kontrol edilen yapıların hepsi gereken seviyede ve hasarsız olmalı)
-        var yetersizler = new System.Collections.Generic.List<BinaTuru>();
+        AfetDevamEdiyorMu = gm.afetSuruyor = true;
+        AktifAfetTuru = afet.afet;
+        var yetersizler = new List<BinaTuru>();
         foreach (BinaTuru b in afet.kontrolEdilen)
             if (gm.Level(b) < afet.gerekenLevel || gm.Hasarli(b)) yetersizler.Add(b);
-        bool yeterli = yetersizler.Count == 0;
-
+        SavunmaYeterli = yetersizler.Count == 0;
         if (MusicPlayer.Instance != null) MusicPlayer.Instance.AfetMuzigiBaslat(afet.afet);
-
-        // 2) Görsel efekt
-        switch (afet.afet)
+        try
         {
-            case AfetTuru.Deprem:
-                StartCoroutine(KameraSalla(15.0f, 0.4f));
-                yield return new WaitForSeconds(5.0f);
-                if (temelBinalar != null)
-                    foreach (Transform bina in temelBinalar)
-                        TozEfekti(yetersizler.Contains(BinaTuru.TemelBina), bina);
-                TozEfekti(yetersizler.Contains(BinaTuru.Okul), okulObj);
-                TozEfekti(yetersizler.Contains(BinaTuru.Akut), akutObj);
-                TozEfekti(yetersizler.Contains(BinaTuru.Itfaiye), itfaiyeObj);
-                yield return new WaitForSeconds(10.0f);
-                break;
-
-            case AfetTuru.Sel:
-                yield return StartCoroutine(SelEfektiOynat(!yeterli));
-                break;
-
-            case AfetTuru.Yangin:
-                yield return StartCoroutine(YanginEfektiOynat(15.0f, !yeterli));
-                break;
-
-            case AfetTuru.Tsunami:
-                yield return StartCoroutine(TsunamiDalgaVeSuEfekti(tsunamiSuYuksekligi, yeterli));
-                break;
+            switch (afet.afet)
+            {
+                case AfetTuru.Deprem:
+                    StartCoroutine(KameraSalla(afetSuresi, .4f));
+                    yield return new WaitForSeconds(afetSuresi / 3);
+                    if (yetersizler.Contains(BinaTuru.TemelBina) && temelBinalar != null)
+                        foreach (Transform b in temelBinalar) TozEfekti(b);
+                    if (yetersizler.Contains(BinaTuru.Okul)) TozEfekti(okulObj);
+                    if (yetersizler.Contains(BinaTuru.Akut)) TozEfekti(akutObj);
+                    if (yetersizler.Contains(BinaTuru.Itfaiye)) TozEfekti(itfaiyeObj);
+                    yield return new WaitForSeconds(afetSuresi * 2 / 3);
+                    break;
+                case AfetTuru.Yangin:
+                    yield return YanginEfektiOynat(!SavunmaYeterli);
+                    break;
+                case AfetTuru.Sel:
+                    if (yagmurEfekti != null) yagmurEfekti.SetActive(true);
+                    if (!SavunmaYeterli) yield return SuYukseltIndir(selSuYuksekligi, afetSuresi);
+                    else yield return new WaitForSeconds(afetSuresi);
+                    break;
+                case AfetTuru.Tsunami:
+                    yield return TsunamiEfekti(SavunmaYeterli);
+                    break;
+            }
+            var hasarAlanlar = afet.afet == AfetTuru.Deprem ? yetersizler :
+                (SavunmaYeterli ? new List<BinaTuru>() : new List<BinaTuru>(afet.hasarAlan));
+            foreach (BinaTuru b in hasarAlanlar) gm.HasarVer(b, afet.afet);
+            float baz = afet.bazKayip * (SavunmaYeterli ? d.savunmaYeterliCarpani : 1f);
+            int akutEtkiLevel = gm.akutHasarli ? 0 : gm.akutLevel;
+            float koruma = (1f - gm.farkindalikYuzdesi * d.farkindalikEtkisi) * (1f - akutEtkiLevel * d.akutEtkisi);
+            int vefat = Mathf.Min(gm.nufus, Mathf.RoundToInt(baz * Mathf.Clamp01(koruma)));
+            int kurtarilan = Mathf.Max(0, Mathf.RoundToInt(baz) - vefat);
+            gm.nufus -= vefat;
+            gm.sonAfetTuru = afet.afet;
+            gm.sonSavunmaYeterli = SavunmaYeterli;
+            gm.sonHasarliBinaSayisi = hasarAlanlar.Count;
+            gm.sonVefatSayisi = vefat;
+            gm.sonKurtarilanSayisi = kurtarilan;
+            gm.toplamVefat += vefat;
+            gm.toplamKurtarilan += kurtarilan;
+            gm.sonAfetMesaji = SavunmaYeterli ? "Önlemler işe yaradı!" : "Savunma yetersiz kaldı.";
+            gm.afetOzeti += AfetRaporu.AfetAdi(afet.afet) + ": " + (SavunmaYeterli ? "Korundu" : "Hasar aldı") + " (" + vefat + " vefat)\n";
+            gm.afetOlduMu = true;
         }
-
-        // 3) Hasar: depremde seviyesi yetmeyenler, diğerlerinde savunma yetersizse listedeki yapılar
-        var hasarAlanlar = afet.afet == AfetTuru.Deprem
-            ? yetersizler
-            : (yeterli ? new System.Collections.Generic.List<BinaTuru>() : new System.Collections.Generic.List<BinaTuru>(afet.hasarAlan));
-        foreach (BinaTuru b in hasarAlanlar) HasarVer(gm, b);
-
-        // 4) Can kaybı = Baz × (savunma yeterliyse 0.2) × (1 − Farkındalık × 0.006) × (1 − AKUT × 0.10)
-        float baz = afet.bazKayip * (yeterli ? d.savunmaYeterliCarpani : 1f);
-        int akutEtkiLevel = gm.akutHasarli ? 0 : gm.akutLevel;
-        float koruma = (1f - gm.farkindalikYuzdesi * d.farkindalikEtkisi) * (1f - akutEtkiLevel * d.akutEtkisi);
-        int vefat = Mathf.Min(gm.nufus, Mathf.RoundToInt(baz * Mathf.Clamp01(koruma)));
-        int kurtarilan = Mathf.Max(0, Mathf.RoundToInt(baz) - vefat);
-        gm.nufus -= vefat;
-
-        // 5) Rapor ve istatistikler
-        gm.sonAfetTuru = afet.afet;
-        gm.sonSavunmaYeterli = yeterli;
-        gm.sonHasarliBinaSayisi = hasarAlanlar.Count;
-        gm.sonVefatSayisi = vefat;
-        gm.sonKurtarilanSayisi = kurtarilan;
-        gm.toplamVefat += vefat;
-        gm.toplamKurtarilan += kurtarilan;
-        gm.sonAfetMesaji = yeterli ? "Önlemler işe yaradı!" : "Savunma yetersiz kaldı.";
-        gm.afetOzeti += AfetRaporu.AfetAdi(afet.afet) + ": " + (yeterli ? "Korundu" : "Hasar aldı") + " (" + vefat + " vefat)\n";
-
-        if (MusicPlayer.Instance != null) MusicPlayer.Instance.NormalMuzigeDon();
-
-        gm.afetOlduMu = true; // afet raporu açılır, Devam'a basınca oyun sürer
-        afetDevamEdiyorMu = false;
+        finally
+        {
+            EfektleriTemizle();
+            AfetDevamEdiyorMu = gm.afetSuruyor = false;
+            if (MusicPlayer.Instance != null) MusicPlayer.Instance.NormalMuzigeDon();
+        }
     }
 
-    bool ItfaiyeMi(Transform bina)
+    void TozEfekti(Transform bina)
     {
-        if (bina == itfaiyeObj) return true;
-        var bv = bina.GetComponentInParent<BuildingVisuals>();
-        if (bv == null) bv = bina.GetComponentInChildren<BuildingVisuals>();
-        return bv != null && bv.binaTuru == BinaTuru.Itfaiye;
+        if (bina == null) return;
+        geciciEfektler.Add(IslandEffectsFactory.CreateDust(transform, bina.position + Vector3.up * .4f, 1.5f));
     }
-
-    // Seviyesi 1'den büyükse bir düşer; zaten 1 ise "hasarlı" olur
-    void HasarVer(GameManager gm, BinaTuru bina)
-    {
-        int level = gm.Level(bina);
-        if (level > 1) gm.LevelAyarla(bina, level - 1);
-        else gm.HasarliAyarla(bina, true);
-    }
-
-    void TozEfekti(bool hasarAlacak, Transform binaObj)
-    {
-        if (hasarAlacak && binaObj != null)
-            StartCoroutine(BinaCokmeEfekti(binaObj, false)); // sadece toz; bina yerinden oynamaz
-    }
-
-    // --- 15 SANİYELİK GÜNCELLENMİŞ EFEKT KORUTİNLERİ ---
 
     IEnumerator KameraSalla(float sure, float siddet)
     {
         if (kamera == null) yield break;
-        Vector3 orijinalPozisyon = kamera.localPosition;
-        float gecenSure = 0f;
-
-        while (gecenSure < sure)
+        kameraIlk = kamera.localPosition; kameraSallaniyor = true;
+        for (float t = 0; t < sure; t += Time.deltaTime)
         {
-            float guncelSiddet = Mathf.Lerp(siddet, 0f, gecenSure / sure);
-            float x = Random.Range(-1f, 1f) * guncelSiddet;
-            float y = Random.Range(-1f, 1f) * guncelSiddet;
-            kamera.localPosition = orijinalPozisyon + new Vector3(x, y, 0);
-            gecenSure += Time.deltaTime;
+            kamera.localPosition = kameraIlk + new Vector3(Random.Range(-1f, 1f), Random.Range(-1f, 1f), 0) * siddet * (1 - t / sure);
             yield return null;
         }
-        kamera.localPosition = orijinalPozisyon;
+        kamera.localPosition = kameraIlk; kameraSallaniyor = false;
     }
 
-    IEnumerator SelEfektiOynat(bool suYukselsinMi)
+    IEnumerator YanginEfektiOynat(bool hasar)
     {
-        if (yagmurEfekti != null) yagmurEfekti.SetActive(true);
-
-        if (suYukselsinMi && tsunamiSuyu != null)
+        int count = yanacakBinalar == null ? 0 : yanacakBinalar.Length;
+        float elapsed = 0;
+        for (int i = 0; i < count; i++)
         {
-            yield return new WaitForSeconds(2.0f); // 2s yağmur yağar
-            // Su 3s çıkar, 7s bekler, 3s iner (Toplam 13s + 2s = 15s)
-            yield return StartCoroutine(SuYukseltIndir(selSuYuksekligi, 6f, 7f, 3f));
+            Transform bina = yanacakBinalar[i];
+            if (bina != null && bina != itfaiyeObj)
+            {
+                Collider col = bina.GetComponent<Collider>();
+                Vector3 p = bina.position; float size = 1;
+                if (col != null) { p.y = col.bounds.max.y - .15f; size = Mathf.Clamp(col.bounds.size.x * .16f, .7f, 1.8f); }
+                geciciEfektler.Add(IslandEffectsFactory.CreateFire(transform, p, size));
+            }
+            float interval = afetSuresi / 3 / Mathf.Max(1, count);
+            yield return new WaitForSeconds(interval); elapsed += interval;
         }
-        else
+        yield return new WaitForSeconds(Mathf.Max(0, afetSuresi * 2 / 3 - elapsed));
+        if (!hasar && geciciEfektler.Count > 0)
         {
-            // Sadece 15s boyunca yağmur yağar
-            yield return new WaitForSeconds(15.0f);
+            float interval = afetSuresi / 3 / geciciEfektler.Count;
+            for (int i = 0; i < geciciEfektler.Count; i++)
+            {
+                if (geciciEfektler[i] != null) geciciEfektler[i].SetActive(false);
+                yield return new WaitForSeconds(interval);
+            }
         }
-
-        if (yagmurEfekti != null) yagmurEfekti.SetActive(false);
+        else yield return new WaitForSeconds(afetSuresi / 3);
     }
 
-    IEnumerator YanginEfektiOynat(float sure, bool hasarVarMi)
+    void SuAyarla(float y, float revealZ = 10000)
     {
-        System.Collections.Generic.List<GameObject> aktifAtesler = new System.Collections.Generic.List<GameObject>();
-
-        // 1. AŞAMA: İlk 5 saniyede teker teker alev alma
-        if (yanacakBinalar.Length > 0)
-        {
-            float yanmaAraligi = 5.0f / yanacakBinalar.Length; // 5 saniyeyi bina sayısına böl
-            
-            foreach (Transform bina in yanacakBinalar)
-            {
-                if (bina != null && !ItfaiyeMi(bina)) // itfaiye binası yangını söndüren taraf, kendisi yanmaz
-                {
-                    // Başlangıç olarak binanın kendi pozisyonunu al
-                    Vector3 tepeNoktasi = bina.position;
-
-                    // Binanın üzerindeki Collider'ı (kutu sınırlarını) bul
-                    Collider binaCollider = bina.GetComponent<Collider>();
-                    
-                    if (binaCollider != null)
-                    {
-                        // Collider varsa, ateşin Y (yükseklik) değerini binanın en üst noktasına sabitle
-                        tepeNoktasi.y = binaCollider.bounds.max.y;
-                    }
-                    else
-                    {
-                        // Eğer arkadaşın binaya Collider eklemeyi unuttuysa, yedek olarak biraz yukarı kaldır
-                        tepeNoktasi.y += 2f; 
-                    }
-
-                    // Ateşi tam çatıda (tepeNoktasi) oluştur
-                    GameObject ates = Instantiate(yanginPrefab, tepeNoktasi, Quaternion.identity);
-                    ates.SetActive(true);
-                    aktifAtesler.Add(ates);
-                }
-                yield return new WaitForSeconds(yanmaAraligi);
-            }
-        }
-        else
-        {
-            yield return new WaitForSeconds(5.0f); // Bina yoksa ilk 5 saniyeyi boş geç
-        }
-
-        // 2. AŞAMA: Orta kısımdaki bekleme süresi (Binalar alev alev yanıyor)
-        // Toplam 15 saniyenin ilk 5'i yandı, son 5'i sönecek. Ortaya 5 saniye kalır.
-        float ortaSure = sure - 10.0f; 
-        if (ortaSure > 0) yield return new WaitForSeconds(ortaSure);
-
-        // 3. AŞAMA: Son 5 saniye (Söndürme veya Yanmaya Devam Etme)
-        if (!hasarVarMi) 
-        {
-            // İTFAİYE GÜÇLÜ: Ateşleri teker teker söndür
-            Debug.Log("İtfaiye müdahale ediyor! Ateşler teker teker söndürülüyor.");
-            if (aktifAtesler.Count > 0)
-            {
-                float sondurmeAraligi = 5.0f / aktifAtesler.Count;
-                
-                // Listeyi sondan başa doğru silerek söndürüyoruz
-                for (int i = aktifAtesler.Count - 1; i >= 0; i--)
-                {
-                    Destroy(aktifAtesler[i]);
-                    aktifAtesler.RemoveAt(i);
-                    yield return new WaitForSeconds(sondurmeAraligi);
-                }
-            }
-            else
-            {
-                yield return new WaitForSeconds(5.0f);
-            }
-        }
-        else 
-        {
-            // İTFAİYE YETERSİZ: Binalar yanmaya devam eder
-            Debug.Log("İtfaiye yetersiz! Binalar alev alev yanmaya devam ediyor.");
-            yield return new WaitForSeconds(5.0f);
-        }
-
-        // GÜVENLİK TEMİZLİĞİ: Süre bitiminde sahnede kalan son ateşleri de temizle
-        foreach (GameObject ates in aktifAtesler)
-        {
-            if (ates != null) Destroy(ates);
-        }
-        aktifAtesler.Clear();
-    }
-
-    IEnumerator TsunamiDalgaVeSuEfekti(float hedefSuYuksekligi, bool setYeterliMi)
-    {
-        if (tsunamiDalgasi != null)
-        {
-            Vector3 orijinalScale = tsunamiDalgasi.localScale;
-            float baslangicX = tsunamiDalgasi.position.x;
-
-            tsunamiDalgasi.gameObject.SetActive(true);
-            
-            // Dalganın başlangıç ve bitiş noktaları
-            Vector3 dalgaBaslangic = new Vector3(baslangicX, tsunamiDalgaY, tsunamiBaslangicZ);
-            Vector3 dalgaBitis = new Vector3(baslangicX, tsunamiDalgaY, tsunamiBitisZ);
-
-            float setinZPozisyonu = tsunamiSetZ;
-
-            // Dalganın sete yüzde kaçlık ilerlemede çarpacağını otomatik hesaplıyoruz!
-            float carpmaYuzdesi = Mathf.InverseLerp(dalgaBaslangic.z, dalgaBitis.z, setinZPozisyonu);
-
-            float gecenSure = 0f;
-            float dalgaSuresi = 15.0f; // Saniye uzadı
-            
-            while (gecenSure < dalgaSuresi)
-            {
-                float ilerleme = gecenSure / dalgaSuresi; 
-                Vector3 mevcutPozisyon = Vector3.Lerp(dalgaBaslangic, dalgaBitis, ilerleme);
-
-                if (ilerleme >= carpmaYuzdesi)
-                {
-                    if (setYeterliMi)
-                    {
-                        // EĞER SET YETERLİYSE:
-                        // 1. Dalga seti delip geçemesin! İleri gitmeyi durdursun (Z'yi sete sabitliyoruz)
-                        mevcutPozisyon.z = setinZPozisyonu; 
-
-                        // 2. Çarptığı an duvarda parçalanıp hızla küçülerek yerin dibine girsin
-                        float erimeOrani = Mathf.Clamp01((ilerleme - carpmaYuzdesi) * 5f); 
-                        mevcutPozisyon.y = Mathf.Lerp(tsunamiDalgaY, -10f, erimeOrani);
-                        float yeniScaleY = Mathf.Lerp(orijinalScale.y, 0.05f, erimeOrani);
-                        tsunamiDalgasi.localScale = new Vector3(orijinalScale.x, yeniScaleY, orijinalScale.z);
-                    }
-                    else
-                    {
-                        // EĞER SET YETERSİZSE:
-                        // Dalga şehirden geçerken ilerlemeye devam eder, ancak enerjisini kaybedip
-                        // kademeli olarak küçülür (Y scale azalır) ve yavaşça yere gömülür (Y pozisyonu iner)
-                        float sehirIlerleme = Mathf.InverseLerp(carpmaYuzdesi, 1f, ilerleme);
-                        float gomulmeOrani = Mathf.SmoothStep(0f, 1f, sehirIlerleme);
-
-                        mevcutPozisyon.y = Mathf.Lerp(tsunamiDalgaY, -10f, gomulmeOrani);
-                        float yeniScaleY = Mathf.Lerp(orijinalScale.y, 0.05f, gomulmeOrani);
-                        tsunamiDalgasi.localScale = new Vector3(orijinalScale.x, yeniScaleY, orijinalScale.z);
-                    }
-                }
-                else
-                {
-                    tsunamiDalgasi.localScale = orijinalScale;
-                }
-
-                tsunamiDalgasi.position = mevcutPozisyon;
-                gecenSure += Time.deltaTime;
-                yield return null;
-            }
-
-            // Süreç sonunda dalgayı kapatmadan önce orijinal boyutunu geri yükle
-            tsunamiDalgasi.localScale = orijinalScale;
-        }
-
-        // Dalga çarpması bitti. Şimdi su basacak mı?
-        if (!setYeterliMi)
-        {
-            // SET YETERSİZ: Arkasından su kopyası yükselir ve şehri basar
-            if (tsunamiSuyu != null)
-            {
-                // Dalga süresini 15 saniyeye çektiğin için su yükselme sürelerini de ona göre dengeleyebilirsin
-                yield return StartCoroutine(SuYukseltIndir(hedefSuYuksekligi, 3f, 5f, 3f));
-            }
-        }
-        else
-        {
-            // SET YETERLİ: Su basmaz! 
-            Debug.Log("Setler dalgayı durdurdu! Şehri su basmadı.");
-            // Dalga 15 saniye ayarladığın için ve su basmadığı için beklemeye gerek yok, süreci tamamla.
-        }
-
-        if (tsunamiDalgasi != null) tsunamiDalgasi.gameObject.SetActive(false);
-    }
-
-    // Ortak Gelişmiş Su Kontrolcüsü
-    IEnumerator SuYukseltIndir(float hedefYukseklik, float cikmaSuresi, float beklemeSuresi, float inmeSuresi)
-    {
-        if (tsunamiSuyu == null) yield break;
-        
-        // 1. Suyu görünür yap
+        if (tsunamiSuyu == null) return;
         tsunamiSuyu.gameObject.SetActive(true);
-
-        // 2. Başlangıç yüksekliğini kesin olarak yerin dibi (-4f) yapalım
-        Vector3 baslangic = tsunamiSuyu.position;
-        //baslangic.y = 4f; 
-        tsunamiSuyu.position = baslangic;
-
-        Vector3 tepeNoktasi = new Vector3(baslangic.x, hedefYukseklik, baslangic.z);
-        float gecenSure = 0;
-
-        // Çıkış (Sular yükseliyor)
-        while (gecenSure < cikmaSuresi) { 
-            tsunamiSuyu.position = Vector3.Lerp(baslangic, tepeNoktasi, gecenSure / cikmaSuresi); 
-            gecenSure += Time.deltaTime; 
-            yield return null; 
-        }
-        tsunamiSuyu.position = tepeNoktasi;
-
-        // Bekleme (Şehir sular altında)
-        yield return new WaitForSeconds(beklemeSuresi);
-
-        // İniş (Sular çekiliyor)
-        gecenSure = 0;
-        while (gecenSure < inmeSuresi) { 
-            tsunamiSuyu.position = Vector3.Lerp(tepeNoktasi, baslangic, gecenSure / inmeSuresi); 
-            gecenSure += Time.deltaTime; 
-            yield return null; 
-        }
-        
-        // Su yavaşça -4f noktasına (yerin dibine) indi ve orada duracak. 
-        // Kapatma kodu sildiğimiz için aniden ekrandan silinmeyecek!
-        tsunamiSuyu.position = baslangic;
+        Vector3 p = tsunamiSuyu.position; p.y = y; tsunamiSuyu.position = p;
+        if (suRenderer == null) suRenderer = tsunamiSuyu.GetComponent<Renderer>();
+        if (suRenderer != null) { if (suBlock == null) suBlock = new MaterialPropertyBlock(); suBlock.SetFloat("_RevealZ", revealZ); suRenderer.SetPropertyBlock(suBlock); }
     }
 
-    // Toz çıkarma ve duruma göre yerin dibine girme animasyonu
-    IEnumerator BinaCokmeEfekti(Transform bina, bool cokecekMi)
+    IEnumerator SuYukseltIndir(float target, float sure)
     {
-        // 1. Toz bulutunu oluştur ve binanın boyutuna göre büyüt
-        if (tozBulutuPrefab != null)
+        for (float t = 0; t < sure; t += Time.deltaTime)
         {
-            Collider col = bina.GetComponent<Collider>();
-            Vector3 zeminPos = col != null ? new Vector3(bina.position.x, col.bounds.min.y + 0.5f, bina.position.z) : bina.position + new Vector3(0, 0.5f, 0);
-            
-            GameObject toz = Instantiate(tozBulutuPrefab, zeminPos, Quaternion.identity);
-            
-            // YENİ: Orantılı ve Sınırlı Büyütme
-            if (col != null)
-            {
-                // Binanın en geniş tarafını bul
-                float maxGenislik = Mathf.Max(col.bounds.size.x, col.bounds.size.z);
-                
-                // Formül: Genişliği biraz yumuşat (0.4 ile çarp) ve sınırlar arasına hapset
-                // Min: 1.0f (Normal boy) | Max: 2.5f (En fazla 2.5 kat büyüyebilir)
-                float orantiliScale = Mathf.Clamp(maxGenislik * 0.2f, 1.0f, 1.5f);
-                
-                toz.transform.localScale = new Vector3(orantiliScale, orantiliScale, orantiliScale);
-            }
-
-            toz.SetActive(true);
-            Destroy(toz, 10.0f); 
+            float u = t / sure;
+            float height = u < .32f ? Mathf.SmoothStep(kuruZeminY - .3f, target, u / .32f) :
+                u > .78f ? Mathf.SmoothStep(target, kuruZeminY - .3f, (u - .78f) / .22f) : target;
+            SuAyarla(height);
+            yield return null;
         }
+    }
 
-        // 2. Eğer bina Level 1'den büyükse son 5 saniyede çöksün
-        if (cokecekMi)
+    IEnumerator TsunamiEfekti(bool korundu)
+    {
+        if (tsunamiDalgasi != null) { dalgaOlcek = tsunamiDalgasi.localScale; tsunamiDalgasi.gameObject.SetActive(true); }
+        float travelTime = afetSuresi * .72f;
+        float impactTime = travelTime * Mathf.InverseLerp(tsunamiBaslangicZ, tsunamiBitisZ, tsunamiSetZ);
+        for (float t = 0; t < afetSuresi; t += Time.deltaTime)
         {
-            Vector3 baslangic = bina.position;
-            Vector3 bitis = baslangic + new Vector3(0, -20f, 0); // 4 birim aşağı göm
-            
-            float gecenSure = 0;
-            while(gecenSure < 5.0f)
+            float z = Mathf.Lerp(tsunamiBaslangicZ, tsunamiBitisZ, t / travelTime);
+            float waveHeight = 1, y = tsunamiDalgaY;
+            if (korundu && t >= impactTime)
             {
-                bina.position = Vector3.Lerp(baslangic, bitis, gecenSure / 5.0f);
-                gecenSure += Time.deltaTime;
-                yield return null;
+                float melt = Mathf.SmoothStep(0, 1, (t - impactTime) / 2.5f);
+                z = tsunamiSetZ - melt * 9; y -= melt * 3;
+                waveHeight = 1 - melt;
             }
+            else if (!korundu)
+            {
+                // An advancing, transparent water sheet follows the wave inside the seawall polygon.
+                float rise = Mathf.SmoothStep(0, 1, (t - impactTime) / 1.8f);
+                float recede = Mathf.SmoothStep(0, 1, (t - travelTime) / Mathf.Max(.1f, afetSuresi - travelTime));
+                SuAyarla(Mathf.Lerp(kuruZeminY - .3f, tsunamiSuYuksekligi, rise * (1 - recede)), z - 3);
+            }
+            if (tsunamiDalgasi != null)
+            {
+                tsunamiDalgasi.position = new Vector3(tsunamiDalgasi.position.x, y, z);
+                tsunamiDalgasi.localScale = Vector3.Scale(dalgaOlcek, new Vector3(1, Mathf.Max(.001f, waveHeight), 1));
+                if (t >= travelTime || waveHeight <= .001f) tsunamiDalgasi.gameObject.SetActive(false);
+            }
+            yield return null;
         }
+    }
+
+    void EfektleriTemizle()
+    {
+        foreach (GameObject go in geciciEfektler) if (go != null) { go.SetActive(false); Destroy(go); }
+        geciciEfektler.Clear();
+        if (tsunamiSuyu != null) tsunamiSuyu.gameObject.SetActive(false);
+        if (tsunamiDalgasi != null) { tsunamiDalgasi.gameObject.SetActive(false); tsunamiDalgasi.localScale = dalgaOlcek; }
+        if (yagmurEfekti != null) yagmurEfekti.SetActive(false);
+        if (kameraSallaniyor && kamera != null) kamera.localPosition = kameraIlk;
+        kameraSallaniyor = false;
+    }
+
+    void OnDisable()
+    {
+        StopAllCoroutines(); EfektleriTemizle(); AfetDevamEdiyorMu = false;
+        if (GameManager.Instance != null) GameManager.Instance.afetSuruyor = false;
     }
 }

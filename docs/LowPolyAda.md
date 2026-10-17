@@ -72,3 +72,31 @@ Ada kontrol çıktısı `Logs/AdaDogrulama.txt`; Level 1/3 önizlemeleri `Logs/L
 - Son test turunda derleme, mesh erişimi ve boş referans hatası görülmedi. Level 1 ve Level 3 görüntüleri görsel olarak incelendi.
 
 Önizlemeler: [Level 1](images/LowPolyAda_Level1.png), [Level 3](images/LowPolyAda_Level3.png), [Kent merkezi yakın planı](images/LowPolyAda_Detail.png), [Dalgakıran yakın planı](images/LowPolyAda_Breakwater.png).
+
+## Canlı şehir ve afet görselleri
+
+- `Yollar` altındaki 12 yol parçası `BuildingVisuals/Altyapi` kullanır. Bütün altyapı birlikte yükselir: Lv1 toprak, Lv2 çakıl, Lv3 asfalt ve yaya geçitleri. Pompa istasyonu aynı altyapı seviyesini paylaşır. Hasarlı altyapı `RoadNetworkState` ile onarım dubalarını gösterir.
+- `GameManager.HasarVer(tür, afet)` hem seviyeyi bir düşürür (en az 1) hem onarım ihtiyacını ve afet türünü tutar. `BuildingDamageVisuals` yangında kararma/is/duman, depremde eğilen ve basılan model + enkaz üretir. Onarım malzeme renklerini ve modeli geri getirir. Bunlar mevcut tür başına ortak hasar modelini izler.
+- Başarılı ekonomi işlemi `YapiIslemiTamamlandi` olayını yayınlar. Aktif görsel 0.2 saniyelik hafif ölçek vurgusu ve beyaz parlamayla tepki verir; shared materyaller değiştirilmez.
+- `IslandCityLife`, runtime'da 48 low-poly yaya ve 12 araç oluşturur. Yayalar kaldırım grafında yürür; araçlar yol döngülerini kullanır. Yangın/depremde en yakın park, otopark veya kumsal toplanma alanına; sel/tsunamide en yakın konuta giderler. Afet raporu kapanana kadar güvenli alanlarında kalırlar. Bu kalabalık görsel nüfus temsilidir; GameManager nüfus sayısını değiştirmez.
+- `IslandWeather`, yangında sıcak/kızıl atmosfer; selden bir gün önce gri bulutlar; sel sırasında koyu hava, yağmur ve kısa şimşek aydınlanmaları uygular. Bulutlar kamera görüşünün üst kenarında tutulur. Işık ve postprocess profili runtime kopyası üzerinden değiştirilir ve geri yüklenir.
+- Sel: hasarsız Lv2 altyapı yeterlidir. Yetersizse setin iç sınırındaki saydam mesh zeminden yalnız 0.42 birim yükselir. Sular çekildiğinde yol hasarı onarılana kadar kalır.
+- Tsunami: hasarsız Lv3 set yeterlidir. Dalga denizle aynı materyali kullanır; güçlü sette çarpma noktasında eriyerek geri çekilir. Yetersiz sette ada boyunca ilerlerken arkasında saydam su bırakır (zemin +0.85); görüşten çıkar ve su çekilir.
+- Afet boyunca gün sayacı ve yapı işlemleri durur; tahliye ve efektler sürer. Afet raporu mevcut Devam akışını kullanır.
+- HUD ikonları önceki ada sürümüne göre 2 kat; bina popup'ı nominal 2 kat boyuttadır ve küçük ekrana sığacak şekilde sınırlandırılır. Günlük gelir ve rapordaki vefat sayacı yaklaşık 1 saniyelik yavaşlayarak biten animasyonla gösterilir.
+
+Yeni kapsamlı entegrasyon testi için `Temp/ada_sistem_testi` dosyası oluşturulur. Test gerçek MainScene üzerinde yaya/araç hareketini, hasar/onarımı, vurgu animasyonunu, sayaçları, hava tahminini, savunmalı/savunmasız sel ve tsunamiyi doğrular; sonucu `Logs/AdaSistemTesti.txt` içine yazar ve Play modundan çıkar. Testler sahne asset'lerine çalışma zamanı durumunu kaydetmez.
+
+### Güncellenmiş kapsamın doğrulanması
+
+- İki sahnede **128 etkileşimli nesne**: önceki 116 yapıya ek olarak 12 yol parçası. Her yol üç seviye modeline ve mevcut tıklama/ekonomi bağlantısına sahiptir.
+- Ada Play doğrulaması, 1→2→3 modellerini, collider'ları, kapalı set çevresini ve popup bağlantısını geçti.
+- Yeni sistem entegrasyon testinde **40 kontrol geçti**: canlı hareket, ölçek/beyaz vurgu, gelir/vefat sayaçları, yangın ve deprem sonrası kalıcı hasar/onarım, hava tahmini, savunmalı/savunmasız sel ve tsunami, tahliye ve sığınaktan dönüş. Yangında **48/48 yaya** toplanma noktalarına ulaştı.
+- Alev, duman, yağmur ve is için ortak saydam particle shader'ı kullanılır. Bitmap alfa dokuları runtime'da üretilir; shader referansı Resources materyali ile player build'e dahil edilir. Görünürlük gerçek oyun kamerasında da kontrol edildi.
+- Yol ışıkları/ağaçları ayrı bir sabit mesh grubunda birleştirildi. Kaydedilen ada meshleri yalnız kullanılan vertex kanallarını içerir; seviyelerin ayrı açılıp kapanması korunur.
+
+Son genel MainScene oyun testi: **56 geçti, 0 başarısız**. Yeni afet sistem testi: **40 geçti**. Son turda C# derleme, shader derleme ve boş referans hatası görülmedi.
+
+Yeni görsel örnekler: [Yangın ve tahliye](images/LowPolyAda_Fire.png), [Deprem hasarı](images/LowPolyAda_Earthquake.png), [Büyütülmüş yapı popup’ı](images/LowPolyAda_Popup.png).
+
+18 Ekim güncellemesi: NPC çizimleri ve temiz bina materyal blokları optimize edildi; kamera doğrulama çekimleri ayrı karelere dağıtıldı. 4K stres testinde çizim çağrıları yaklaşık %33,5 azaldı ve yeni Graphics Ring Buffer uyarısı görülmedi. Son sistem testi **44 kontrolü geçti**. Ölçümler, sınırlar ve Git kilidi düzeltmesi: [GraphicsBufferFix.md](GraphicsBufferFix.md).

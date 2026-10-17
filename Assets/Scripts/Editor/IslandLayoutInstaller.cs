@@ -32,10 +32,11 @@ public static partial class IslandLayoutInstaller
         SceneManager.MoveGameObjectToScene(island, scene);
         BuildTerrain(Group(island.transform, "Arazi"));
         Transform roads = Group(island.transform, "Yollar", Vector3.up * GroundY);
-        BuildRoadNetwork(roads); CombineVisuals(roads, "YolAgı");
+        BuildRoadNetwork(roads);
         BuildLevelBuildings(Group(island.transform, "YukseltilebilirYapilar", Vector3.up * GroundY));
         BuildStaticPlaces(Group(island.transform, "SabitAlanlar", Vector3.up * GroundY));
         BuildWall(Group(island.transform, "DenizSeti", Vector3.up * GroundY));
+        foreach (BuildingVisuals b in island.GetComponentsInChildren<BuildingVisuals>(true)) b.gameObject.AddComponent<BuildingDamageVisuals>();
         return island;
     }
 
@@ -74,12 +75,21 @@ public static partial class IslandLayoutInstaller
 
     static Mesh PersistMesh(Mesh mesh)
     {
+        // Combining primitives with different vertex layouts can leave unused native attributes undefined.
+        // Rebuild only the attributes used by the island materials before saving stable asset data.
+        Mesh source = mesh;
+        mesh = new Mesh { name = source.name, indexFormat = source.indexFormat };
+        mesh.vertices = source.vertices; mesh.normals = source.normals;
+        if (source.uv.Length == source.vertexCount) mesh.uv = source.uv;
+        mesh.subMeshCount = source.subMeshCount;
+        for (int i = 0; i < source.subMeshCount; i++) mesh.SetTriangles(source.GetTriangles(i), i);
+        mesh.bounds = source.bounds; Object.DestroyImmediate(source);
         EnsureFolder(MeshFolder); string path = MeshFolder + "/" + mesh.name + ".asset";
         Mesh existing = AssetDatabase.LoadAssetAtPath<Mesh>(path);
         if (existing == null) { AssetDatabase.CreateAsset(mesh, path); return mesh; }
         // Mesh native/GPU buffers must be updated explicitly; CopySerialized leaves stale geometry in this editor.
-        existing.Clear(); existing.indexFormat = mesh.indexFormat; existing.vertices = mesh.vertices;
-        existing.normals = mesh.normals; existing.uv = mesh.uv; existing.colors = mesh.colors;
+        existing.Clear(false); existing.indexFormat = mesh.indexFormat; existing.vertices = mesh.vertices;
+        existing.normals = mesh.normals; existing.uv = mesh.uv;
         existing.subMeshCount = mesh.subMeshCount;
         for (int i = 0; i < mesh.subMeshCount; i++) existing.SetTriangles(mesh.GetTriangles(i), i);
         existing.bounds = mesh.bounds; EditorUtility.SetDirty(existing); Object.DestroyImmediate(mesh); return existing;
@@ -108,7 +118,7 @@ public static partial class IslandLayoutInstaller
     static Mesh FinishMesh(string name, List<Vector3> v, List<int> t)
     {
         var mesh = new Mesh { name = name, indexFormat = v.Count > 65000 ? IndexFormat.UInt32 : IndexFormat.UInt16 };
-        mesh.SetVertices(v); mesh.SetTriangles(t, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds(); return PersistMesh(mesh);
+        mesh.SetVertices(v); mesh.uv = new Vector2[v.Count]; mesh.SetTriangles(t, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds(); return PersistMesh(mesh);
     }
 
     static GameObject MeshObject(Transform parent, string name, List<Vector3> v, List<int> t, Color color, bool collider = false)

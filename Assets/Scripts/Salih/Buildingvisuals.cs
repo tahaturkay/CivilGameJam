@@ -40,6 +40,11 @@ public class BuildingVisuals : MonoBehaviour
 
     private int gosterilenLevel = -1;
     private Vector3 baslangicOlcek;
+    private GameManager dinlenenManager;
+    private float vurguZamani = -1f;
+    private Transform vurguModeli;
+    private Vector3 vurguBaslangicOlcek;
+    public float VurguBeyazligi { get; private set; }
 
     private void Start()
     {
@@ -47,6 +52,7 @@ public class BuildingVisuals : MonoBehaviour
         baslangicOlcek = olceklenecekGorsel.localScale;
         if (levelYazisi != null) levelYazisi.gameObject.SetActive(false);
         Guncelle();
+        ManagerDinle();
     }
 
     private void OnMouseEnter()
@@ -62,7 +68,49 @@ public class BuildingVisuals : MonoBehaviour
     private void Update()
     {
         if (GameManager.Instance == null) return;
+        ManagerDinle();
         if (MevcutLevel() != gosterilenLevel) Guncelle();
+        if (vurguZamani >= 0)
+        {
+            float t = Mathf.Clamp01((Time.unscaledTime - vurguZamani) / .2f);
+            float punch = Mathf.Sin(t * Mathf.PI) * (1f - t * .3f);
+            if (vurguModeli != null) vurguModeli.localScale = vurguBaslangicOlcek * (1f + .09f * punch);
+            VurguBeyazligi = .55f * punch;
+            if (t >= 1) VurguyuBitir();
+        }
+    }
+
+    private void ManagerDinle()
+    {
+        if (dinlenenManager == GameManager.Instance) return;
+        if (dinlenenManager != null) dinlenenManager.YapiIslemiTamamlandi -= YapiIslemi;
+        dinlenenManager = GameManager.Instance;
+        if (dinlenenManager != null) dinlenenManager.YapiIslemiTamamlandi += YapiIslemi;
+    }
+
+    private void YapiIslemi(BinaTuru tur)
+    {
+        if (tur != binaTuru) return;
+        VurguyuBitir();
+        Guncelle();
+        vurguModeli = levelModelleri != null && levelModelleri.Length > 0
+            ? levelModelleri[Mathf.Clamp(MevcutLevel() - 1, 0, levelModelleri.Length - 1)].transform : olceklenecekGorsel;
+        if (vurguModeli != null) vurguBaslangicOlcek = vurguModeli.localScale;
+        vurguZamani = Time.unscaledTime;
+    }
+
+    private void VurguyuBitir()
+    {
+        if (vurguModeli != null) vurguModeli.localScale = vurguBaslangicOlcek;
+        vurguModeli = null;
+        vurguZamani = -1;
+        VurguBeyazligi = 0;
+    }
+
+    private void OnDisable() { VurguyuBitir(); }
+    private void OnDestroy()
+    {
+        if (dinlenenManager != null) dinlenenManager.YapiIslemiTamamlandi -= YapiIslemi;
     }
 
     private int MevcutLevel()
@@ -134,7 +182,7 @@ public class BuildingVisuals : MonoBehaviour
     {
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
         var gm = GameManager.Instance;
-        if (PauseMenu.DurdurulduMu || (gm != null && (gm.afetOlduMu || gm.oyunBittiMi))) return;
+        if (PauseMenu.DurdurulduMu || (gm != null && (gm.afetSuruyor || gm.afetOlduMu || gm.oyunBittiMi))) return;
 
         BinaTiklandi?.Invoke(binaTuru);
         if (BinaPopup.Instance == null) { Debug.LogError("3) BinaPopup sahnede yok!"); return; }

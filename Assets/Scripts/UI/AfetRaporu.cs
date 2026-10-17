@@ -13,6 +13,11 @@ public class AfetRaporu : MonoBehaviour
     public TMP_Text hasarText;
     public TMP_Text nufusText;
 
+    private const float SayacAnimasyonSuresi = 1f;
+    private int gosterilecekVefat;
+    private float vefatAnimasyonSuresi;
+    private bool vefatAnimasyonuAktif;
+
     void Awake()
     {
         panel.SetActive(false);
@@ -24,6 +29,7 @@ public class AfetRaporu : MonoBehaviour
         if (gm == null) return;
 
         if (gm.afetOlduMu && !panel.activeSelf) Goster(gm);
+        VefatSayaciniGuncelle();
     }
 
     void Goster(GameManager gm)
@@ -34,12 +40,28 @@ public class AfetRaporu : MonoBehaviour
         savunmaText.text = gm.sonSavunmaYeterli
             ? "Savunma: YETERLİ"
             : "Savunma: YETERSİZ  (" + YapiAdlari(afet.kontrolEdilen) + " en az Lv " + afet.gerekenLevel + " olmalıydı)";
-        vefatText.text = "Hayatını kaybeden: " + gm.sonVefatSayisi;
+        gosterilecekVefat = Mathf.Max(0, gm.sonVefatSayisi);
+        vefatAnimasyonSuresi = 0f;
+        vefatAnimasyonuAktif = gosterilecekVefat > 0;
+        if (vefatText != null)
+            vefatText.text = "Hayatını kaybeden: 0";
         kurtarilanText.text = "Farkındalık ve AKUT sayesinde kurtarılan: " + gm.sonKurtarilanSayisi;
         hasarText.text = "Hasar alan yapı: " + gm.sonHasarliBinaSayisi;
         nufusText.text = "Kalan nüfus: " + gm.nufus;
 
         panel.SetActive(true);
+    }
+
+    private void VefatSayaciniGuncelle()
+    {
+        if (!vefatAnimasyonuAktif || vefatText == null) return;
+
+        vefatAnimasyonSuresi += Time.unscaledDeltaTime;
+        float t = Mathf.Clamp01(vefatAnimasyonSuresi / SayacAnimasyonSuresi);
+        float easeOut = 1f - Mathf.Pow(1f - t, 3f);
+        int sayac = t >= 1f ? gosterilecekVefat : Mathf.RoundToInt(gosterilecekVefat * easeOut);
+        vefatText.text = "Hayatını kaybeden: " + sayac;
+        if (t >= 1f) vefatAnimasyonuAktif = false;
     }
 
     public void Devam()

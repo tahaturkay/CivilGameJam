@@ -40,7 +40,7 @@ public static class Ekonomi
     static bool IslemYapilabilir(GameManager gm)
     {
         // Popup açıkken oyunDurduMu true olduğu için ona bakılmaz; sadece afet ve oyun sonu engeller
-        return gm != null && !gm.afetOlduMu && !gm.oyunBittiMi;
+        return gm != null && !gm.afetSuruyor && !gm.afetOlduMu && !gm.oyunBittiMi;
     }
 
     public static bool YukseltilebilirMi(BinaTuru bina)
@@ -61,6 +61,7 @@ public static class Ekonomi
         gm.toplamHarcama += maliyet;
         gm.yukseltmeSayisi++;
         gm.LevelAyarla(bina, gm.Level(bina) + 1);
+        gm.YapiIsleminiBildir(bina);
         return true;
     }
 
@@ -79,6 +80,7 @@ public static class Ekonomi
         gm.para -= maliyet;
         gm.toplamHarcama += maliyet;
         gm.HasarliAyarla(bina, false);
+        gm.YapiIsleminiBildir(bina);
         return true;
     }
 }

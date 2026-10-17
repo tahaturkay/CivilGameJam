@@ -6,7 +6,7 @@ Shader "CivilIsland/Stylized Ocean"
         _ShallowColor ("Wave color", Color) = (0.025, 0.38, 0.45, 1)
         _GlintColor ("Sunlit ripples", Color) = (0.35, 0.73, 0.77, 1)
         _WaveScale ("Wave scale", Float) = 0.12
-        _Speed ("Wave speed", Float) = 0.22
+        _Speed ("Wave speed", Float) = 0.36
     }
     SubShader
     {

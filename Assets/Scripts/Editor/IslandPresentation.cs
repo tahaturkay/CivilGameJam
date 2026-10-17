@@ -81,7 +81,7 @@ public static class IslandPresentation
         ocean.SetColor("_ShallowColor", new Color(.025f, .38f, .45f));
         ocean.SetColor("_GlintColor", new Color(.35f, .73f, .77f));
         ocean.SetFloat("_WaveScale", .16f);
-        ocean.SetFloat("_Speed", .22f);
+        ocean.SetFloat("_Speed", .36f);
         Renderer sea = island.GetComponentsInChildren<Renderer>().First(r => r.name == "Deniz");
         sea.transform.localScale = new Vector3(800, sea.transform.localScale.y, 800);
         sea.sharedMaterial = ocean;

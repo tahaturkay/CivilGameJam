@@ -75,24 +75,56 @@ public class UIManager : MonoBehaviour
 
     private bool initialized;
 
-    // Üst bar ölçüleri (ikonlar 1.5 kat büyütüldü: yuva 44→66, ikon 32→48; kartlar buna göre uzadı)
-    private const float IkonOlcek = 1.5f;
+    // Üst bar ikonları iki katına çıkarıldı; kartlar ve metin alanı buna göre büyütülür.
+    private const float IkonOlcek = 3f;
     private const float IkonYuvasi = 44f * IkonOlcek;
     private const float IkonBoyu = 32f * IkonOlcek;
-    private const float KartYuksekligi = 84f;
+    private const float KartYuksekligi = 152f;
     private const float YaziSolBosluk = 10f + IkonYuvasi + 10f;
     private const float EkGenislik = YaziSolBosluk - 64f;
+    private const float HudKenarBoslugu = 20f;
+    private const float HudGruplarArasiBosluk = 40f;
 
     // Update'te her karede yazı/sprite üretmemek için son gösterilen değerler
     private int sonGun = -1, sonPara = int.MinValue, sonGelir = -1, sonNufus = -1, sonKapasite = -1, sonFark = -1, sonKalan = int.MinValue, sonTavan = -1, sonHizModu = -1;
     private Vector2 sonFarePos = new Vector2(-1f, -1f);
     private BuildingVisuals sonHoverBina;
 
+    private RectTransform leftHudGroupRt;
+    private RectTransform rightHudColumnRt;
+    private RectTransform hudCanvasRt;
+    private float lastHudCanvasWidth = -1f;
+
+    private GameManager incomeEventManager;
+    private bool paraGosterimiHazir;
+    private bool bakiyeAnimasyonuAktif;
+    private bool gelirAnimasyonuAktif;
+    private int gosterilenBakiye;
+    private int bakiyeAnimasyonBaslangici;
+    private int bakiyeAnimasyonHedefi;
+    private int gelirAnimasyonHedefi;
+    private int gosterilenGelir;
+    private int sonGosterilenBakiye = int.MinValue;
+    private int sonGosterilenGelir = int.MinValue;
+    private float bakiyeAnimasyonSuresi;
+    private float gelirAnimasyonSuresi;
+    private const float ParaAnimasyonSuresi = 1f;
+
     private void Awake()
     {
         sharedFont = gunText != null ? gunText.font : TMP_Settings.defaultFontAsset;
         EnsureTurkishFontSupport(sharedFont);
         ApplyPrototypeHudAndModals();
+    }
+
+    private void OnEnable()
+    {
+        GelirEtkinligineBaglan(GameManager.Instance);
+    }
+
+    private void OnDisable()
+    {
+        GelirEtkinligindenAyril();
     }
 
     public static void EnsureTurkishFontSupport(TMP_FontAsset fontAsset)
@@ -148,6 +180,9 @@ public class UIManager : MonoBehaviour
 
             BuildTopLeftHud(ustBar);
             BuildTopRightHud(ustBar);
+            Canvas canvas = ustBar.GetComponentInParent<Canvas>();
+            if (canvas != null) hudCanvasRt = canvas.rootCanvas.GetComponent<RectTransform>();
+            UpdateHudLayout(true);
         }
 
         BuildHoverTooltip();
@@ -164,7 +199,9 @@ public class UIManager : MonoBehaviour
         lgRt.anchorMax = new Vector2(0f, 1f);
         lgRt.pivot = new Vector2(0f, 1f);
         lgRt.anchoredPosition = new Vector2(20f, -18f);
-        lgRt.sizeDelta = new Vector2(1000f, KartYuksekligi + 4f);
+        float leftGroupWidth = 230f + EkGenislik + 265f + EkGenislik + 275f + EkGenislik + 28f;
+        lgRt.sizeDelta = new Vector2(leftGroupWidth, KartYuksekligi + 4f);
+        leftHudGroupRt = lgRt;
 
         HorizontalLayoutGroup hlg = leftGroup.GetComponent<HorizontalLayoutGroup>();
         hlg.spacing = 14f;
@@ -206,6 +243,7 @@ public class UIManager : MonoBehaviour
         rcRt.pivot = new Vector2(1f, 1f);
         rcRt.anchoredPosition = new Vector2(-20f, -18f);
         rcRt.sizeDelta = new Vector2(260f + EkGenislik, KartYuksekligi + 70f);
+        rightHudColumnRt = rcRt;
 
         // Üstte Gün Kutusu (Krem arka planlı)
         RectTransform dayPill = CreateHudPillCard(
@@ -583,8 +621,10 @@ public class UIManager : MonoBehaviour
 
     private void Update()
     {
+        UpdateHudLayout(false);
         GameManager gm = GameManager.Instance;
         if (gm == null) return;
+        GelirEtkinligineBaglan(gm);
 
         var d = DengeAyarlari.Aktif;
         int kalan = d.SonrakiAfeteKalanGun(gm.gun);
@@ -603,8 +643,15 @@ public class UIManager : MonoBehaviour
             farkindalikSubLabelText.text = "FARKINDALIK (MAKS %" + tavan + ")";
         if (gm.gun != sonGun && gunText != null)
             gunText.text = "Gün: " + gm.gun + "/" + d.toplamGun;
-        if ((gm.para != sonPara || gelir != sonGelir) && paraText != null)
-            paraText.text = gm.para + " TL (+" + gelir + "/g)";
+        UpdateParaAnimasyonlari(gm, gelir);
+        int gelirGosterimi = gelirAnimasyonuAktif ? gosterilenGelir : gelir;
+        if (paraText != null &&
+            (gosterilenBakiye != sonGosterilenBakiye || gelirGosterimi != sonGosterilenGelir))
+        {
+            paraText.text = gosterilenBakiye + " TL (+" + gelirGosterimi + "/g)";
+            sonGosterilenBakiye = gosterilenBakiye;
+            sonGosterilenGelir = gelirGosterimi;
+        }
         if ((gm.nufus != sonNufus || kapasite != sonKapasite) && nufusText != null)
             nufusText.text = gm.nufus + "/" + kapasite;
         if (fark != sonFark)
@@ -617,6 +664,122 @@ public class UIManager : MonoBehaviour
 
         RefreshSpeedButtonVisuals();
         UpdateBuildingHoverLabel(gm);
+    }
+
+    private void GelirEtkinligineBaglan(GameManager manager)
+    {
+        if (manager == incomeEventManager) return;
+        GelirEtkinligindenAyril();
+        if (manager == null || !isActiveAndEnabled) return;
+
+        incomeEventManager = manager;
+        incomeEventManager.GunlukGelirEklendi += GunlukGelirEklendi;
+    }
+
+    private void GelirEtkinligindenAyril()
+    {
+        if (incomeEventManager == null) return;
+        incomeEventManager.GunlukGelirEklendi -= GunlukGelirEklendi;
+        incomeEventManager = null;
+    }
+
+    private void GunlukGelirEklendi(int miktar)
+    {
+        GameManager manager = incomeEventManager;
+        if (manager == null) return;
+
+        if (!paraGosterimiHazir)
+        {
+            // GelirKaydet, bakiye arttıktan sonra çağrılır; önceki değer buradan güvenle bulunur.
+            gosterilenBakiye = manager.para - miktar;
+            paraGosterimiHazir = true;
+        }
+
+        bakiyeAnimasyonBaslangici = gosterilenBakiye;
+        bakiyeAnimasyonHedefi = manager.para;
+        bakiyeAnimasyonSuresi = 0f;
+        bakiyeAnimasyonuAktif = miktar != 0;
+        gosterilenGelir = 0;
+        gelirAnimasyonHedefi = Mathf.Max(0, miktar);
+        gelirAnimasyonSuresi = 0f;
+        gelirAnimasyonuAktif = miktar > 0;
+        sonPara = manager.para;
+    }
+
+    private void UpdateParaAnimasyonlari(GameManager manager, int gunlukGelir)
+    {
+        if (!paraGosterimiHazir)
+        {
+            gosterilenBakiye = manager.para;
+            paraGosterimiHazir = true;
+        }
+        else if (manager.para != sonPara)
+        {
+            // Harcama veya başka bir değişiklik olduğunda bakiye gerçek değere anında geçer.
+            gosterilenBakiye = manager.para;
+            bakiyeAnimasyonuAktif = false;
+        }
+
+        if (bakiyeAnimasyonuAktif)
+        {
+            bakiyeAnimasyonSuresi += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(bakiyeAnimasyonSuresi / ParaAnimasyonSuresi);
+            gosterilenBakiye = Mathf.RoundToInt(Mathf.Lerp(
+                bakiyeAnimasyonBaslangici, bakiyeAnimasyonHedefi, EaseOutCubic(t)));
+            if (t >= 1f)
+            {
+                gosterilenBakiye = bakiyeAnimasyonHedefi;
+                bakiyeAnimasyonuAktif = false;
+            }
+        }
+
+        if (gelirAnimasyonuAktif)
+        {
+            gelirAnimasyonSuresi += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(gelirAnimasyonSuresi / ParaAnimasyonSuresi);
+            gosterilenGelir = Mathf.RoundToInt(Mathf.Lerp(0f, gelirAnimasyonHedefi, EaseOutCubic(t)));
+            if (t >= 1f)
+            {
+                gosterilenGelir = gelirAnimasyonHedefi;
+                gelirAnimasyonuAktif = false;
+            }
+        }
+
+        sonPara = manager.para;
+        sonGelir = gunlukGelir;
+    }
+
+    private static float EaseOutCubic(float value)
+    {
+        float inverse = 1f - value;
+        return 1f - inverse * inverse * inverse;
+    }
+
+    private void UpdateHudLayout(bool force)
+    {
+        if (leftHudGroupRt == null || rightHudColumnRt == null) return;
+        if (hudCanvasRt == null)
+        {
+            Canvas canvas = GetComponentInParent<Canvas>();
+            if (canvas != null) hudCanvasRt = canvas.rootCanvas.GetComponent<RectTransform>();
+        }
+        if (hudCanvasRt == null) return;
+
+        float canvasWidth = hudCanvasRt.rect.width;
+        if (canvasWidth <= 0f || (!force && Mathf.Abs(canvasWidth - lastHudCanvasWidth) < 0.5f)) return;
+        lastHudCanvasWidth = canvasWidth;
+
+        float availableWidth = Mathf.Max(1f, canvasWidth - HudKenarBoslugu * 2f);
+        float leftScale = Mathf.Min(1f, availableWidth / leftHudGroupRt.sizeDelta.x);
+        float rightScale = Mathf.Min(1f, availableWidth / rightHudColumnRt.sizeDelta.x);
+        leftHudGroupRt.localScale = Vector3.one * leftScale;
+        rightHudColumnRt.localScale = Vector3.one * rightScale;
+
+        bool placeControlsBelow = leftHudGroupRt.sizeDelta.x * leftScale +
+                                  rightHudColumnRt.sizeDelta.x * rightScale + HudGruplarArasiBosluk > availableWidth;
+        rightHudColumnRt.anchoredPosition = placeControlsBelow
+            ? new Vector2(-HudKenarBoslugu, -(18f + leftHudGroupRt.sizeDelta.y * leftScale + 12f))
+            : new Vector2(-HudKenarBoslugu, -18f);
     }
 
     private void UpdateBuildingHoverLabel(GameManager gm)
@@ -1027,7 +1190,7 @@ public class UIManager : MonoBehaviour
         iconRt.anchorMax = new Vector2(0f, 0.5f);
         iconRt.pivot = new Vector2(0.5f, 0.5f);
         iconRt.anchoredPosition = new Vector2(22f, 2f);
-        iconRt.sizeDelta = new Vector2(24f, 24f);
+        iconRt.sizeDelta = new Vector2(48f, 48f);
         Image iconImg = iconObj.GetComponent<Image>();
         iconImg.sprite = GetColoredIconSprite(iconType, Color.white);
         iconImg.raycastTarget = false;
@@ -1035,7 +1198,7 @@ public class UIManager : MonoBehaviour
         outLabel = CreateText(btnObj.transform, "Label", font, labelText, 20f, FontStyles.Bold, textColor, TextAlignmentOptions.Center);
         outLabel.rectTransform.anchorMin = Vector2.zero;
         outLabel.rectTransform.anchorMax = Vector2.one;
-        outLabel.rectTransform.offsetMin = new Vector2(46f, 5f);
+        outLabel.rectTransform.offsetMin = new Vector2(72f, 5f);
         outLabel.rectTransform.offsetMax = new Vector2(-10f, 0f);
 
         return btn;

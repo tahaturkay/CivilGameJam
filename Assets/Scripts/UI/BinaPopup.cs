@@ -21,9 +21,16 @@ public class BinaPopup : MonoBehaviour
     public Button quizButonu;      // Sadece Okul seçiliyken görünür
     public Button kapatButonu;
 
+    [Header("Pencere ölçeği")]
+    [Min(1f)] public float nominalPopupScale = 2f;
+
     private BinaTuru aktifBina;
     private Image[] starFillImages = new Image[3];
     private bool styleApplied;
+    private RectTransform popupCardRt;
+    private Rect popupLastSafeArea;
+    private int popupLastScreenWidth = -1;
+    private int popupLastScreenHeight = -1;
 
     // Popup bir binaya tıklanınca açılıyor; aynı tıklama alttaki butona (ör. X) denk gelmesin diye kısa koruma
     private float acilisZamani;
@@ -40,6 +47,12 @@ public class BinaPopup : MonoBehaviour
         }
         ApplyPrototypePopupStyle();
         panel.SetActive(false);
+    }
+
+    private void Update()
+    {
+        if (panel != null && panel.activeSelf)
+            FitPopupToSafeArea(false);
     }
 
     private void Start()
@@ -81,6 +94,7 @@ public class BinaPopup : MonoBehaviour
             overlayImg.sprite = null;
             overlayImg.color = new Color32(10, 17, 28, 155);
         }
+        UIManager.StretchFull(panel.GetComponent<RectTransform>());
 
         Transform pencereTr = panel.transform.Find("Pencere");
         if (pencereTr == null) pencereTr = PencereOlustur();
@@ -90,11 +104,13 @@ public class BinaPopup : MonoBehaviour
         if (oldVlg != null) Destroy(oldVlg);
 
         RectTransform cardRt = pencereTr.GetComponent<RectTransform>();
+        popupCardRt = cardRt;
         cardRt.anchorMin = new Vector2(0.5f, 0.5f);
         cardRt.anchorMax = new Vector2(0.5f, 0.5f);
         cardRt.pivot = new Vector2(0.5f, 0.5f);
         cardRt.anchoredPosition = Vector2.zero;
         cardRt.sizeDelta = new Vector2(540f, 430f);
+        cardRt.localScale = Vector3.one * nominalPopupScale;
 
         Image cardImg = pencereTr.GetComponent<Image>();
         if (cardImg != null)
@@ -328,7 +344,7 @@ public class BinaPopup : MonoBehaviour
         iconRt.anchorMax = new Vector2(0f, 0.5f);
         iconRt.pivot = new Vector2(0.5f, 0.5f);
         iconRt.anchoredPosition = new Vector2(22f, 2f);
-        iconRt.sizeDelta = new Vector2(24f, 24f);
+        iconRt.sizeDelta = new Vector2(48f, 48f);
         Image iconImg = iconObj.GetComponent<Image>();
         iconImg.sprite = UIManager.GetColoredIconSprite(iconType, Color.white);
         iconImg.raycastTarget = false;
@@ -342,7 +358,7 @@ public class BinaPopup : MonoBehaviour
             RectTransform lRt = label.rectTransform;
             lRt.anchorMin = Vector2.zero;
             lRt.anchorMax = Vector2.one;
-            lRt.offsetMin = new Vector2(46f, 5f);
+            lRt.offsetMin = new Vector2(72f, 5f);
             lRt.offsetMax = new Vector2(-8f, 0f);
         }
     }
@@ -359,6 +375,43 @@ public class BinaPopup : MonoBehaviour
 
         Guncelle();
         panel.SetActive(true);
+        FitPopupToSafeArea(true);
+    }
+
+    private void FitPopupToSafeArea(bool force)
+    {
+        if (popupCardRt == null) return;
+        Rect safeArea = Screen.safeArea;
+        if (!force && popupLastScreenWidth == Screen.width && popupLastScreenHeight == Screen.height &&
+            popupLastSafeArea == safeArea) return;
+
+        RectTransform parentRect = popupCardRt.parent as RectTransform;
+        if (parentRect == null) return;
+
+        Canvas canvas = panel.GetComponentInParent<Canvas>();
+        Camera uiCamera = canvas != null && canvas.rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay
+            ? canvas.rootCanvas.worldCamera
+            : null;
+        Vector2 safeMin;
+        Vector2 safeMax;
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(parentRect, safeArea.min, uiCamera, out safeMin) ||
+            !RectTransformUtility.ScreenPointToLocalPointInRectangle(parentRect, safeArea.max, uiCamera, out safeMax))
+        {
+            safeMin = parentRect.rect.min;
+            safeMax = parentRect.rect.max;
+        }
+
+        float availableWidth = Mathf.Max(0f, safeMax.x - safeMin.x);
+        float availableHeight = Mathf.Max(0f, safeMax.y - safeMin.y);
+        float fitScale = Mathf.Min(nominalPopupScale,
+            Mathf.Min(availableWidth / popupCardRt.sizeDelta.x, availableHeight / popupCardRt.sizeDelta.y));
+        fitScale = Mathf.Max(0.01f, fitScale);
+        popupCardRt.localScale = Vector3.one * fitScale;
+        popupCardRt.anchoredPosition = (safeMin + safeMax) * 0.5f;
+
+        popupLastScreenWidth = Screen.width;
+        popupLastScreenHeight = Screen.height;
+        popupLastSafeArea = safeArea;
     }
 
     public void Kapat()
@@ -471,7 +524,7 @@ public class BinaPopup : MonoBehaviour
 
             case BinaTuru.Altyapi:
                 baslikText.text = "ALTYAPI";
-                aciklamaText.text = "Yağmur suyu ve kanalizasyon sistemi. Sel afetinde şehri korur (en az Seviye 2 gerekir)." + uyari;
+                aciklamaText.text = "Yollar ve yağmur suyu altyapısı. Toprak → çakıl → asfalt. Selden korunmak için en az Seviye 2 gerekir." + uyari;
                 break;
         }
     }
