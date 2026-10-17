@@ -60,7 +60,7 @@ public class BinaPopup : MonoBehaviour
         if (YeniAcildi()) return;
 
         // Sahnede Nisa'nın EconomyAndTime'ı varsa yükseltmeyi o yapar (tek kaynak)
-        var ekonomi = FindFirstObjectByType<EconomyAndTime>();
+        var ekonomi = FindAnyObjectByType<EconomyAndTime>();
         if (ekonomi != null)
         {
             switch (aktifBina)
