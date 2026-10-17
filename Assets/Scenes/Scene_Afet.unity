@@ -129,31 +129,31 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1602628672116201348, guid: 9680b1b4fc2224581b9c7ccaa1bd0696, type: 3}
       propertyPath: gun
-      value: 21
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1602628672116201348, guid: 9680b1b4fc2224581b9c7ccaa1bd0696, type: 3}
       propertyPath: setLevel
-      value: 2
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1602628672116201348, guid: 9680b1b4fc2224581b9c7ccaa1bd0696, type: 3}
       propertyPath: akutLevel
-      value: 2
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1602628672116201348, guid: 9680b1b4fc2224581b9c7ccaa1bd0696, type: 3}
       propertyPath: okulLevel
-      value: 2
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1602628672116201348, guid: 9680b1b4fc2224581b9c7ccaa1bd0696, type: 3}
       propertyPath: altyapiLevel
-      value: 2
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1602628672116201348, guid: 9680b1b4fc2224581b9c7ccaa1bd0696, type: 3}
       propertyPath: itfaiyeLevel
-      value: 2
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1602628672116201348, guid: 9680b1b4fc2224581b9c7ccaa1bd0696, type: 3}
       propertyPath: temelBinaLevel
-      value: 2
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6284542052888561139, guid: 9680b1b4fc2224581b9c7ccaa1bd0696, type: 3}
       propertyPath: m_LocalPosition.x

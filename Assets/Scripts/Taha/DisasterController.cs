@@ -389,7 +389,7 @@ public class DisasterController : MonoBehaviour
         if (tozBulutuPrefab != null)
         {
             Collider col = bina.GetComponent<Collider>();
-            Vector3 zeminPos = col != null ? new Vector3(bina.position.x, col.bounds.min.y, bina.position.z) : bina.position;
+            Vector3 zeminPos = col != null ? new Vector3(bina.position.x, col.bounds.min.y + 0.5f, bina.position.z) : bina.position;
             
             GameObject toz = Instantiate(tozBulutuPrefab, zeminPos, Quaternion.identity);
             toz.SetActive(true);
