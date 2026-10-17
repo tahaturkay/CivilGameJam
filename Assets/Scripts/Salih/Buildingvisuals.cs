@@ -93,12 +93,20 @@ public class BuildingVisuals : MonoBehaviour
             levelYazisi.text = "Lvl " + level;
     }
 
-    private void OnMouseDown()
+    void OnMouseDown()
     {
-        // UI uzerine tiklandiysa binayi tetikleme
-        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
+        Debug.Log("1) Tıklandı: " + name);
 
-        Debug.Log($"[Harita] Tiklandi: {binaTuru} (Lvl {MevcutLevel()})");
-        BinaTiklandi?.Invoke(binaTuru);
+        if (UnityEngine.EventSystems.EventSystem.current != null &&
+            UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
+        {
+            Debug.Log("2) UI tıklamayı engelledi");
+            return;
+        }
+
+        if (BinaPopup.Instance == null) { Debug.LogError("3) BinaPopup sahnede yok!"); return; }
+
+        Debug.Log("4) Popup açılıyor: " + binaTuru);
+        BinaPopup.Instance.Ac(binaTuru);
     }
 }
