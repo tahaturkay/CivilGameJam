@@ -832,9 +832,9 @@
     "m_PerRendererData": false,
     "m_customAttributes": [],
     "m_Value": {
-        "r": 0.6179245710372925,
-        "g": 0.9122819304466248,
-        "b": 1.0,
+        "r": 0.9111338257789612,
+        "g": 0.9695398807525635,
+        "b": 0.9905660152435303,
         "a": 1.0
     },
     "isMainColor": false,
@@ -999,7 +999,7 @@
     "m_AllowMaterialOverride": false,
     "m_SurfaceType": 0,
     "m_ZTestMode": 4,
-    "m_ZWriteControl": 0,
+    "m_ZWriteControl": 1,
     "m_AlphaMode": 0,
     "m_RenderFace": 0,
     "m_AlphaClip": false,
@@ -1930,9 +1930,9 @@
     "m_PerRendererData": false,
     "m_customAttributes": [],
     "m_Value": {
-        "r": 0.0,
-        "g": 0.4122333824634552,
-        "b": 0.7358490228652954,
+        "r": 0.14509804546833038,
+        "g": 0.800000011920929,
+        "b": 1.0,
         "a": 1.0
     },
     "isMainColor": false,
