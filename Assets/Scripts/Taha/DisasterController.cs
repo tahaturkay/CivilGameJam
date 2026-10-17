@@ -11,6 +11,9 @@ public class DisasterController : MonoBehaviour
     public Transform tsunamiDalgasi;      
     public GameObject yanginEfekti;       
     public GameObject yagmurEfekti;       
+    // --- YENİ YANGIN SİSTEMİ ---
+    public GameObject yanginPrefab;        // Klasördeki Yangın Prefabını buraya atacağız
+    public Transform[] yanacakBinalar;     // Yangın çıkmasını istediğin binaları buraya sürükle
 
     private int sonAfetGunu = 0;
     private bool afetDevamEdiyorMu = false;
@@ -80,9 +83,13 @@ public class DisasterController : MonoBehaviour
 
             case 2: // YANGIN (15 Saniye)
                 afetAdi = "YANGIN (Gereken Lvl: " + gerekenLevel + ")";
-                yield return StartCoroutine(YanginEfektiOynat(15.0f));
+                
+                // İtfaiye yetersizse yangın binalara sıçrar!
+                bool yanginSivrildiMi = GameManager.Instance.itfaiyeLevel < gerekenLevel;
+                
+                yield return StartCoroutine(YanginEfektiOynat(15.0f, yanginSivrildiMi));
 
-                if (GameManager.Instance.itfaiyeLevel < gerekenLevel) {
+                if (yanginSivrildiMi) {
                     GameManager.Instance.temelBinaLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.temelBinaLevel);
                     GameManager.Instance.okulLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.okulLevel);
                     hasarAldiMi = true;
@@ -91,10 +98,15 @@ public class DisasterController : MonoBehaviour
 
             case 3: // TSUNAMİ (15 Saniye)
                 afetAdi = "TSUNAMİ (Gereken Lvl: " + gerekenLevel + ")";
-                // Haritanız küçüldüğü için su yüksekliği (hedefSuYuksekligi) 1.5f olarak ayarlandı
-                yield return StartCoroutine(TsunamiDalgaVeSuEfekti(1.5f)); 
+                
+                // Set yeterli mi kontrol et
+                bool setYeterliMi = GameManager.Instance.setLevel >= gerekenLevel;
+                
+                // Efekti başlat ve setin yeterli olup olmadığını bildir
+                yield return StartCoroutine(TsunamiDalgaVeSuEfekti(1.5f, setYeterliMi)); 
 
-                if (GameManager.Instance.setLevel < gerekenLevel) {
+                // Hasar sadece set yetersizse alınır
+                if (!setYeterliMi) {
                     GameManager.Instance.setLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.setLevel);
                     GameManager.Instance.temelBinaLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.temelBinaLevel);
                     hasarAldiMi = true;
@@ -161,36 +173,149 @@ public class DisasterController : MonoBehaviour
         if (yagmurEfekti != null) yagmurEfekti.SetActive(false);
     }
 
-    IEnumerator YanginEfektiOynat(float sure)
+    IEnumerator YanginEfektiOynat(float sure, bool hasarVarMi)
     {
-        if (yanginEfekti != null) yanginEfekti.SetActive(true);
-        yield return new WaitForSeconds(sure); // 15s yanar
-        if (yanginEfekti != null) yanginEfekti.SetActive(false);
+        System.Collections.Generic.List<GameObject> aktifAtesler = new System.Collections.Generic.List<GameObject>();
+
+        // 1. AŞAMA: İlk 5 saniyede teker teker alev alma
+        if (yanacakBinalar.Length > 0)
+        {
+            float yanmaAraligi = 5.0f / yanacakBinalar.Length; // 5 saniyeyi bina sayısına böl
+            
+            foreach (Transform bina in yanacakBinalar)
+            {
+                if (bina != null)
+                {
+                    // Başlangıç olarak binanın kendi pozisyonunu al
+                    Vector3 tepeNoktasi = bina.position;
+
+                    // Binanın üzerindeki Collider'ı (kutu sınırlarını) bul
+                    Collider binaCollider = bina.GetComponent<Collider>();
+                    
+                    if (binaCollider != null)
+                    {
+                        // Collider varsa, ateşin Y (yükseklik) değerini binanın en üst noktasına sabitle
+                        tepeNoktasi.y = binaCollider.bounds.max.y;
+                    }
+                    else
+                    {
+                        // Eğer arkadaşın binaya Collider eklemeyi unuttuysa, yedek olarak biraz yukarı kaldır
+                        tepeNoktasi.y += 2f; 
+                    }
+
+                    // Ateşi tam çatıda (tepeNoktasi) oluştur
+                    GameObject ates = Instantiate(yanginPrefab, tepeNoktasi, Quaternion.identity);
+                    ates.SetActive(true);
+                    aktifAtesler.Add(ates);
+                }
+                yield return new WaitForSeconds(yanmaAraligi);
+            }
+        }
+        else
+        {
+            yield return new WaitForSeconds(5.0f); // Bina yoksa ilk 5 saniyeyi boş geç
+        }
+
+        // 2. AŞAMA: Orta kısımdaki bekleme süresi (Binalar alev alev yanıyor)
+        // Toplam 15 saniyenin ilk 5'i yandı, son 5'i sönecek. Ortaya 5 saniye kalır.
+        float ortaSure = sure - 10.0f; 
+        if (ortaSure > 0) yield return new WaitForSeconds(ortaSure);
+
+        // 3. AŞAMA: Son 5 saniye (Söndürme veya Yanmaya Devam Etme)
+        if (!hasarVarMi) 
+        {
+            // İTFAİYE GÜÇLÜ: Ateşleri teker teker söndür
+            Debug.Log("İtfaiye müdahale ediyor! Ateşler teker teker söndürülüyor.");
+            if (aktifAtesler.Count > 0)
+            {
+                float sondurmeAraligi = 5.0f / aktifAtesler.Count;
+                
+                // Listeyi sondan başa doğru silerek söndürüyoruz
+                for (int i = aktifAtesler.Count - 1; i >= 0; i--)
+                {
+                    Destroy(aktifAtesler[i]);
+                    aktifAtesler.RemoveAt(i);
+                    yield return new WaitForSeconds(sondurmeAraligi);
+                }
+            }
+            else
+            {
+                yield return new WaitForSeconds(5.0f);
+            }
+        }
+        else 
+        {
+            // İTFAİYE YETERSİZ: Binalar yanmaya devam eder
+            Debug.Log("İtfaiye yetersiz! Binalar alev alev yanmaya devam ediyor.");
+            yield return new WaitForSeconds(5.0f);
+        }
+
+        // GÜVENLİK TEMİZLİĞİ: Süre bitiminde sahnede kalan son ateşleri de temizle
+        foreach (GameObject ates in aktifAtesler)
+        {
+            if (ates != null) Destroy(ates);
+        }
+        aktifAtesler.Clear();
     }
 
-    IEnumerator TsunamiDalgaVeSuEfekti(float hedefSuYuksekligi)
+    IEnumerator TsunamiDalgaVeSuEfekti(float hedefSuYuksekligi, bool setYeterliMi)
     {
         if (tsunamiDalgasi != null)
         {
             tsunamiDalgasi.gameObject.SetActive(true);
-            Vector3 dalgaBaslangic = new Vector3(0, 1f, -15f); // Küçük haritaya göre -15'ten başlar
-            Vector3 dalgaBitis = new Vector3(0, 1f, 2f);
+            
+            // Dalganın başlangıç ve bitiş noktaları
+            Vector3 dalgaBaslangic = new Vector3(0, 1f, -45f); 
+            Vector3 dalgaBitis = new Vector3(0, 1f, 102f);
+
+            // *** YENİ AYAR: Setin Haritadaki Z Pozisyonu ***
+            // Unity'den set modeline tıkla, Z değerine bak ve buraya yaz (Örn: -15f)
+            float setinZPozisyonu = 10f; 
+
+            // Dalganın sete yüzde kaçlık ilerlemede çarpacağını otomatik hesaplıyoruz!
+            float carpmaYuzdesi = Mathf.InverseLerp(dalgaBaslangic.z, dalgaBitis.z, setinZPozisyonu);
 
             float gecenSure = 0f;
-            float dalgaSuresi = 4.0f; // 4s'de adaya çarpar
+            float dalgaSuresi = 15.0f; // Saniye uzadı
             
             while (gecenSure < dalgaSuresi)
             {
-                tsunamiDalgasi.position = Vector3.Lerp(dalgaBaslangic, dalgaBitis, gecenSure / dalgaSuresi);
+                float ilerleme = gecenSure / dalgaSuresi; 
+                Vector3 mevcutPozisyon = Vector3.Lerp(dalgaBaslangic, dalgaBitis, ilerleme);
+
+                // EĞER SET YETERLİYSE VE DALGA SETE ULAŞTIYSA:
+                if (setYeterliMi && ilerleme >= carpmaYuzdesi)
+                {
+                    // 1. Dalga seti delip geçemesin! İleri gitmeyi durdursun (Z'yi sete sabitliyoruz)
+                    mevcutPozisyon.z = setinZPozisyonu; 
+
+                    // 2. Çarptığı an duvarda parçalanıp hızla yerin dibine (Y: -4) girsin
+                    // * 5f çarpanı erimenin çok hızlı (şak diye) olmasını sağlar
+                    float erimeHizi = (ilerleme - carpmaYuzdesi) * 5f; 
+                    mevcutPozisyon.y = Mathf.Lerp(1f, -4f, Mathf.Clamp01(erimeHizi)); 
+                }
+
+                tsunamiDalgasi.position = mevcutPozisyon;
                 gecenSure += Time.deltaTime;
                 yield return null;
             }
         }
 
-        if (tsunamiSuyu != null)
+        // Dalga çarpması bitti. Şimdi su basacak mı?
+        if (!setYeterliMi)
         {
-            // Su 3s çıkar, 5s adayı kaplar, 3s iner (Toplam 11s + 4s dalga = 15s)
-            yield return StartCoroutine(SuYukseltIndir(hedefSuYuksekligi, 3f, 5f, 3f));
+            // SET YETERSİZ: Arkasından su kopyası yükselir ve şehri basar
+            if (tsunamiSuyu != null)
+            {
+                // Dalga süresini 15 saniyeye çektiğin için su yükselme sürelerini de ona göre dengeleyebilirsin
+                yield return StartCoroutine(SuYukseltIndir(hedefSuYuksekligi, 3f, 5f, 3f));
+            }
+        }
+        else
+        {
+            // SET YETERLİ: Su basmaz! 
+            Debug.Log("Setler dalgayı durdurdu! Şehri su basmadı.");
+            // Dalga 15 saniye ayarladığın için ve su basmadığı için beklemeye gerek yok, süreci tamamla.
         }
 
         if (tsunamiDalgasi != null) tsunamiDalgasi.gameObject.SetActive(false);
