@@ -38,7 +38,18 @@ public class BuildingVisuals : MonoBehaviour
     {
         if (olceklenecekGorsel == null) olceklenecekGorsel = transform;
         baslangicOlcek = olceklenecekGorsel.localScale;
+        if (levelYazisi != null) levelYazisi.gameObject.SetActive(false);
         Guncelle();
+    }
+
+    private void OnMouseEnter()
+    {
+        if (levelYazisi != null) levelYazisi.gameObject.SetActive(true);
+    }
+
+    private void OnMouseExit()
+    {
+        if (levelYazisi != null) levelYazisi.gameObject.SetActive(false);
     }
 
     private void Update()
@@ -104,6 +115,7 @@ public class BuildingVisuals : MonoBehaviour
             return;
         }
 
+        BinaTiklandi?.Invoke(binaTuru);
         if (BinaPopup.Instance == null) { Debug.LogError("3) BinaPopup sahnede yok!"); return; }
 
         Debug.Log("4) Popup açılıyor: " + binaTuru);

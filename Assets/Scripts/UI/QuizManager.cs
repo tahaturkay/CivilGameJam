@@ -4,122 +4,416 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-// Okul quizi. Doğru bilinen soru havuzdan çıkar; yanlış bilinen kalır ve doğru cevap gösterilir.
-// Farkındalık okul seviyesinin tavanını geçemez (DengeAyarlari.okulFarkindalikTavani).
 public class QuizManager : MonoBehaviour
 {
     public static QuizManager Instance;
 
-    public GameObject quizPanel;
-    public TMP_Text soruText;
-    public Button[] sikButonlari;       // 4 buton
+    [Header("Sorular (Assets/Resources/Questions)")]
     public QuestionSO[] sorular;
 
-    [Header("Cevap sonrası")]
-    public float sonucGosterimSuresi = 1.5f;
-    public Color dogruRenk = new Color(0.3f, 0.8f, 0.4f);
-    public Color yanlisRenk = new Color(0.9f, 0.35f, 0.3f);
+    [Header("UI Elemanları")]
+    public GameObject quizPanel;
+    public TMP_Text soruText;
+    public Button[] sikButonlari;
+    public TMP_Text[] sikTextleri;
+    public Button kapatButonu;
 
-    readonly List<QuestionSO> kalanSorular = new List<QuestionSO>();
-    QuestionSO aktifSoru;
-    bool cevapBekleniyor;
+    [Header("Ayarlar")]
+    [Tooltip("Şık seçildikten sonra doğru/yanlış renginin görünme süresi (saniye)")]
+    public float sonucGosterimSuresi = 1.6f;
+
+    // Doğru bilinen sorular havuzdan çıkar; yanlış bilinenler tekrar sorulabilir
+    private readonly List<QuestionSO> kalanSorular = new List<QuestionSO>();
+    private QuestionSO aktifSoru;
+    private bool cevapVerildi;
+    private bool styleApplied;
+
+    private GameObject feedbackBox;
+    private Image feedbackBoxImg;
+    private TMP_Text feedbackText;
+    private Button devamBtn;
 
     public QuestionSO AktifSoru { get { return aktifSoru; } } // otomatik test için
 
-    void Awake()
+    private static readonly string[] SikHarfleri = { "A", "B", "C", "D" };
+
+    private void Awake()
     {
         Instance = this;
+
+        // Inspector'da atanmadıysa Resources/Questions klasöründen otomatik yükle
+        if (sorular == null || sorular.Length == 0)
+            sorular = Resources.LoadAll<QuestionSO>("Questions");
+
+        kalanSorular.Clear();
+        if (sorular != null) kalanSorular.AddRange(sorular);
+
+        ApplyPrototypeQuizStyle();
         quizPanel.SetActive(false);
-        kalanSorular.AddRange(sorular);
+    }
+
+    private void Start()
+    {
+        for (int i = 0; i < sikButonlari.Length; i++)
+        {
+            int index = i; // Closure için yerel kopya şart
+            sikButonlari[i].onClick.AddListener(() => SikSecildi(index));
+        }
+
+        if (kapatButonu != null)
+            kapatButonu.onClick.AddListener(QuizKapat);
+    }
+
+    private void ApplyPrototypeQuizStyle()
+    {
+        if (styleApplied || quizPanel == null) return;
+        styleApplied = true;
+
+        TMP_FontAsset font = soruText != null ? soruText.font : null;
+
+        Image overlayImg = quizPanel.GetComponent<Image>();
+        if (overlayImg != null)
+        {
+            overlayImg.sprite = null;
+            overlayImg.color = new Color32(10, 17, 28, 165);
+        }
+
+        Transform pencereTr = quizPanel.transform.Find("Pencere");
+        if (pencereTr == null) return;
+
+        VerticalLayoutGroup oldVlg = pencereTr.GetComponent<VerticalLayoutGroup>();
+        if (oldVlg != null) Destroy(oldVlg);
+
+        // Kullanıcının isteğiyle daha geniş ve ferah Quiz modalı (860 x 650)
+        RectTransform cardRt = pencereTr.GetComponent<RectTransform>();
+        cardRt.anchorMin = new Vector2(0.5f, 0.5f);
+        cardRt.anchorMax = new Vector2(0.5f, 0.5f);
+        cardRt.pivot = new Vector2(0.5f, 0.5f);
+        cardRt.anchoredPosition = Vector2.zero;
+        cardRt.sizeDelta = new Vector2(860f, 650f);
+
+        Image cardImg = pencereTr.GetComponent<Image>();
+        if (cardImg != null)
+        {
+            cardImg.sprite = UIManager.GetSteppedModalSprite();
+            cardImg.type = Image.Type.Sliced;
+            cardImg.color = Color.white;
+        }
+
+        // Eski Baslik objesini gizle
+        Transform oldBaslik = pencereTr.Find("Baslik");
+        if (oldBaslik != null) oldBaslik.gameObject.SetActive(false);
+
+        // 1) Üst Mavi Kurdele Başlığı
+        Image rMain, rLeft, rRight;
+        TMP_Text ribbonTitle;
+        UIManager.CreateRibbonBanner(
+            cardRt, font, "AFET BİLİNCİ SINAVI (+%10 FARKINDALIK)",
+            UIManager.RibbonBlue, UIManager.RibbonBlueDark, UIManager.RibbonBlueDark,
+            out rMain, out rLeft, out rRight, out ribbonTitle);
+        ribbonTitle.fontSize = 25f;
+
+        // Sağ Üst Kapat (X) Butonu
+        if (kapatButonu != null)
+        {
+            kapatButonu.transform.SetParent(cardRt, false);
+            LayoutElement le = kapatButonu.GetComponent<LayoutElement>();
+            if (le != null) Destroy(le);
+
+            RectTransform closeRt = kapatButonu.GetComponent<RectTransform>();
+            closeRt.anchorMin = new Vector2(1f, 1f);
+            closeRt.anchorMax = new Vector2(1f, 1f);
+            closeRt.pivot = new Vector2(0.5f, 0.5f);
+            closeRt.anchoredPosition = new Vector2(-10f, -14f);
+            closeRt.sizeDelta = new Vector2(46f, 46f);
+
+            Image closeImg = kapatButonu.GetComponent<Image>();
+            closeImg.sprite = UIManager.GetCreamBoxSprite(UIManager.RedClose, UIManager.RedCloseDark);
+            closeImg.type = Image.Type.Sliced;
+            closeImg.color = Color.white;
+
+            TMP_Text closeTxt = kapatButonu.GetComponentInChildren<TMP_Text>();
+            if (closeTxt != null)
+            {
+                closeTxt.text = "X";
+                closeTxt.fontSize = 22f;
+                closeTxt.fontStyle = FontStyles.Bold;
+                closeTxt.color = Color.white;
+                closeTxt.alignment = TextAlignmentOptions.Center;
+                closeTxt.rectTransform.offsetMin = new Vector2(0f, 4f);
+                closeTxt.rectTransform.offsetMax = Vector2.zero;
+            }
+        }
+
+        // 2) Büyük Koyu Soru Kutusu
+        GameObject qBox = new GameObject("QuestionSlotBox", typeof(RectTransform), typeof(Image));
+        qBox.transform.SetParent(cardRt, false);
+        RectTransform qbRt = qBox.GetComponent<RectTransform>();
+        qbRt.anchorMin = new Vector2(0f, 1f);
+        qbRt.anchorMax = new Vector2(1f, 1f);
+        qbRt.pivot = new Vector2(0.5f, 1f);
+        qbRt.anchoredPosition = new Vector2(0f, -94f);
+        qbRt.sizeDelta = new Vector2(-64f, 136f);
+
+        Image qbImg = qBox.GetComponent<Image>();
+        qbImg.sprite = UIManager.GetDarkSlotSprite();
+        qbImg.type = Image.Type.Sliced;
+
+        if (soruText != null)
+        {
+            LayoutElement le = soruText.GetComponent<LayoutElement>();
+            if (le != null) Destroy(le);
+            soruText.transform.SetParent(qBox.transform, false);
+            RectTransform stRt = soruText.rectTransform;
+            stRt.anchorMin = Vector2.zero;
+            stRt.anchorMax = Vector2.one;
+            stRt.offsetMin = new Vector2(24f, 14f);
+            stRt.offsetMax = new Vector2(-24f, -14f);
+            soruText.fontSize = 25f;
+            soruText.fontStyle = FontStyles.Bold;
+            soruText.color = Color.white;
+            soruText.alignment = TextAlignmentOptions.Center;
+        }
+
+        // 3) 4'lü Şık Listesi (Krem Arka Planlı İki Tonlu Blok Butonlar)
+        GameObject choicesContainer = new GameObject("ChoicesContainer", typeof(RectTransform), typeof(VerticalLayoutGroup));
+        choicesContainer.transform.SetParent(cardRt, false);
+        RectTransform ccRt = choicesContainer.GetComponent<RectTransform>();
+        ccRt.anchorMin = new Vector2(0f, 1f);
+        ccRt.anchorMax = new Vector2(1f, 1f);
+        ccRt.pivot = new Vector2(0.5f, 1f);
+        ccRt.anchoredPosition = new Vector2(0f, -244f);
+        ccRt.sizeDelta = new Vector2(-64f, 286f);
+
+        VerticalLayoutGroup cVlg = choicesContainer.GetComponent<VerticalLayoutGroup>();
+        cVlg.spacing = 12f;
+        cVlg.childControlWidth = true;
+        cVlg.childControlHeight = true;
+        cVlg.childForceExpandWidth = true;
+        cVlg.childForceExpandHeight = true;
+
+        for (int i = 0; i < sikButonlari.Length; i++)
+        {
+            Button btn = sikButonlari[i];
+            if (btn == null) continue;
+
+            LayoutElement le = btn.GetComponent<LayoutElement>();
+            if (le != null) Destroy(le);
+            btn.transform.SetParent(choicesContainer.transform, false);
+
+            // Sol bölmede A / B / C / D harfi
+            Transform oldBadge = btn.transform.Find("LetterBadge");
+            if (oldBadge != null) Destroy(oldBadge.gameObject);
+
+            GameObject badgeObj = new GameObject("LetterBadge", typeof(RectTransform), typeof(TextMeshProUGUI));
+            badgeObj.transform.SetParent(btn.transform, false);
+            RectTransform bRt = badgeObj.GetComponent<RectTransform>();
+            bRt.anchorMin = new Vector2(0f, 0f);
+            bRt.anchorMax = new Vector2(0f, 1f);
+            bRt.pivot = new Vector2(0f, 0.5f);
+            bRt.anchoredPosition = new Vector2(0f, 2f);
+            bRt.sizeDelta = new Vector2(44f, 0f);
+
+            TextMeshProUGUI bTxt = badgeObj.GetComponent<TextMeshProUGUI>();
+            if (font != null) bTxt.font = font;
+            bTxt.text = i < SikHarfleri.Length ? SikHarfleri[i] : (i + 1).ToString();
+            bTxt.fontSize = 22f;
+            bTxt.fontStyle = FontStyles.Bold;
+            bTxt.color = Color.white;
+            bTxt.alignment = TextAlignmentOptions.Center;
+            bTxt.raycastTarget = false;
+
+            if (i < sikTextleri.Length && sikTextleri[i] != null)
+            {
+                TMP_Text st = sikTextleri[i];
+                st.fontSize = 21f;
+                st.fontStyle = FontStyles.Bold;
+                st.color = UIManager.DarkInk;
+                st.alignment = TextAlignmentOptions.MidlineLeft;
+                RectTransform sRt = st.rectTransform;
+                sRt.anchorMin = Vector2.zero;
+                sRt.anchorMax = Vector2.one;
+                sRt.offsetMin = new Vector2(58f, 6f);
+                sRt.offsetMax = new Vector2(-18f, -2f);
+            }
+        }
+
+        // 4) Alt Geri Bildirim & Devam Et Kutusu
+        feedbackBox = new GameObject("FeedbackBox", typeof(RectTransform), typeof(Image));
+        feedbackBox.transform.SetParent(cardRt, false);
+        RectTransform fbRt = feedbackBox.GetComponent<RectTransform>();
+        fbRt.anchorMin = new Vector2(0f, 0f);
+        fbRt.anchorMax = new Vector2(1f, 0f);
+        fbRt.pivot = new Vector2(0.5f, 0f);
+        fbRt.anchoredPosition = new Vector2(0f, 22f);
+        fbRt.sizeDelta = new Vector2(-64f, 84f);
+
+        feedbackBoxImg = feedbackBox.GetComponent<Image>();
+        feedbackBoxImg.sprite = UIManager.GetCreamBoxSprite(UIManager.CreamBg, UIManager.CreamShadow);
+        feedbackBoxImg.type = Image.Type.Sliced;
+
+        feedbackText = UIManager.CreateText(
+            feedbackBox.transform, "FeedbackText", font, "", 18f, FontStyles.Bold,
+            UIManager.DarkInk, TextAlignmentOptions.MidlineLeft);
+        RectTransform ftRt = feedbackText.rectTransform;
+        ftRt.anchorMin = Vector2.zero;
+        ftRt.anchorMax = Vector2.one;
+        ftRt.offsetMin = new Vector2(18f, 10f);
+        ftRt.offsetMax = new Vector2(-190f, -6f);
+
+        TMP_Text devamLabel;
+        devamBtn = UIManager.CreateTwoToneArcadeButton(
+            feedbackBox.transform, "DevamBtn", font, "DEVAM ET",
+            UIManager.GreenBtn, UIManager.GreenBtnLeft, UIManager.GreenBtnDark,
+            UIManager.DarkInk, UIManager.IconType.Play, out devamLabel);
+        RectTransform dvRt = devamBtn.GetComponent<RectTransform>();
+        dvRt.anchorMin = new Vector2(1f, 0.5f);
+        dvRt.anchorMax = new Vector2(1f, 0.5f);
+        dvRt.pivot = new Vector2(1f, 0.5f);
+        dvRt.anchoredPosition = new Vector2(-14f, 2f);
+        dvRt.sizeDelta = new Vector2(166f, 52f);
+        devamBtn.onClick.AddListener(QuizKapat);
+
+        feedbackBox.SetActive(false);
+    }
+
+    private void ApplyChoiceVisualState(int index, Color32 mainFill, Color32 leftFill, Color32 shadowCol, Color32 textColor)
+    {
+        if (index < 0 || index >= sikButonlari.Length || sikButonlari[index] == null) return;
+        Image img = sikButonlari[index].GetComponent<Image>();
+        if (img != null)
+        {
+            img.sprite = UIManager.GetTwoToneButtonSprite(mainFill, leftFill, shadowCol);
+            img.type = Image.Type.Sliced;
+            img.color = Color.white;
+        }
+        if (index < sikTextleri.Length && sikTextleri[index] != null)
+        {
+            sikTextleri[index].color = textColor;
+        }
     }
 
     public void QuizAc()
     {
         var gm = GameManager.Instance;
         if (gm == null) return;
+
+        StopAllCoroutines();
         gm.oyunDurduMu = true;
         quizPanel.SetActive(true);
+        if (feedbackBox != null) feedbackBox.SetActive(false);
 
+        // 1) Okul seviyesinin izin verdiği farkındalık tavanına ulaşıldı mı?
         float tavan = DengeAyarlari.Aktif.FarkindalikTavani(gm.okulLevel);
-        if (kalanSorular.Count == 0)
-        {
-            MesajGoster("Tebrikler! Bütün soruları doğru bildin.");
-            return;
-        }
         if (gm.farkindalikYuzdesi >= tavan)
         {
-            MesajGoster(tavan >= 100f
-                ? "Halkın farkındalığı en üst seviyede!"
-                : "Farkındalık bu okulun sınırına (%" + tavan + ") ulaştı.\nDaha fazlası için okulu yükselt.");
+            SiklariGoster(false);
+            soruText.text = gm.okulLevel < DengeAyarlari.Aktif.maxLevel
+                ? "Bu okul seviyesinde farkındalık en fazla %" + Mathf.RoundToInt(tavan) + " olabilir.\n\nDaha fazla eğitim için okulu yükselt!"
+                : "Halkın farkındalığı zaten %100! Tebrikler.";
             return;
         }
 
+        // 2) Çözülmemiş soru kaldı mı?
+        if (kalanSorular.Count == 0)
+        {
+            SiklariGoster(false);
+            soruText.text = "Bütün soruları doğru cevapladın! Halk afetlere karşı bilinçlendi.";
+            return;
+        }
+
+        cevapVerildi = false;
+        SiklariGoster(true);
         aktifSoru = kalanSorular[Random.Range(0, kalanSorular.Count)];
-        soruText.text = aktifSoru.soruMetni.Trim();
-        cevapBekleniyor = true;
+        soruText.text = aktifSoru.soruMetni;
 
         for (int i = 0; i < sikButonlari.Length; i++)
         {
-            bool varMi = i < aktifSoru.siklar.Length;
-            sikButonlari[i].gameObject.SetActive(varMi);
-            if (!varMi) continue;
+            bool aktif = i < aktifSoru.siklar.Length;
+            sikButonlari[i].gameObject.SetActive(aktif);
+            if (!aktif) continue;
 
-            Boya(sikButonlari[i], Color.white);
+            sikTextleri[i].text = aktifSoru.siklar[i];
             sikButonlari[i].interactable = true;
-            sikButonlari[i].GetComponentInChildren<TMP_Text>().text = aktifSoru.siklar[i].Trim();
-            int secilen = i; // lambda için kopya şart
-            sikButonlari[i].onClick.RemoveAllListeners();
-            sikButonlari[i].onClick.AddListener(() => CevapVer(secilen));
+
+            // Tüm şıkların başlangıç arka planı KREM (#FFF8E7), sol harf kutusu mavi
+            ApplyChoiceVisualState(i, UIManager.CreamBg, UIManager.BlueBtnLeft, UIManager.CreamShadow, UIManager.DarkInk);
         }
     }
 
-    void CevapVer(int secilen)
+    private void SiklariGoster(bool goster)
     {
-        if (!cevapBekleniyor) return;
-        cevapBekleniyor = false;
+        for (int i = 0; i < sikButonlari.Length; i++)
+            if (sikButonlari[i] != null)
+                sikButonlari[i].gameObject.SetActive(goster);
+    }
+
+    private void SikSecildi(int secilenIndex)
+    {
+        if (cevapVerildi || aktifSoru == null) return;
+        cevapVerildi = true;
 
         var gm = GameManager.Instance;
-        int dogru = aktifSoru.dogruSikIndex;
-        bool bildi = secilen == dogru;
 
-        if (bildi)
+        for (int i = 0; i < sikButonlari.Length; i++)
+            sikButonlari[i].interactable = false;
+
+        // Doğru ve yanlış şıkların arka plan renklerini koru (Yeşil / Kırmızı)
+        ApplyChoiceVisualState(
+            aktifSoru.dogruSikIndex,
+            UIManager.GreenBtn, UIManager.GreenBtnLeft, UIManager.GreenBtnDark, Color.white);
+
+        string aciklamaStr = !string.IsNullOrEmpty(aktifSoru.aciklama)
+            ? aktifSoru.aciklama
+            : "Doğru cevap: " + aktifSoru.siklar[aktifSoru.dogruSikIndex];
+
+        if (secilenIndex == aktifSoru.dogruSikIndex)
         {
-            gm.FarkindalikEkle(DengeAyarlari.Aktif.dogruCevapOdulu);
-            gm.dogruCevapSayisi++;
+            float eklenen = gm != null ? gm.FarkindalikEkle(DengeAyarlari.Aktif.dogruCevapOdulu) : 0f;
+            if (gm != null) gm.dogruCevapSayisi++;
             kalanSorular.Remove(aktifSoru);
+
+            soruText.text = "DOĞRU!  Farkındalık +%" + Mathf.RoundToInt(eklenen);
+
+            if (feedbackBox != null)
+            {
+                feedbackBox.SetActive(true);
+                feedbackBoxImg.sprite = UIManager.GetCreamBoxSprite(new Color32(212, 248, 224, 255), UIManager.GreenBtnDark);
+                feedbackText.color = new Color32(21, 93, 49, 255);
+                feedbackText.text = "DOĞRU! +%" + Mathf.RoundToInt(eklenen) + " Farkındalık. " + aciklamaStr;
+            }
+        }
+        else
+        {
+            ApplyChoiceVisualState(
+                secilenIndex,
+                UIManager.RedClose, UIManager.RedCloseDark, UIManager.RedCloseDark, Color.white);
+
+            soruText.text = "YANLIŞ!  Doğru cevap: " + aktifSoru.siklar[aktifSoru.dogruSikIndex];
+
+            if (feedbackBox != null)
+            {
+                feedbackBox.SetActive(true);
+                feedbackBoxImg.sprite = UIManager.GetCreamBoxSprite(new Color32(255, 222, 224, 255), UIManager.RedCloseDark);
+                feedbackText.color = new Color32(140, 29, 36, 255);
+                feedbackText.text = "YANLIŞ! " + aciklamaStr;
+            }
         }
 
-        // Doğru şıkkı yeşil, yanlış seçileni kırmızı göster; kısa süre sonra kapat
-        foreach (Button b in sikButonlari) b.interactable = false;
-        Boya(sikButonlari[dogru], dogruRenk);
-        if (!bildi) Boya(sikButonlari[secilen], yanlisRenk);
-        soruText.text = bildi ? "Doğru! Farkındalık arttı." : "Yanlış. Doğru cevap: " + aktifSoru.siklar[dogru].Trim();
-
-        StartCoroutine(BekleVeKapat());
+        StartCoroutine(SonrakiAdim());
     }
 
-    IEnumerator BekleVeKapat()
+    private IEnumerator SonrakiAdim()
     {
         yield return new WaitForSecondsRealtime(sonucGosterimSuresi);
         QuizKapat();
     }
 
-    void MesajGoster(string mesaj)
-    {
-        soruText.text = mesaj;
-        foreach (Button b in sikButonlari) b.gameObject.SetActive(false);
-    }
-
     public void QuizKapat()
     {
         StopAllCoroutines();
-        cevapBekleniyor = false;
         quizPanel.SetActive(false);
-        if (GameManager.Instance != null) GameManager.Instance.oyunDurduMu = false;
-    }
-
-    void Boya(Button b, Color renk)
-    {
-        if (b.targetGraphic != null) b.targetGraphic.color = renk;
+        if (GameManager.Instance != null)
+            GameManager.Instance.oyunDurduMu = false;
     }
 }

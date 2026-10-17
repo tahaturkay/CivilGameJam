@@ -21,6 +21,111 @@ public static class UIKurulumAraci
     static readonly Color PencereRengi = new Color(0.12f, 0.14f, 0.18f, 0.95f);
     static readonly Color ArkaplanRengi = new Color(0.08f, 0.16f, 0.24f, 1f);
 
+    private const string MainFontPath = "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset";
+    private const string FallbackFontPath = "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset";
+    private const string SourceTtfPath = "Assets/TextMesh Pro/Fonts/LiberationSans.ttf";
+    private const string TurkceKarakterler = "İıŞşĞğÜüÖöÇç₺•";
+
+    [InitializeOnLoadMethod]
+    public static void TurkceFontFallbackOnar()
+    {
+        OnarFontFallback();
+        EditorApplication.delayCall += OnarFontFallback;
+    }
+
+    private static void OnarFontFallback()
+    {
+        // Eksik harici kod editörü yolu uyarısını (Downloads/Visual Studio Code.app) otomatik temizle
+        string externalEditor = EditorPrefs.GetString("kScriptsDefaultApp", "");
+        if (!string.IsNullOrEmpty(externalEditor) && !Directory.Exists(externalEditor) && !File.Exists(externalEditor))
+        {
+            if (Directory.Exists("/Applications/Visual Studio Code.app"))
+                EditorPrefs.SetString("kScriptsDefaultApp", "/Applications/Visual Studio Code.app");
+            else if (Directory.Exists("/Applications/Antigravity.app"))
+                EditorPrefs.SetString("kScriptsDefaultApp", "/Applications/Antigravity.app");
+            else if (Directory.Exists("/Applications/Cursor.app"))
+                EditorPrefs.SetString("kScriptsDefaultApp", "/Applications/Cursor.app");
+            else
+                EditorPrefs.DeleteKey("kScriptsDefaultApp");
+        }
+
+        var mainFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(MainFontPath);
+        var fallbackFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FallbackFontPath);
+        var sourceTtf = AssetDatabase.LoadAssetAtPath<Font>(SourceTtfPath);
+
+        if (fallbackFont == null)
+        {
+            AssetDatabase.ImportAsset(FallbackFontPath, ImportAssetOptions.ForceUpdate);
+            fallbackFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FallbackFontPath);
+        }
+
+        if (mainFont == null || fallbackFont == null) return;
+
+        bool degisti = false;
+
+        if (fallbackFont.sourceFontFile == null && sourceTtf != null)
+        {
+            var so = new SerializedObject(fallbackFont);
+            var prop = so.FindProperty("m_SourceFontFile");
+            if (prop != null)
+            {
+                prop.objectReferenceValue = sourceTtf;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                degisti = true;
+            }
+        }
+
+        if (fallbackFont.atlasPopulationMode != AtlasPopulationMode.Dynamic)
+        {
+            fallbackFont.atlasPopulationMode = AtlasPopulationMode.Dynamic;
+            degisti = true;
+        }
+
+        if (mainFont.fallbackFontAssetTable == null)
+            mainFont.fallbackFontAssetTable = new System.Collections.Generic.List<TMP_FontAsset>();
+
+        if (!mainFont.fallbackFontAssetTable.Contains(fallbackFont))
+        {
+            mainFont.fallbackFontAssetTable.RemoveAll(f => f == null);
+            mainFont.fallbackFontAssetTable.Add(fallbackFont);
+            EditorUtility.SetDirty(mainFont);
+            degisti = true;
+        }
+
+        fallbackFont.ReadFontAssetDefinition();
+        mainFont.ReadFontAssetDefinition();
+
+        // Karakter tablosunda bozuk (textAsset == null) veya eksik Türkçe karakter varsa temizleyip baştan ekle
+        bool eksikVar = false;
+        foreach (char c in "İıŞşĞğÜüÖöÇç")
+        {
+            var ch = TMP_FontAssetUtilities.GetCharacterFromFontAsset(c, mainFont, true, FontStyles.Normal, FontWeight.Regular, out _);
+            if (ch == null || ch.textAsset == null)
+            {
+                eksikVar = true;
+                break;
+            }
+        }
+
+        if (eksikVar)
+        {
+            fallbackFont.ClearFontAssetData(true);
+            fallbackFont.ReadFontAssetDefinition();
+            fallbackFont.TryAddCharacters(TurkceKarakterler, out _);
+            EditorUtility.SetDirty(fallbackFont);
+            degisti = true;
+        }
+        else
+        {
+            fallbackFont.TryAddCharacters(TurkceKarakterler, out _);
+        }
+
+        if (degisti)
+        {
+            AssetDatabase.SaveAssets();
+        }
+    }
+
     // ---------- 1) Ayarlar prefab'ı ----------
 
     [MenuItem("Araclar/UI Kurulum/1 - SettingsPanel Prefab Olustur")]
