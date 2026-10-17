@@ -4,38 +4,37 @@ using UnityEngine;
 public class DisasterController : MonoBehaviour
 {
     [Header("Temel Bağlantılar")]
-    public Transform kamera;              // Main Camera (Deprem sarsıntısı için)
-    public Transform tsunamiSuyu;         // Yerin altındaki büyük su küpü (Sel ve Tsunami için)
+    public Transform kamera;              
+    public Transform tsunamiSuyu;         
 
     [Header("Yeni Görsel Efektler (VFX)")]
-    public Transform tsunamiDalgasi;      // Uzaktan gelen dalga küpü
-    public GameObject yanginEfekti;       // Yangın Particle System objesi
-    public GameObject yagmurEfekti;       // Yağmur Particle System objesi
+    public Transform tsunamiDalgasi;      
+    public GameObject yanginEfekti;       
+    public GameObject yagmurEfekti;       
 
     private int sonAfetGunu = 0;
-    private bool afetDevamEdiyorMu = false; // Efekt oynarken üst üste basılmasın diye
+    private bool afetDevamEdiyorMu = false;
 
     void Update()
     {
         if (afetDevamEdiyorMu) return;
 
-        // 7, 14, 21. günlerde otomatik afet
         if (GameManager.Instance != null)
         {
             int mevcutGun = GameManager.Instance.gun;
             if (mevcutGun > 0 && mevcutGun % 7 == 0 && mevcutGun != sonAfetGunu)
             {
                 sonAfetGunu = mevcutGun;
-                RastgeleAfetBaslat(-1); // -1 = Rastgele seç
+                RastgeleAfetBaslat(-1);
             }
         }
 
-        // --- TEST TUŞLARI (İstediğin afeti anında denemek için) ---
-        if (Input.GetKeyDown(KeyCode.Space)) RastgeleAfetBaslat(-1); // Rastgele
-        if (Input.GetKeyDown(KeyCode.Alpha1)) RastgeleAfetBaslat(0); // 1: Sadece Deprem
-        if (Input.GetKeyDown(KeyCode.Alpha2)) RastgeleAfetBaslat(1); // 2: Sadece Sel
-        if (Input.GetKeyDown(KeyCode.Alpha3)) RastgeleAfetBaslat(2); // 3: Sadece Yangın
-        if (Input.GetKeyDown(KeyCode.Alpha4)) RastgeleAfetBaslat(3); // 4: Sadece Tsunami
+        // Test Tuşları
+        if (Input.GetKeyDown(KeyCode.Space)) RastgeleAfetBaslat(-1); 
+        if (Input.GetKeyDown(KeyCode.Alpha1)) RastgeleAfetBaslat(0); 
+        if (Input.GetKeyDown(KeyCode.Alpha2)) RastgeleAfetBaslat(1); 
+        if (Input.GetKeyDown(KeyCode.Alpha3)) RastgeleAfetBaslat(2); 
+        if (Input.GetKeyDown(KeyCode.Alpha4)) RastgeleAfetBaslat(3); 
     }
 
     public void RastgeleAfetBaslat(int zorunluAfetTipi = -1)
@@ -43,7 +42,7 @@ public class DisasterController : MonoBehaviour
         if (afetDevamEdiyorMu) return;
 
         int gerekenLevel = (GameManager.Instance.gun / 7) + 1;
-        if (gerekenLevel < 2) gerekenLevel = 2; // Test için minimum eşik 2
+        if (gerekenLevel < 2) gerekenLevel = 2;
 
         int afetTipi = (zorunluAfetTipi == -1) ? Random.Range(0, 4) : zorunluAfetTipi;
         StartCoroutine(AfetSureciYonet(afetTipi, gerekenLevel));
@@ -57,36 +56,19 @@ public class DisasterController : MonoBehaviour
 
         switch (afetTipi)
         {
-            case 0: // DEPREM
-                afetAdi = "DEPREM (Gereken Bina Lvl: " + gerekenLevel + ")";
-                Debug.Log("Deprem başladı! Kamera sallanıyor...");
-                
-                // Kamerayı 2.5 saniye boyunca salla (Bitmesini bekle)
-                yield return StartCoroutine(KameraSalla(2.5f, 0.4f));
+            case 0: // DEPREM (15 Saniye)
+                afetAdi = "DEPREM (Gereken Lvl: " + gerekenLevel + ")";
+                yield return StartCoroutine(KameraSalla(15.0f, 0.4f)); 
 
-                if (GameManager.Instance.temelBinaLevel < gerekenLevel) {
-                    GameManager.Instance.temelBinaLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.temelBinaLevel);
-                    hasarAldiMi = true;
-                }
-                if (GameManager.Instance.okulLevel < gerekenLevel) {
-                    GameManager.Instance.okulLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.okulLevel);
-                    hasarAldiMi = true;
-                }
-                if (GameManager.Instance.akutLevel < gerekenLevel) {
-                    GameManager.Instance.akutLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.akutLevel);
-                    hasarAldiMi = true;
-                }
-                if (GameManager.Instance.itfaiyeLevel < gerekenLevel) {
-                    GameManager.Instance.itfaiyeLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.itfaiyeLevel);
-                    hasarAldiMi = true;
-                }
+                if (GameManager.Instance.temelBinaLevel < gerekenLevel) { GameManager.Instance.temelBinaLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.temelBinaLevel); hasarAldiMi = true; }
+                if (GameManager.Instance.okulLevel < gerekenLevel) { GameManager.Instance.okulLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.okulLevel); hasarAldiMi = true; }
+                if (GameManager.Instance.akutLevel < gerekenLevel) { GameManager.Instance.akutLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.akutLevel); hasarAldiMi = true; }
+                if (GameManager.Instance.itfaiyeLevel < gerekenLevel) { GameManager.Instance.itfaiyeLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.itfaiyeLevel); hasarAldiMi = true; }
                 break;
 
-            case 1: // SEL (Yağmur + Koşullu Su Yükselmesi)
-                afetAdi = "SEL (Gereken Altyapı Lvl: " + gerekenLevel + ")";
+            case 1: // SEL (15 Saniye)
+                afetAdi = "SEL (Gereken Lvl: " + gerekenLevel + ")";
                 bool selHasariVar = GameManager.Instance.altyapiLevel < gerekenLevel;
-
-                // Yağmur yağmaya başlasın ve sadece altyapı yetersizse su yükselsin!
                 yield return StartCoroutine(SelEfektiOynat(selHasariVar));
 
                 if (selHasariVar) {
@@ -96,11 +78,9 @@ public class DisasterController : MonoBehaviour
                 }
                 break;
 
-            case 2: // YANGIN (Particle System)
-                afetAdi = "YANGIN (Gereken İtfaiye Lvl: " + gerekenLevel + ")";
-                
-                // Yangın efektini aç, 3 saniye bekle ve kapat
-                yield return StartCoroutine(YanginEfektiOynat(3.0f));
+            case 2: // YANGIN (15 Saniye)
+                afetAdi = "YANGIN (Gereken Lvl: " + gerekenLevel + ")";
+                yield return StartCoroutine(YanginEfektiOynat(15.0f));
 
                 if (GameManager.Instance.itfaiyeLevel < gerekenLevel) {
                     GameManager.Instance.temelBinaLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.temelBinaLevel);
@@ -109,11 +89,10 @@ public class DisasterController : MonoBehaviour
                 }
                 break;
 
-            case 3: // TSUNAMİ (Gelen Dalga + Su Yükselmesi)
-                afetAdi = "TSUNAMİ (Gereken Set Lvl: " + gerekenLevel + ")";
-                
-                // Önce dalga gelsin ve geldiği yeri (suyu) yükseltsin
-                yield return StartCoroutine(TsunamiDalgaVeSuEfekti(2.5f));
+            case 3: // TSUNAMİ (15 Saniye)
+                afetAdi = "TSUNAMİ (Gereken Lvl: " + gerekenLevel + ")";
+                // Haritanız küçüldüğü için su yüksekliği (hedefSuYuksekligi) 1.5f olarak ayarlandı
+                yield return StartCoroutine(TsunamiDalgaVeSuEfekti(1.5f)); 
 
                 if (GameManager.Instance.setLevel < gerekenLevel) {
                     GameManager.Instance.setLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.setLevel);
@@ -123,33 +102,28 @@ public class DisasterController : MonoBehaviour
                 break;
         }
 
-        // --- EFEKTLER BİTTİ, ŞİMDİ CAN KAYBI VE ÖZET EKRANI ---
         int vefatSayisi = 0;
         if (hasarAldiMi)
         {
             int bazKayip = 120;
             float korumaOrani = (GameManager.Instance.farkindalikYuzdesi / 100f) * 0.7f + (GameManager.Instance.akutLevel * 0.1f);
             korumaOrani = Mathf.Clamp(korumaOrani, 0f, 0.95f);
-
             vefatSayisi = Mathf.RoundToInt(bazKayip * (1f - korumaOrani));
             GameManager.Instance.nufus = Mathf.Max(0, GameManager.Instance.nufus - vefatSayisi);
         }
 
-        // GameManager verilerini doldur ve oyunu durdur
         GameManager.Instance.sonVefatSayisi = vefatSayisi;
         GameManager.Instance.afetOlduMu = true;
         GameManager.Instance.oyunDurduMu = true;
 
-        if (hasarAldiMi)
-            GameManager.Instance.sonAfetMesaji = $"{afetAdi} adayı vurdu! Savunma yetersiz kaldı, binalar hasar aldı.";
-        else
-            GameManager.Instance.sonAfetMesaji = $"{afetAdi} gerçekleşti, ancak güçlü önlemler sayesinde hiçbir bina zarar görmedi!";
+        if (hasarAldiMi) GameManager.Instance.sonAfetMesaji = $"{afetAdi} adayı vurdu! Savunma yetersiz kaldı.";
+        else GameManager.Instance.sonAfetMesaji = $"{afetAdi} gerçekleşti, ancak güçlü önlemler sayesinde hasar yok!";
 
-        Debug.Log("AFET ÖZETİ: " + GameManager.Instance.sonAfetMesaji + " | Ölen: " + GameManager.Instance.sonVefatSayisi);
         afetDevamEdiyorMu = false;
     }
 
-    // 1. DEPREM: Kamera Sallama (Gittikçe azalan sarsıntı)
+    // --- 15 SANİYELİK GÜNCELLENMİŞ EFEKT KORUTİNLERİ ---
+
     IEnumerator KameraSalla(float sure, float siddet)
     {
         if (kamera == null) yield break;
@@ -158,7 +132,7 @@ public class DisasterController : MonoBehaviour
 
         while (gecenSure < sure)
         {
-            float guncelSiddet = Mathf.Lerp(siddet, 0f, gecenSure / sure); // Sarsıntı yavaşça azalsın
+            float guncelSiddet = Mathf.Lerp(siddet, 0f, gecenSure / sure);
             float x = Random.Range(-1f, 1f) * guncelSiddet;
             float y = Random.Range(-1f, 1f) * guncelSiddet;
             kamera.localPosition = orijinalPozisyon + new Vector3(x, y, 0);
@@ -168,77 +142,85 @@ public class DisasterController : MonoBehaviour
         kamera.localPosition = orijinalPozisyon;
     }
 
-    // 2. SEL: Yağmur Yağdır ve Altyapı Yetersizse Suyu Yükselt
     IEnumerator SelEfektiOynat(bool suYukselsinMi)
     {
         if (yagmurEfekti != null) yagmurEfekti.SetActive(true);
-        Debug.Log("Şiddetli yağmur başladı...");
-
-        // 1.5 saniye sadece yağmur yağsın
-        yield return new WaitForSeconds(1.5f);
 
         if (suYukselsinMi && tsunamiSuyu != null)
         {
-            Debug.Log("Altyapı yetersiz! Sel suları yükseliyor!");
-            yield return StartCoroutine(SuYukseltIndir(1.2f)); // Suyu yükselt ve indir
+            yield return new WaitForSeconds(2.0f); // 2s yağmur yağar
+            // Su 3s çıkar, 7s bekler, 3s iner (Toplam 13s + 2s = 15s)
+            yield return StartCoroutine(SuYukseltIndir(1.2f, 3f, 7f, 3f)); 
         }
         else
         {
-            Debug.Log("Altyapı seviyesi yeterli! Sular tahliye edildi, sel olmadı.");
-            yield return new WaitForSeconds(1.5f); // Sadece yağmur yağmaya devam etsin
+            // Sadece 15s boyunca yağmur yağar
+            yield return new WaitForSeconds(15.0f);
         }
 
         if (yagmurEfekti != null) yagmurEfekti.SetActive(false);
     }
 
-    // 3. YANGIN: Ateş Particle Aç/Kapat
     IEnumerator YanginEfektiOynat(float sure)
     {
         if (yanginEfekti != null) yanginEfekti.SetActive(true);
-        yield return new WaitForSeconds(sure);
+        yield return new WaitForSeconds(sure); // 15s yanar
         if (yanginEfekti != null) yanginEfekti.SetActive(false);
     }
 
-    // 4. TSUNAMİ: Dalga İlerler ve Çarptığında Suyu Yükseltir
     IEnumerator TsunamiDalgaVeSuEfekti(float hedefSuYuksekligi)
     {
         if (tsunamiDalgasi != null)
         {
             tsunamiDalgasi.gameObject.SetActive(true);
-            Vector3 dalgaBaslangic = new Vector3(0, 1f, -30f); // Uzaktan başlar
-            Vector3 dalgaBitis = new Vector3(0, 1f, 5f);       // Adaya çarpar
+            Vector3 dalgaBaslangic = new Vector3(0, 1f, -15f); // Küçük haritaya göre -15'ten başlar
+            Vector3 dalgaBitis = new Vector3(0, 1f, 2f);
 
-            float t = 0f;
-            while (t < 1f)
+            float gecenSure = 0f;
+            float dalgaSuresi = 4.0f; // 4s'de adaya çarpar
+            
+            while (gecenSure < dalgaSuresi)
             {
-                t += Time.deltaTime * 0.8f; // Dalga geliş hızı
-                tsunamiDalgasi.position = Vector3.Lerp(dalgaBaslangic, dalgaBitis, t);
+                tsunamiDalgasi.position = Vector3.Lerp(dalgaBaslangic, dalgaBitis, gecenSure / dalgaSuresi);
+                gecenSure += Time.deltaTime;
                 yield return null;
             }
         }
 
-        // Dalga adaya ulaştığı anda su hızla yükselir!
         if (tsunamiSuyu != null)
         {
-            yield return StartCoroutine(SuYukseltIndir(hedefSuYuksekligi));
+            // Su 3s çıkar, 5s adayı kaplar, 3s iner (Toplam 11s + 4s dalga = 15s)
+            yield return StartCoroutine(SuYukseltIndir(hedefSuYuksekligi, 3f, 5f, 3f));
         }
 
-        if (tsunamiDalgasi != null)
-        {
-            tsunamiDalgasi.gameObject.SetActive(false);
-        }
+        if (tsunamiDalgasi != null) tsunamiDalgasi.gameObject.SetActive(false);
     }
 
-    // Ortak Su Yükseltme / İndirme Yardımcı Fonksiyonu
-    IEnumerator SuYukseltIndir(float hedefYukseklik)
+    // Ortak Gelişmiş Su Kontrolcüsü
+    IEnumerator SuYukseltIndir(float hedefYukseklik, float cikmaSuresi, float beklemeSuresi, float inmeSuresi)
     {
         Vector3 baslangic = tsunamiSuyu.position;
         Vector3 tepeNoktasi = new Vector3(baslangic.x, hedefYukseklik, baslangic.z);
+        float gecenSure = 0;
 
-        float t = 0;
-        while (t < 1f) { t += Time.deltaTime * 1.2f; tsunamiSuyu.position = Vector3.Lerp(baslangic, tepeNoktasi, t); yield return null; }
-        yield return new WaitForSeconds(1.5f);
-        t = 0;
-        while (t < 1f) { t += Time.deltaTime; tsunamiSuyu.position = Vector3.Lerp(tepeNoktasi, baslangic, t); yield return null; }
+        // Çıkış
+        while (gecenSure < cikmaSuresi) { 
+            tsunamiSuyu.position = Vector3.Lerp(baslangic, tepeNoktasi, gecenSure / cikmaSuresi); 
+            gecenSure += Time.deltaTime; 
+            yield return null; 
+        }
+        tsunamiSuyu.position = tepeNoktasi;
+
+        // Bekleme
+        yield return new WaitForSeconds(beklemeSuresi);
+
+        // İniş
+        gecenSure = 0;
+        while (gecenSure < inmeSuresi) { 
+            tsunamiSuyu.position = Vector3.Lerp(tepeNoktasi, baslangic, gecenSure / inmeSuresi); 
+            gecenSure += Time.deltaTime; 
+            yield return null; 
+        }
+        tsunamiSuyu.position = baslangic;
     }
 }
