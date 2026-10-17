@@ -429,6 +429,8 @@ public class UIManager : MonoBehaviour
     {
         GameObject tooltipObj = new GameObject("BuildingHoverTooltip", typeof(RectTransform), typeof(Image));
         tooltipObj.transform.SetParent(transform, false);
+        // Etiket fareyle her karede hareket ediyor; kendi alt Canvas'ı olunca sadece o yeniden çizilir, bütün Ana Canvas değil
+        tooltipObj.AddComponent<Canvas>();
         hoverTooltipRt = tooltipObj.GetComponent<RectTransform>();
         hoverTooltipRt.anchorMin = new Vector2(0.5f, 0.5f);
         hoverTooltipRt.anchorMax = new Vector2(0.5f, 0.5f);

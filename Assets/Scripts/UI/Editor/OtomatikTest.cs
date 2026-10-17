@@ -12,6 +12,7 @@ static class OtomatikTest
     const string TestSahnesi = "Assets/Scenes/Scene_Test.unity";
     const string BaslatDosyasi = "Temp/otomatik_test_baslat";
     const string AktifAnahtari = "OtomatikTest.Aktif";
+    const string OlcumAnahtari = "OtomatikTest.Olcum";
     static double sonKontrol;
 
     static OtomatikTest()
@@ -23,10 +24,14 @@ static class OtomatikTest
     [MenuItem("Araclar/Otomatik Oyun Testi")]
     public static void Baslat() { Baslat(TestSahnesi); }
 
-    // Başlatma dosyasının içine sahne yolu yazılırsa test o sahnede koşar
+    // Başlatma dosyasının içine sahne yolu yazılırsa test o sahnede koşar.
+    // "olcum:" ile başlarsa test yerine performans ölçümü yapılır (Logs/PerformansOlcumu.txt).
     public static void Baslat(string sahne)
     {
         if (EditorApplication.isPlaying) return;
+        bool olcum = sahne != null && sahne.Trim().StartsWith("olcum:");
+        if (olcum) sahne = sahne.Trim().Substring("olcum:".Length);
+        SessionState.SetBool(OlcumAnahtari, olcum);
         if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
 
         EditorSceneManager.OpenScene(string.IsNullOrWhiteSpace(sahne) ? TestSahnesi : sahne.Trim());
@@ -56,7 +61,10 @@ static class OtomatikTest
         if (!SessionState.GetBool(AktifAnahtari, false)) return;
 
         if (durum == PlayModeStateChange.EnteredPlayMode)
-            new GameObject("OyunTestRobotu").AddComponent<OyunTestRobotu>();
+        {
+            if (SessionState.GetBool(OlcumAnahtari, false)) new GameObject("PerformansOlcumu").AddComponent<PerformansOlcumu>();
+            else new GameObject("OyunTestRobotu").AddComponent<OyunTestRobotu>();
+        }
         else if (durum == PlayModeStateChange.EnteredEditMode)
             SessionState.SetBool(AktifAnahtari, false);
     }
