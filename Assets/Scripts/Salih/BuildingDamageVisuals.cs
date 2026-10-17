@@ -22,6 +22,9 @@ public class BuildingDamageVisuals : MonoBehaviour
     bool stateKnown,shownDamage;
     AfetTuru shownType;
     float shownFlash=-1;
+    MeshFilter damagedRoof;
+    Mesh originalRoof,brokenRoof;
+    Mesh roofDebrisMesh;
 
     void Awake(){building=GetComponent<BuildingVisuals>();}
     void OnEnable(){stateKnown=false;shownFlash=-1;}
@@ -169,6 +172,7 @@ public class BuildingDamageVisuals : MonoBehaviour
             damageWrapper.localRotation=Quaternion.Euler(-3.5f,0,(GetEntityId().GetHashCode()&1)==0?5.5f:-5.5f);
             damageWrapper.localScale=new Vector3(1,.76f,1);
             IslandEffectsFactory.CreateRubble(damageEffects.transform,rootBounds);
+            BreakSelectedRoof();
             IslandEffectsFactory.CreateDust(damageEffects.transform,transform.TransformPoint(new Vector3(rootBounds.center.x,rootBounds.min.y+.2f,rootBounds.center.z)),size*1.4f);
         }
     }
@@ -182,10 +186,41 @@ public class BuildingDamageVisuals : MonoBehaviour
     }
     void RestoreCollapse()
     {
+        if(damagedRoof!=null)damagedRoof.sharedMesh=originalRoof;
+        damagedRoof=null;originalRoof=null;
+        if(brokenRoof!=null)Destroy(brokenRoof);brokenRoof=null;
+        if(roofDebrisMesh!=null)Destroy(roofDebrisMesh);roofDebrisMesh=null;
         if(damageWrapper==null)return;
         damageWrapper.localPosition=Vector3.zero;damageWrapper.localRotation=Quaternion.identity;damageWrapper.localScale=Vector3.one;
         while(damageWrapper.childCount>0)damageWrapper.GetChild(0).SetParent(activeModel,false);
         Destroy(damageWrapper.gameObject);damageWrapper=null;
+    }
+
+    void BreakSelectedRoof()
+    {
+        if(building.binaTuru!=BinaTuru.TemelBina)return;
+        string suffix=name.Length>=2?name.Substring(name.Length-2):"0";
+        if(!int.TryParse(suffix,out int index)||index%3!=0)return;
+        foreach(MeshFilter f in activeModel.GetComponentsInChildren<MeshFilter>())if(f.name=="KiremitCati"){damagedRoof=f;break;}
+        if(damagedRoof==null||damagedRoof.sharedMesh==null||!damagedRoof.sharedMesh.isReadable)return;
+        originalRoof=damagedRoof.sharedMesh;brokenRoof=Instantiate(originalRoof);brokenRoof.name="KirilmisKiremitCati";
+        Vector3[] vertices=originalRoof.vertices;int[] triangles=originalRoof.triangles;var remaining=new List<int>();
+        for(int i=0;i<triangles.Length;i+=3)
+        {
+            Vector3 middle=(vertices[triangles[i]]+vertices[triangles[i+1]]+vertices[triangles[i+2]])/3;
+            if(middle.x>0&&middle.y>.1f)continue;
+            remaining.Add(triangles[i]);remaining.Add(triangles[i+1]);remaining.Add(triangles[i+2]);
+        }
+        brokenRoof.triangles=remaining.ToArray();brokenRoof.RecalculateBounds();damagedRoof.sharedMesh=brokenRoof;
+        Mesh cube=Resources.GetBuiltinResource<Mesh>("Cube.fbx");var tiles=new CombineInstance[12];
+        for(int i=0;i<tiles.Length;i++)
+        {
+            Vector3 p=new Vector3(rootBounds.center.x+rootBounds.extents.x*.65f+Mathf.Sin(i*2.4f)*1.4f,rootBounds.min.y+.06f+(i%3)*.04f,rootBounds.min.z+.6f+Mathf.Cos(i*2.4f)*1.2f);
+            tiles[i]=new CombineInstance{mesh=cube,transform=Matrix4x4.TRS(p,Quaternion.Euler(i*13,i*57,i*7),new Vector3(.42f,.09f,.31f))};
+        }
+        roofDebrisMesh=new Mesh{name="DokulenKiremitler"};roofDebrisMesh.CombineMeshes(tiles,true,true);roofDebrisMesh.RecalculateBounds();
+        var debris=new GameObject("KirikCatiKiremitleri",typeof(MeshFilter),typeof(MeshRenderer));debris.transform.SetParent(damageEffects.transform,false);
+        debris.GetComponent<MeshFilter>().sharedMesh=roofDebrisMesh;debris.GetComponent<MeshRenderer>().sharedMaterial=damagedRoof.GetComponent<Renderer>().sharedMaterial;
     }
     void ClearEffects()
     {

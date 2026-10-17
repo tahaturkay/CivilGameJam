@@ -75,15 +75,16 @@ public class UIManager : MonoBehaviour
 
     private bool initialized;
 
-    // Üst bar ikonları iki katına çıkarıldı; kartlar ve metin alanı buna göre büyütülür.
-    private const float IkonOlcek = 3f;
+    // HUD ölçüleri tek bir ölçekte tutulur; mevcut canvas sabit piksel kullandığı için
+    // yalnızca ekran kenar boşlukları ve dar ekranlarda grup ölçeği uyarlanır.
+    private const float IkonOlcek = 1.8f;
     private const float IkonYuvasi = 44f * IkonOlcek;
     private const float IkonBoyu = 32f * IkonOlcek;
-    private const float KartYuksekligi = 152f;
+    private const float KartYuksekligi = 112f;
     private const float YaziSolBosluk = 10f + IkonYuvasi + 10f;
     private const float EkGenislik = YaziSolBosluk - 64f;
     private const float HudKenarBoslugu = 20f;
-    private const float HudGruplarArasiBosluk = 40f;
+    private const float HudGruplarArasiBosluk = 32f;
 
     // Update'te her karede yazı/sprite üretmemek için son gösterilen değerler
     private int sonGun = -1, sonPara = int.MinValue, sonGelir = -1, sonNufus = -1, sonKapasite = -1, sonFark = -1, sonKalan = int.MinValue, sonTavan = -1, sonHizModu = -1;
@@ -93,7 +94,11 @@ public class UIManager : MonoBehaviour
     private RectTransform leftHudGroupRt;
     private RectTransform rightHudColumnRt;
     private RectTransform hudCanvasRt;
+    private RectTransform hudBarRt;
     private float lastHudCanvasWidth = -1f;
+    private Rect hudLastSafeArea;
+    private int hudLastScreenWidth = -1;
+    private int hudLastScreenHeight = -1;
 
     private GameManager incomeEventManager;
     private bool paraGosterimiHazir;
@@ -153,7 +158,7 @@ public class UIManager : MonoBehaviour
             }
         }
 
-        // Not: ₺ işareti LiberationSans'ta yok; para "TL" olarak yazılıyor.
+        // Para birimi yazıyla gösterilir; fontta özel simge aramaya gerek kalmaz.
     }
 
     private void ApplyPrototypeHudAndModals()
@@ -172,6 +177,7 @@ public class UIManager : MonoBehaviour
             if (oldHlg != null) Destroy(oldHlg);
 
             RectTransform ustRt = ustBar.GetComponent<RectTransform>();
+            hudBarRt = ustRt;
             ustRt.anchorMin = new Vector2(0f, 1f);
             ustRt.anchorMax = new Vector2(1f, 1f);
             ustRt.pivot = new Vector2(0.5f, 1f);
@@ -215,20 +221,20 @@ public class UIManager : MonoBehaviour
         TMP_Text nufusSub;
         CreateHudPillCard(
             leftGroup.transform, "NufusPill", 230f + EkGenislik, KartYuksekligi,
-            IconType.Person, new Color32(56, 178, 232, 255),
+            IconType.Person, new Color32(76, 153, 145, 255),
             "NÜFUS", nufusText, out nufusSub, false, out _);
 
         // 2. PARA (BÜTÇE) - Altıgen Sikke İkonu
         TMP_Text paraSub;
         CreateHudPillCard(
             leftGroup.transform, "ParaPill", 265f + EkGenislik, KartYuksekligi,
-            IconType.HexCoin, new Color32(255, 204, 41, 255),
-            "BÜTÇE", paraText, out paraSub, false, out _);
+            IconType.HexCoin, new Color32(218, 163, 65, 255),
+            "COIN", paraText, out paraSub, false, out _);
 
         // 3. FARKINDALIK - Basic Açık Kitap İkonu + İlerleme Çubuğu
         CreateHudPillCard(
             leftGroup.transform, "FarkindalikPill", 275f + EkGenislik, KartYuksekligi,
-            IconType.Book, new Color32(82, 183, 255, 255),
+            IconType.Book, new Color32(67, 139, 147, 255),
             "FARKINDALIK", farkindalikText, out farkindalikSubLabelText, true, out awarenessFillBar);
     }
 
@@ -242,13 +248,13 @@ public class UIManager : MonoBehaviour
         rcRt.anchorMax = new Vector2(1f, 1f);
         rcRt.pivot = new Vector2(1f, 1f);
         rcRt.anchoredPosition = new Vector2(-20f, -18f);
-        rcRt.sizeDelta = new Vector2(260f + EkGenislik, KartYuksekligi + 70f);
+        rcRt.sizeDelta = new Vector2(260f + EkGenislik, KartYuksekligi + 60f);
         rightHudColumnRt = rcRt;
 
         // Üstte Gün Kutusu (Krem arka planlı)
         RectTransform dayPill = CreateHudPillCard(
             rightCol.transform, "GunPill", 248f + EkGenislik, KartYuksekligi,
-            IconType.Calendar, new Color32(240, 100, 73, 255),
+            IconType.Calendar, new Color32(196, 104, 78, 255),
             "GÜN SAYACI", gunText, out gunSubLabelText, false, out _);
         dayPill.anchorMin = new Vector2(1f, 1f);
         dayPill.anchorMax = new Vector2(1f, 1f);
@@ -263,7 +269,7 @@ public class UIManager : MonoBehaviour
         srRt.anchorMax = new Vector2(1f, 1f);
         srRt.pivot = new Vector2(1f, 1f);
         srRt.anchoredPosition = new Vector2(0f, -(KartYuksekligi + 8f));
-        srRt.sizeDelta = new Vector2(248f + EkGenislik, 44f);
+        srRt.sizeDelta = new Vector2(248f + EkGenislik, 42f);
 
         HorizontalLayoutGroup sHlg = speedRow.GetComponent<HorizontalLayoutGroup>();
         sHlg.spacing = 8f;
@@ -376,6 +382,18 @@ public class UIManager : MonoBehaviour
         bg.sprite = GetCreamBoxSprite(CreamBg, CreamShadow);
         bg.type = Image.Type.Sliced;
 
+        // Küçük şehir renk şeridi kartı ikon rengiyle eşler, içerik alanını daraltmaz.
+        GameObject accentObj = new GameObject("CityColorAccent", typeof(RectTransform), typeof(Image));
+        accentObj.transform.SetParent(card.transform, false);
+        RectTransform accentRt = accentObj.GetComponent<RectTransform>();
+        accentRt.anchorMin = new Vector2(0f, 1f);
+        accentRt.anchorMax = new Vector2(1f, 1f);
+        accentRt.offsetMin = new Vector2(YaziSolBosluk, -14f);
+        accentRt.offsetMax = new Vector2(-12f, -10f);
+        Image accentImg = accentObj.GetComponent<Image>();
+        accentImg.color = iconColor;
+        accentImg.raycastTarget = false;
+
         // Sol İkon Yuvası (Koyu Çerçeveli)
         GameObject iconSlot = new GameObject("IconSlot", typeof(RectTransform), typeof(Image));
         iconSlot.transform.SetParent(card.transform, false);
@@ -383,7 +401,7 @@ public class UIManager : MonoBehaviour
         isRt.anchorMin = new Vector2(0f, 0.5f);
         isRt.anchorMax = new Vector2(0f, 0.5f);
         isRt.pivot = new Vector2(0f, 0.5f);
-        isRt.anchoredPosition = new Vector2(10f, 2f);
+        isRt.anchoredPosition = new Vector2(10f, 0f);
         isRt.sizeDelta = new Vector2(IkonYuvasi, IkonYuvasi);
 
         Image slotImg = iconSlot.GetComponent<Image>();
@@ -403,12 +421,12 @@ public class UIManager : MonoBehaviour
         igImg.preserveAspect = true;
 
         // Küçük Üst Etiket
-        outSubLabel = CreateText(card.transform, "SubLabel", sharedFont, subLabel, 11.5f, FontStyles.Bold, MutedText, TextAlignmentOptions.Left);
+        outSubLabel = CreateText(card.transform, "SubLabel", sharedFont, subLabel, 12f, FontStyles.Bold, MutedText, TextAlignmentOptions.Left);
         RectTransform slRt = outSubLabel.rectTransform;
         slRt.anchorMin = new Vector2(0f, 1f);
         slRt.anchorMax = new Vector2(1f, 1f);
         slRt.pivot = new Vector2(0f, 1f);
-        slRt.anchoredPosition = new Vector2(YaziSolBosluk, -10f);
+        slRt.anchoredPosition = new Vector2(YaziSolBosluk, -20f);
         slRt.sizeDelta = new Vector2(-(YaziSolBosluk + 10f), 16f);
 
         // Ana Değer Metni (Mevcut TMP_Text referansını koruyarak içine taşıyoruz)
@@ -421,6 +439,9 @@ public class UIManager : MonoBehaviour
             vtRt.offsetMin = new Vector2(YaziSolBosluk, withProgressBar ? 20f : 10f);
             vtRt.offsetMax = new Vector2(-12f, -22f);
             existingValueText.fontSize = withProgressBar ? 20f : 21f;
+            existingValueText.enableAutoSizing = true;
+            existingValueText.fontSizeMin = 15f;
+            existingValueText.fontSizeMax = withProgressBar ? 20f : 21f;
             existingValueText.fontStyle = FontStyles.Bold;
             existingValueText.color = DarkInk;
             existingValueText.alignment = TextAlignmentOptions.MidlineLeft;
@@ -648,7 +669,7 @@ public class UIManager : MonoBehaviour
         if (paraText != null &&
             (gosterilenBakiye != sonGosterilenBakiye || gelirGosterimi != sonGosterilenGelir))
         {
-            paraText.text = gosterilenBakiye + " TL (+" + gelirGosterimi + "/g)";
+            paraText.text = gosterilenBakiye + " coin (+" + gelirGosterimi + " /g)";
             sonGosterilenBakiye = gosterilenBakiye;
             sonGosterilenGelir = gelirGosterimi;
         }
@@ -765,21 +786,47 @@ public class UIManager : MonoBehaviour
         }
         if (hudCanvasRt == null) return;
 
-        float canvasWidth = hudCanvasRt.rect.width;
-        if (canvasWidth <= 0f || (!force && Mathf.Abs(canvasWidth - lastHudCanvasWidth) < 0.5f)) return;
-        lastHudCanvasWidth = canvasWidth;
+        if (hudBarRt == null) hudBarRt = leftHudGroupRt.parent as RectTransform;
+        if (hudBarRt == null) return;
 
-        float availableWidth = Mathf.Max(1f, canvasWidth - HudKenarBoslugu * 2f);
+        Rect safeArea = Screen.safeArea;
+        bool safeChanged = safeArea != hudLastSafeArea || Screen.width != hudLastScreenWidth || Screen.height != hudLastScreenHeight;
+        float canvasWidth = hudBarRt.rect.width;
+        if (canvasWidth <= 0f || (!force && !safeChanged && Mathf.Abs(canvasWidth - lastHudCanvasWidth) < 0.5f)) return;
+        lastHudCanvasWidth = canvasWidth;
+        hudLastSafeArea = safeArea;
+        hudLastScreenWidth = Screen.width;
+        hudLastScreenHeight = Screen.height;
+
+        Canvas hudCanvas = hudBarRt.GetComponentInParent<Canvas>();
+        Camera uiCamera = hudCanvas != null && hudCanvas.rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay
+            ? hudCanvas.rootCanvas.worldCamera
+            : null;
+        Vector2 safeMin = hudBarRt.rect.min;
+        Vector2 safeMax = hudBarRt.rect.max;
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(hudBarRt, safeArea.min, uiCamera, out safeMin) ||
+            !RectTransformUtility.ScreenPointToLocalPointInRectangle(hudBarRt, safeArea.max, uiCamera, out safeMax))
+        {
+            safeMin = hudBarRt.rect.min;
+            safeMax = hudBarRt.rect.max;
+        }
+
+        float leftMargin = Mathf.Max(HudKenarBoslugu, safeMin.x - hudBarRt.rect.xMin + HudKenarBoslugu);
+        float rightMargin = Mathf.Max(HudKenarBoslugu, hudBarRt.rect.xMax - safeMax.x + HudKenarBoslugu);
+        float topOffset = Mathf.Max(18f, -safeMax.y + 18f);
+        float availableWidth = Mathf.Max(1f, safeMax.x - safeMin.x - HudKenarBoslugu * 2f);
         float leftScale = Mathf.Min(1f, availableWidth / leftHudGroupRt.sizeDelta.x);
         float rightScale = Mathf.Min(1f, availableWidth / rightHudColumnRt.sizeDelta.x);
         leftHudGroupRt.localScale = Vector3.one * leftScale;
         rightHudColumnRt.localScale = Vector3.one * rightScale;
 
+        leftHudGroupRt.anchoredPosition = new Vector2(leftMargin, -topOffset);
+
         bool placeControlsBelow = leftHudGroupRt.sizeDelta.x * leftScale +
                                   rightHudColumnRt.sizeDelta.x * rightScale + HudGruplarArasiBosluk > availableWidth;
         rightHudColumnRt.anchoredPosition = placeControlsBelow
-            ? new Vector2(-HudKenarBoslugu, -(18f + leftHudGroupRt.sizeDelta.y * leftScale + 12f))
-            : new Vector2(-HudKenarBoslugu, -18f);
+            ? new Vector2(-rightMargin, -(topOffset + leftHudGroupRt.sizeDelta.y * leftScale + 12f))
+            : new Vector2(-rightMargin, -topOffset);
     }
 
     private void UpdateBuildingHoverLabel(GameManager gm)

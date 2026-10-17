@@ -2,6 +2,60 @@ using UnityEngine;
 
 public static partial class IslandLayoutInstaller
 {
+    // Stable palettes and details repeat across levels so each home keeps its identity when upgraded.
+    public static void DecorateHouse(Transform parent, int level, int variation)
+    {
+        Color32[] facades = {
+            new Color32(223,191,145,255), new Color32(178,198,175,255), new Color32(156,185,194,255),
+            new Color32(225,211,179,255), new Color32(209,163,138,255), new Color32(186,178,199,255),
+            new Color32(207,205,162,255), new Color32(181,199,197,255) };
+        Color32[] shutters = { new Color32(67,107,103,255), new Color32(101,126,148,255),
+            new Color32(124,80,59,255), new Color32(103,117,73,255) };
+        Color32[] roofs = { new Color32(174,82,56,255), new Color32(126,78,63,255),
+            new Color32(183,115,73,255), new Color32(88,104,110,255) };
+        int seed = Mathf.Abs(variation);
+        Color wall = facades[(seed * 5 + seed / 7) % facades.Length];
+        Color trim = shutters[(seed / 2) % shutters.Length];
+        foreach (MeshRenderer renderer in parent.GetComponentsInChildren<MeshRenderer>(true))
+        {
+            if (renderer.name == "SivaliCephe" || renderer.name == "CatiPenceresi") renderer.sharedMaterial = Mat(wall);
+            if (renderer.name == "KiremitCati") renderer.sharedMaterial = Mat(roofs[(seed + seed / 3) % roofs.Length]);
+        }
+        float w = 5.4f + level * .85f, d = 5.2f + level * .65f, h = (level + 1) * 2.45f;
+        int style = seed % 4;
+        if (style == 0 || style == 2)
+        {
+            // Painted timber shutters make a small Mediterranean frontage, with restrained shared colours.
+            for (int side = -1; side <= 1; side += 2)
+            {
+                for (int edge = -1; edge <= 1; edge += 2)
+                    Cube(parent,"AhşapPanjur",new Vector3(side*w*.29f+edge*.64f,1.65f,-d*.5f-.18f),new Vector3(.28f,1.18f,.12f),trim);
+                Cube(parent,"PanjurKusagi",new Vector3(side*w*.29f,2.36f,-d*.5f-.12f),new Vector3(1.55f,.13f,.12f),trim);
+            }
+        }
+        if (style == 1)
+        {
+            Cube(parent,"GirisTentesi",new Vector3(0,2.44f,-d*.5f-.64f),new Vector3(2.05f,.16f,1.32f),trim);
+            for (int side=-1; side<=1; side+=2)
+                Cube(parent,"TenteKonsolu",new Vector3(side*.84f,2.17f,-d*.5f-.43f),new Vector3(.12f,.50f,.16f),Timber);
+            Cube(parent,"CepheAltKaplama",new Vector3(0,.65f,-d*.5f-.06f),new Vector3(w-.5f,.40f,.10f),Stone);
+        }
+        if (style == 2)
+        {
+            for (int i=0;i<3;i++) Cube(parent,"OnCepheTasSirasi",new Vector3(-w*.39f,.88f+i*.32f,-d*.5f-.08f),new Vector3(.42f,.18f,.14f),Cream);
+        }
+        if (style == 3)
+        {
+            for (int side=-1;side<=1;side+=2)
+                Cube(parent,"AhşapCepheDikmesi",new Vector3(side*w*.43f,h*.5f+.4f,-d*.5f-.11f),new Vector3(.16f,h,.15f),trim);
+            Cube(parent,"AhşapCepheKusagi",new Vector3(0,2.48f,-d*.5f-.10f),new Vector3(w,.16f,.14f),trim);
+            Cube(parent,"KapiUstuSacak",new Vector3(0,2.32f,-d*.5f-.37f),new Vector3(1.6f,.14f,.65f),trim);
+        }
+        // A slim door plate and stone lintel read well without introducing a text renderer per house.
+        Cube(parent,"KapiNumaraPlakasi",new Vector3(.74f,1.93f,-d*.5f-.16f),new Vector3(.20f,.24f,.045f),trim);
+        Cube(parent,"KapiLentosu",new Vector3(0,2.25f,-d*.5f-.15f),new Vector3(1.20f,.14f,.20f),Cream);
+    }
+
     static void AddCampus(Transform parent,string name,BinaTuru type,Vector3 pos)
     {
         Transform root=Group(parent,name,pos); root.gameObject.AddComponent<BoxCollider>();

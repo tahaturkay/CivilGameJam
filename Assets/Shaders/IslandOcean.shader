@@ -31,6 +31,7 @@ Shader "CivilIsland/Stylized Ocean"
                 float _WaveScale;
                 float _Speed;
             CBUFFER_END
+            float _IslandNight;
             struct Attributes { float4 positionOS : POSITION; };
             struct Varyings { float4 positionCS : SV_POSITION; float3 world : TEXCOORD0; half fog : TEXCOORD1; };
             float Hash(float2 p)
@@ -69,6 +70,7 @@ Shader "CivilIsland/Stylized Ocean"
                 color += sparkle * half3(.025, .045, .04);
                 Light sun = GetMainLight(TransformWorldToShadowCoord(input.world));
                 color *= lerp(.68h, 1.0h, sun.shadowAttenuation);
+                color *= lerp(1,.25,saturate(_IslandNight));
                 return half4(MixFog(color, input.fog), 1);
             }
             ENDHLSL

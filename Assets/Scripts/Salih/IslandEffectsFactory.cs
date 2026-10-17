@@ -6,7 +6,7 @@ using UnityEngine.Rendering;
 public static class IslandEffectsFactory
 {
     static readonly List<Object> resources = new List<Object>();
-    static Material flameMaterial, glowMaterial, smokeMaterial, rainMaterial, splashMaterial, rubbleMaterial, markerMaterial;
+    static Material flameMaterial, glowMaterial, smokeMaterial, rainMaterial, splashMaterial, rubbleMaterial, markerMaterial, markerStripeMaterial;
     static Mesh rubbleMesh, quadMesh;
     static Mesh citizenCubeMesh;
     static readonly Dictionary<Color,Material> citizenMaterials = new Dictionary<Color,Material>();
@@ -27,7 +27,7 @@ public static class IslandEffectsFactory
             if (Application.isPlaying) Object.Destroy(resource); else Object.DestroyImmediate(resource);
         }
         resources.Clear(); citizenMaterials.Clear();
-        flameMaterial = glowMaterial = smokeMaterial = rainMaterial = splashMaterial = rubbleMaterial = markerMaterial = null;
+        flameMaterial = glowMaterial = smokeMaterial = rainMaterial = splashMaterial = rubbleMaterial = markerMaterial = markerStripeMaterial = null;
         rubbleMesh = quadMesh = citizenCubeMesh = null;
     }
 
@@ -374,13 +374,23 @@ public static class IslandEffectsFactory
     }
 
     /// <summary>Local, compact markers for a damaged road section. Caller owns damage lifetime.</summary>
-    public static GameObject CreateConstructionMarkers(Transform parent, Vector3 worldPosition, float width)
+    public static GameObject CreateConstructionMarkers(Transform parent, Vector3 worldPosition, float width,int variant=0)
     {
         var root=Root(parent,"OnarimIsaretleri",worldPosition);Material material=SolidMaterial(ref markerMaterial,"Ada Onarim Turuncusu",new Color(.94f,.43f,.07f));
-        for(int i=0;i<4;i++)
+        for(int i=0;i<2;i++)
         {
             var marker=GameObject.CreatePrimitive(PrimitiveType.Cube);marker.name="OnarimDubasi";marker.transform.SetParent(root.transform,false);
-            marker.transform.localPosition=new Vector3((i-1.5f)*Mathf.Clamp(width/4,.6f,1.6f),.45f,0);marker.transform.localScale=new Vector3(.3f,.9f,.3f);marker.GetComponent<Renderer>().sharedMaterial=material;Object.Destroy(marker.GetComponent<Collider>());
+            marker.transform.localPosition=new Vector3((i==0?-1:1)*(width*.5f+.45f),.45f,0);marker.transform.localScale=new Vector3(.3f,.9f,.3f);marker.GetComponent<Renderer>().sharedMaterial=material;Object.Destroy(marker.GetComponent<Collider>());
+        }
+        var sign=GameObject.CreatePrimitive(PrimitiveType.Cube);sign.name=variant==0?"YolCalismasi":variant==1?"DikkatBozukYol":"Yavasla";sign.transform.SetParent(root.transform,false);
+        sign.transform.localPosition=new Vector3(width*.5f+.45f,1.25f,0);sign.transform.localScale=new Vector3(.8f,.65f,.08f);sign.GetComponent<Renderer>().sharedMaterial=material;Object.Destroy(sign.GetComponent<Collider>());
+        // White bars, chevrons and a broken-road stripe keep the road-work vocabulary readable without text.
+        for(int i=0;i<3;i++)
+        {
+            var stripe=GameObject.CreatePrimitive(PrimitiveType.Cube);stripe.name="UyariSeridi";stripe.transform.SetParent(root.transform,false);
+            stripe.transform.localPosition=new Vector3(width*.5f+.18f+i*.26f,1.25f,-.06f);stripe.transform.localScale=new Vector3(.12f,.53f,.04f);
+            stripe.transform.localRotation=Quaternion.Euler(0,0,variant==0?25:variant==1?(i%2==0?30:-30):0);
+            stripe.GetComponent<Renderer>().sharedMaterial=SolidMaterial(ref markerStripeMaterial,"Ada Isaret Kremi",new Color(.95f,.90f,.72f));Object.Destroy(stripe.GetComponent<Collider>());
         }
         return root;
     }

@@ -28,6 +28,7 @@ public class BinaPopup : MonoBehaviour
     private Image[] starFillImages = new Image[3];
     private bool styleApplied;
     private RectTransform popupCardRt;
+    private TMP_Text schoolQuizButtonLabel;
     private Rect popupLastSafeArea;
     private int popupLastScreenWidth = -1;
     private int popupLastScreenHeight = -1;
@@ -35,6 +36,8 @@ public class BinaPopup : MonoBehaviour
     // Popup bir binaya tıklanınca açılıyor; aynı tıklama alttaki butona (ör. X) denk gelmesin diye kısa koruma
     private float acilisZamani;
     private const float TiklamaKorumasi = 0.2f;
+    private static readonly Vector2 StandardCardSize = new Vector2(540f, 430f);
+    private static readonly Vector2 SchoolCardSize = new Vector2(700f, 460f);
     private bool YeniAcildi { get { return Time.unscaledTime - acilisZamani < TiklamaKorumasi; } }
 
     private void Awake()
@@ -109,7 +112,7 @@ public class BinaPopup : MonoBehaviour
         cardRt.anchorMax = new Vector2(0.5f, 0.5f);
         cardRt.pivot = new Vector2(0.5f, 0.5f);
         cardRt.anchoredPosition = Vector2.zero;
-        cardRt.sizeDelta = new Vector2(540f, 430f);
+        cardRt.sizeDelta = StandardCardSize;
         cardRt.localScale = Vector3.one * nominalPopupScale;
 
         Image cardImg = pencereTr.GetComponent<Image>();
@@ -295,6 +298,7 @@ public class BinaPopup : MonoBehaviour
         StyleExistingButtonAsTwoTone(yukseltButonu, yukseltButonText, UIManager.GreenBtn, UIManager.GreenBtnLeft, UIManager.GreenBtnDark, UIManager.IconType.UpArrow);
         if (kapatButonu != null) kapatButonu.transform.SetAsLastSibling(); // kurdelenin ve diğer kutuların önünde dursun
         TMP_Text quizBtnText = quizButonu != null ? quizButonu.GetComponentInChildren<TMP_Text>() : null;
+        schoolQuizButtonLabel = quizBtnText;
         if (quizBtnText != null) quizBtnText.text = "QUİZ ÇÖZ";
         StyleExistingButtonAsTwoTone(quizButonu, quizBtnText, UIManager.GoldBtn, UIManager.GoldBtnLeft, UIManager.GoldBtnDark, UIManager.IconType.Book);
     }
@@ -401,8 +405,9 @@ public class BinaPopup : MonoBehaviour
             safeMax = parentRect.rect.max;
         }
 
-        float availableWidth = Mathf.Max(0f, safeMax.x - safeMin.x);
-        float availableHeight = Mathf.Max(0f, safeMax.y - safeMin.y);
+        // Leave room for the close button and ribbon tails, which extend beyond the card edge.
+        float availableWidth = Mathf.Max(1f, safeMax.x - safeMin.x - 96f);
+        float availableHeight = Mathf.Max(1f, safeMax.y - safeMin.y - 32f);
         float fitScale = Mathf.Min(nominalPopupScale,
             Mathf.Min(availableWidth / popupCardRt.sizeDelta.x, availableHeight / popupCardRt.sizeDelta.y));
         fitScale = Mathf.Max(0.01f, fitScale);
@@ -432,6 +437,10 @@ public class BinaPopup : MonoBehaviour
         GameManager gm = GameManager.Instance;
         if (gm == null) return;
 
+        bool okulPopup = aktifBina == BinaTuru.Okul;
+        if (popupCardRt != null)
+            popupCardRt.sizeDelta = okulPopup ? SchoolCardSize : StandardCardSize;
+
         int level = gm.Level(aktifBina);
         bool hasarli = gm.Hasarli(aktifBina);
         int maxLevel = DengeAyarlari.Aktif.maxLevel;
@@ -439,6 +448,16 @@ public class BinaPopup : MonoBehaviour
         if (seviyeText != null) seviyeText.text = hasarli
             ? "Seviye " + level + "  (HASARLI)"
             : "Seviye " + level + " / " + maxLevel;
+        if (baslikText != null) baslikText.fontSize = okulPopup ? 29f : 26f;
+        if (seviyeText != null) seviyeText.fontSize = okulPopup ? 20f : 18f;
+        if (aciklamaText != null)
+        {
+            aciklamaText.fontSize = okulPopup ? 22f : 20f;
+            aciklamaText.enableAutoSizing = true;
+            aciklamaText.fontSizeMin = okulPopup ? 18f : 16f;
+            aciklamaText.fontSizeMax = okulPopup ? 22f : 20f;
+            aciklamaText.textWrappingMode = TextWrappingModes.Normal;
+        }
         BinaBilgileriniDoldur(aktifBina, level, hasarli);
 
         // Yıldızları güncelle
@@ -453,7 +472,7 @@ public class BinaPopup : MonoBehaviour
         if (hasarli)
         {
             int maliyet = Ekonomi.OnarimMaliyeti(aktifBina);
-            yukseltButonText.text = "Onar (" + maliyet + " TL)";
+            yukseltButonText.text = "Onar (" + maliyet + " coin)";
             yukseltButonu.interactable = Ekonomi.OnarilabilirMi(aktifBina);
         }
         else if (level >= maxLevel)
@@ -464,7 +483,7 @@ public class BinaPopup : MonoBehaviour
         else
         {
             int maliyet = Ekonomi.YukseltmeMaliyeti(aktifBina);
-            yukseltButonText.text = "Yükselt (" + maliyet + " TL)";
+            yukseltButonText.text = "Yükselt (" + maliyet + " coin)";
             yukseltButonu.interactable = Ekonomi.YukseltilebilirMi(aktifBina);
         }
 
@@ -474,6 +493,10 @@ public class BinaPopup : MonoBehaviour
         {
             quizButonu.gameObject.SetActive(okulMu);
         }
+        if (schoolQuizButtonLabel != null)
+            schoolQuizButtonLabel.fontSize = okulPopup ? 22f : 20f;
+        if (yukseltButonText != null)
+            yukseltButonText.fontSize = okulPopup ? 22f : 20f;
 
         // Eğer Quiz butonu gizliyse Yükselt butonu tek başına ortada şık dursun
         Transform altButonlar = yukseltButonu != null ? yukseltButonu.transform.parent : null;

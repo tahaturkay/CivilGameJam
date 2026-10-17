@@ -23,7 +23,7 @@ public class IslandSystemsTestRobotu : MonoBehaviour
         gm = GameManager.Instance; disaster = FindAnyObjectByType<DisasterController>();
         city = FindAnyObjectByType<IslandCityLife>(); report = FindAnyObjectByType<AfetRaporu>();
         weather = FindAnyObjectByType<IslandWeather>();
-        gm.kullaniciDurdurdu = true; gm.para = 50000;
+        gm.kullaniciDurdurdu = true; gm.para = 50000; gm.farkindalikYuzdesi = 100f;
         Time.timeScale = 3;
         var test = Run();
         while (true)
@@ -45,15 +45,16 @@ public class IslandSystemsTestRobotu : MonoBehaviour
     }
     IEnumerator Run()
     {
-        Check(city.CitizenCount == 48 && city.VehicleCount == 12, "48 pedestrians and 12 moving cars spawned");
+        Check(city.CitizenCount == 95 && city.AnimalCount == 5 && city.LivingActorCount == 100 && city.VehicleCount == 12,
+            "95 pedestrians, 5 street animals and 12 moving cars spawned");
         Transform actors = city.transform.Find("SehirYasami");
         if(SystemInfo.supportsInstancing)
         {
-            Check(city.InstancedPartCount==528 && city.InstancedBatchCount<=14, "All NPC parts use at most 14 instanced draw groups");
+            Check(city.InstancedPartCount>=1400 && city.InstancedBatchCount<=50, "100 living actors share instanced mesh groups");
             city.enabled=false;yield return null;
             Check(city.InstancedPartCount==0 && actors.GetChild(0).GetComponentsInChildren<MeshRenderer>().All(r=>r.enabled), "Disabling city simulation restores ordinary NPC rendering");
             city.enabled=true;yield return null;yield return null;
-            Check(city.InstancedPartCount==528 && actors.GetChild(0).GetComponentsInChildren<MeshRenderer>().All(r=>!r.enabled), "Re-enabling restores instancing without duplicate renderers");
+            Check(city.InstancedPartCount>=1400 && actors.GetChild(0).GetComponentsInChildren<MeshRenderer>().All(r=>!r.enabled), "Re-enabling restores instancing without duplicate renderers");
         }
         Transform pedestrian = actors.GetChild(0), car = actors.Cast<Transform>().First(t => t.name.StartsWith("AdaAraci"));
         Vector3 p = pedestrian.position, c = car.position;
@@ -71,9 +72,9 @@ public class IslandSystemsTestRobotu : MonoBehaviour
         var hud = FindAnyObjectByType<UIManager>();
         int before = gm.para; gm.GelirKaydet(123);
         yield return new WaitForSecondsRealtime(.1f);
-        Check(!hud.paraText.text.StartsWith((before+123)+" TL"), "Income display counts up instead of jumping");
+        Check(!hud.paraText.text.StartsWith((before+123)+" coin"), "Income display counts up instead of jumping");
         yield return new WaitForSecondsRealtime(1.1f);
-        Check(hud.paraText.text.StartsWith(gm.para+" TL"), "Income counter reaches exact balance in one second");
+        Check(hud.paraText.text.StartsWith(gm.para+" coin"), "Income counter reaches exact balance in one second");
         BuildingVisuals house = city.houses[0];
         gm.LevelAyarla(BinaTuru.TemelBina,3); yield return null;
         gm.HasarVer(BinaTuru.TemelBina,AfetTuru.Yangin);
@@ -110,7 +111,7 @@ public class IslandSystemsTestRobotu : MonoBehaviour
         float fireDeadline=Time.realtimeSinceStartup+disaster.afetSuresi*2;
         while(disaster.AfetDevamEdiyorMu && Time.realtimeSinceStartup<fireDeadline)yield return null;
         log.AppendLine("Fire completion: report="+gm.afetOlduMu+" active="+gm.afetSuruyor+" damage="+gm.temelBinaHasarli+" arrivals="+city.GatheredCount+"/"+city.CitizenCount);
-        Check(gm.afetOlduMu && !gm.afetSuruyor && gm.temelBinaHasarli && city.GatheredCount == city.CitizenCount, "Fire ends with repairable damage and assembled citizens");
+        Check(gm.afetOlduMu && !gm.afetSuruyor && gm.temelBinaHasarli && city.GatheredCount == city.LivingActorCount, "Fire ends with repairable damage and assembled citizens");
         yield return new WaitForSecondsRealtime(1.1f);
         Check(report.vefatText.text.EndsWith(gm.sonVefatSayisi.ToString()), "Disaster death counter reaches its exact final value");
         Capture("Logs/Ada_YanginHasari.png");
@@ -120,16 +121,23 @@ public class IslandSystemsTestRobotu : MonoBehaviour
         disaster.AfetBaslat(1); yield return new WaitForSeconds(7);
         Check(weather.RainActive && weather.StormAmount > .75f, "Flood enables rain and dark storm lighting");
         Check(disaster.tsunamiSuyu.gameObject.activeSelf && Mathf.Abs(disaster.tsunamiSuyu.position.y-disaster.selSuYuksekligi)<.03f, "Insufficient infrastructure produces shallow flood water");
-        Check(city.ShelteredCount > 0 && city.CurrentMode == IslandCityLife.CityLifeMode.Shelter, "Flood sends citizens inside nearest houses");
+        Check(city.CurrentMode == IslandCityLife.CityLifeMode.Assembly, "Flood evacuates the full city to gathering areas at high awareness");
         Renderer water = disaster.tsunamiSuyu.GetComponent<Renderer>();
-        Check(water.sharedMaterial.GetColor("_BaseColor").a < .35f && water.bounds.size.x < city.landBounds.size.x, "Flood is transparent and bounded inside the seawall");
+        Check(water.sharedMaterial.GetColor("_BaseColor").a > .98f && water.bounds.size.x < city.landBounds.size.x, "Flood water is opaque and stays inside the seawall");
         Capture("Logs/Ada_Sel.png");
         yield return new WaitForSeconds(disaster.afetSuresi);
         Check(gm.altyapiHasarli && FindAnyObjectByType<RoadNetworkState>().ConstructionVisible, "Flood leaves damaged roads and construction markers");
         CloseReport(); yield return null;
+        Transform trafficCar=actors.Cast<Transform>().First(t=>t.name.StartsWith("AdaAraci"));
+        Vector3 blockedPosition=trafficCar.position;gm.kullaniciDurdurdu=false;
+        yield return new WaitForSecondsRealtime(.3f);gm.kullaniciDurdurdu=true;
+        Check(city.TrafficBlocked && Vector3.Distance(blockedPosition,trafficCar.position)<.02f,
+            "Cars stay stopped while flood-damaged roads await repair");
         Check(Ekonomi.Onar(BinaTuru.Altyapi), "Damaged roads use the existing repair action");
-        yield return null;
+        gm.kullaniciDurdurdu=false;yield return new WaitForSecondsRealtime(.35f);gm.kullaniciDurdurdu=true;
         Check(!FindAnyObjectByType<RoadNetworkState>().ConstructionVisible, "Road repair clears construction markers");
+        Check(!city.TrafficBlocked && Vector3.Distance(blockedPosition,trafficCar.position)>.05f,
+            "Traffic resumes after road repair");
         ResetBuildings(); gm.altyapiLevel = 2;
         disaster.AfetBaslat(1); yield return new WaitForSeconds(7);
         Check(disaster.SavunmaYeterli && !disaster.tsunamiSuyu.gameObject.activeSelf, "Level 2 intact infrastructure keeps the city dry during flood");
@@ -140,7 +148,9 @@ public class IslandSystemsTestRobotu : MonoBehaviour
         ResetBuildings(); disaster.AfetBaslat(3); yield return new WaitForSeconds(6);
         Material sea = GameObject.Find("LowPolyAda").transform.Find("Arazi/Deniz").GetComponent<Renderer>().sharedMaterial;
         Check(disaster.tsunamiDalgasi.GetComponentsInChildren<Renderer>(true).All(r=>r.sharedMaterials.All(m=>m==sea)), "Tsunami uses exactly the ocean material");
-        Check(disaster.tsunamiSuyu.gameObject.activeSelf && disaster.tsunamiSuyu.position.y > disaster.kuruZeminY, "Weak seawall allows transparent water to follow the wave");
+        Check(disaster.tsunamiSuyu.gameObject.activeSelf && disaster.tsunamiSuyu.position.y > disaster.kuruZeminY &&
+            disaster.tsunamiSuyu.GetComponent<Renderer>().sharedMaterial.GetColor("_BaseColor").a > .98f,
+            "Weak seawall allows opaque flood water to follow the wave");
         Capture("Logs/Ada_Tsunami.png");
         yield return new WaitForSeconds(disaster.afetSuresi);
         Check(gm.setHasarli && !disaster.tsunamiDalgasi.gameObject.activeSelf, "Unprotected tsunami exits view and leaves seawall damage");
@@ -150,10 +160,25 @@ public class IslandSystemsTestRobotu : MonoBehaviour
         Check(disaster.SavunmaYeterli && !disaster.tsunamiSuyu.gameObject.activeSelf && !disaster.tsunamiDalgasi.gameObject.activeSelf, "Level 3 seawall dissolves tsunami at impact without flooding city");
         yield return new WaitForSeconds(disaster.afetSuresi);
         CloseReport(); yield return null;
-        Check(city.CurrentMode == IslandCityLife.CityLifeMode.Normal && actors.Cast<Transform>().Count(t=>t.name.StartsWith("Yaya")&&t.gameObject.activeSelf)==48, "All sheltered citizens return after the report");
+        Check(city.CurrentMode == IslandCityLife.CityLifeMode.Normal && actors.Cast<Transform>().Count(t=>
+            t.gameObject.activeSelf && (t.name.StartsWith("Yaya") || t.name.StartsWith("SokakHayvani")))==city.LivingActorCount,
+            "All sheltered residents and animals return after the report");
         ResetBuildings(); Vector3 cameraBefore=Camera.main.transform.position;
-        disaster.AfetBaslat(2); yield return new WaitForSeconds(disaster.afetSuresi+1);
+        disaster.AfetBaslat(2); yield return new WaitForSecondsRealtime(.25f);
+        IslandGroundQuake groundQuake=FindAnyObjectByType<IslandGroundQuake>();
+        Check(groundQuake!=null&&groundQuake.GroundShaking&&groundQuake.CracksVisible,
+            "Earthquake shakes gravel and reveals ground cracks");
+        yield return new WaitForSeconds(disaster.afetSuresi+1);
         Check(gm.temelBinaHasarli && gm.okulHasarli && gm.akutHasarli && gm.itfaiyeHasarli, "Earthquake controller damages every underdeveloped service type");
+        bool brokenRoof=false;
+        foreach(BuildingVisuals houseVisual in city.houses)
+        {
+            if(houseVisual==null)continue;
+            bool broken=houseVisual.GetComponentsInChildren<MeshFilter>(true).Any(f=>f.sharedMesh!=null&&f.sharedMesh.name=="KirilmisKiremitCati");
+            Transform effects=houseVisual.transform.Find("KaliciHasarEfektleri");
+            if(broken&&effects!=null&&effects.Find("KirikCatiKiremitleri")!=null){brokenRoof=true;break;}
+        }
+        Check(brokenRoof,"Earthquake damage leaves a broken tile roof and scattered roof debris");
         Check(Vector3.Distance(cameraBefore,Camera.main.transform.position)<.05f, "Earthquake camera shake restores the original camera position");
         CaptureDetail("Logs/Ada_DepremHasari.png",new Vector3(-34,4,8));
         CloseReport(); yield return null;
@@ -165,12 +190,14 @@ public class IslandSystemsTestRobotu : MonoBehaviour
         popup.Kapat();
         city.Configure(disaster,city.landBounds,city.houses,city.gatheringAreas);
         yield return null;yield return null;
-        Check(city.CitizenCount==48 && city.VehicleCount==12 && city.transform.Cast<Transform>().Count(t=>t.name=="SehirYasami")==1, "Runtime reconfiguration replaces actors and shared instance caches cleanly");
+        Check(city.CitizenCount==95 && city.AnimalCount==5 && city.LivingActorCount==100 && city.VehicleCount==12 &&
+            city.transform.Cast<Transform>().Count(t=>t.name=="SehirYasami")==1,
+            "Runtime reconfiguration replaces the full population and shared instance caches cleanly");
         log.AppendLine("PASS: ALL ISLAND SYSTEM INTEGRATION CHECKS");
     }
     void ResetBuildings()
     {
-        gm.gun=1; gm.nufus=1000; gm.oyunBittiMi=false; gm.para=50000;
+        gm.gun=1; gm.nufus=1000; gm.oyunBittiMi=false; gm.para=50000;gm.farkindalikYuzdesi=100f;
         foreach(BinaTuru type in Enum.GetValues(typeof(BinaTuru))) {gm.LevelAyarla(type,1);gm.HasarliAyarla(type,false);}
     }
     void CloseReport(){ report.Devam(); gm.kullaniciDurdurdu=true; }

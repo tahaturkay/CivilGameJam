@@ -36,6 +36,7 @@ public static partial class IslandLayoutInstaller
         BuildLevelBuildings(Group(island.transform, "YukseltilebilirYapilar", Vector3.up * GroundY));
         BuildStaticPlaces(Group(island.transform, "SabitAlanlar", Vector3.up * GroundY));
         BuildWall(Group(island.transform, "DenizSeti", Vector3.up * GroundY));
+        BuildLighthouse(island.transform,new Vector3(-70,GroundY,46));
         foreach (BuildingVisuals b in island.GetComponentsInChildren<BuildingVisuals>(true)) b.gameObject.AddComponent<BuildingDamageVisuals>();
         return island;
     }
@@ -190,7 +191,7 @@ public static partial class IslandLayoutInstaller
         {
             MeshFilter filter = renderer.GetComponent<MeshFilter>();
             if (filter == null || filter.sharedMesh == null || !filter.sharedMesh.isReadable || renderer.GetComponent<TextMesh>() != null) continue;
-            if (!renderer.enabled) continue;
+            if (!renderer.enabled || renderer.name=="KiremitCati") continue;
             Material[] mats = renderer.sharedMaterials;
             for (int sub = 0; sub < filter.sharedMesh.subMeshCount && sub < mats.Length; sub++)
             {
@@ -357,7 +358,7 @@ public static partial class IslandLayoutInstaller
         root.gameObject.AddComponent<BoxCollider>(); var visuals=root.gameObject.AddComponent<BuildingVisuals>(); visuals.binaTuru=BinaTuru.TemelBina; visuals.levelModelleri=new GameObject[3];
         for(int level=0;level<3;level++)
         {
-            Transform model=Group(root,"Level_"+(level+1)); House(model,level,number); CombineVisuals(model,"Konut_"+number.ToString("00")+"_L"+(level+1));
+            Transform model=Group(root,"Level_"+(level+1)); House(model,level,number); DecorateHouse(model,level,number); CombineVisuals(model,"Konut_"+number.ToString("00")+"_L"+(level+1));
             visuals.levelModelleri[level]=model.gameObject; model.gameObject.SetActive(level==0);
         }
         SetInitialCollider(root.gameObject);
@@ -386,7 +387,7 @@ public static partial class IslandLayoutInstaller
     public static void FrameIsland(Camera camera)
     {
         if(camera==null)return; camera.orthographic=true; camera.orthographicSize=91; camera.nearClipPlane=.3f; camera.farClipPlane=650;
-        camera.transform.position=new Vector3(137,180,-170); camera.transform.LookAt(new Vector3(0,5,4));
+        camera.transform.position=new Vector3(107,140,-136); camera.transform.LookAt(new Vector3(0,5,4));
         camera.backgroundColor=new Color32(123,169,187,255); camera.clearFlags=CameraClearFlags.SolidColor;
     }
 }

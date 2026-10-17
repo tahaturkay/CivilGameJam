@@ -9,6 +9,8 @@ using UnityEngine.InputSystem;
 public class EconomyAndTime : MonoBehaviour
 {
     private float gunSayaci;
+    public float DayProgress => Mathf.Clamp01(gunSayaci / Mathf.Max(.1f,
+        DengeAyarlari.Aktif.birGunSuresi / Mathf.Max(1, GameManager.Instance != null ? GameManager.Instance.hizCarpani : 1)));
 
     private void Update()
     {

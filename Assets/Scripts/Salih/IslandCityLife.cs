@@ -13,14 +13,16 @@ public sealed class IslandCityLife : MonoBehaviour
     {
         Normal,
         Assembly,
-        Shelter
+        Shelter,
+        Panic
     }
 
     [Header("Traffic prefabs")]
     public GameObject[] vehiclePrefabs;
 
     [Header("Runtime population")]
-    [Min(1)] public int citizenCount = 48;
+    [Min(1)] public int citizenCount = 95;
+    [Range(0,5)] public int animalCount = 5;
     [Range(0, 12)] public int movingVehicleCount = 12;
 
     [Header("Scene references")]
@@ -75,6 +77,10 @@ public sealed class IslandCityLife : MonoBehaviour
         public CityLifeMode mode;
         public bool reachedGoal;
         public BuildingVisuals shelterHouse;
+        public bool isAnimal, panicAtAssembly, unsafeResponse;
+        public Vector3 assemblyAnchor;
+        public float panicTimer;
+        public int id;
     }
 
     private sealed class VehicleRoute
@@ -96,6 +102,7 @@ public sealed class IslandCityLife : MonoBehaviour
     {
         public Material material;
         public Mesh mesh;
+        public int submesh;
         public readonly List<Transform> parts = new List<Transform>(48);
         public readonly List<MeshRenderer> renderers = new List<MeshRenderer>(48);
         public Matrix4x4[] matrices;
@@ -105,7 +112,7 @@ public sealed class IslandCityLife : MonoBehaviour
     private readonly List<CitizenActor> citizens = new List<CitizenActor>(48);
     private readonly List<VehicleActor> vehicles = new List<VehicleActor>(12);
     private readonly List<CitizenMaterialBatch> citizenBatches = new List<CitizenMaterialBatch>(16);
-    private readonly Dictionary<Material, CitizenMaterialBatch> citizenBatchesByMaterial = new Dictionary<Material, CitizenMaterialBatch>(16);
+    private readonly Dictionary<(Material,Mesh,int), CitizenMaterialBatch> citizenBatchesByMaterial = new Dictionary<(Material,Mesh,int), CitizenMaterialBatch>(32);
     private Vector3[] roadNodePositions;
     private int[,] roadNeighbors;
     private int[] roadNeighborCounts;
@@ -123,7 +130,13 @@ public sealed class IslandCityLife : MonoBehaviour
     private int shelteredCount;
     private int gatheredCount;
 
-    public int CitizenCount { get { return citizens.Count; } }
+    public int CitizenCount { get { return citizens.Count-AnimalCount; } }
+    public int AnimalCount { get; private set; }
+    public int LivingActorCount => citizens.Count;
+    public int AwarenessBandAtIncident { get; private set; }
+    public int WrongResponseCount { get; private set; }
+    public int PanickedAssemblyCount { get; private set; }
+    public bool TrafficBlocked => incidentActive || (gameManager != null && gameManager.altyapiHasarli);
     public int VehicleCount { get { return vehicles.Count; } }
     public int ShelteredCount { get { return shelteredCount; } }
     public int GatheredCount { get { return gatheredCount; } }
@@ -185,7 +198,9 @@ public sealed class IslandCityLife : MonoBehaviour
         InstancedBatchCount = 0;
         instanceRenderingEnabled = false;
         IslandEffectsFactory.ClearCitizenRuntimeCache();
+        IslandActorArt.ClearRuntimeCache();
         citizens.Clear();
+        AnimalCount=0;
         vehicles.Clear();
         if (cityLifeRoot != null)
         {
@@ -213,14 +228,19 @@ public sealed class IslandCityLife : MonoBehaviour
                 MeshFilter filter = renderer.GetComponent<MeshFilter>();
                 if (filter == null || filter.sharedMesh == null) continue;
 
-                Material material = renderer.sharedMaterial;
+                Material[] materials=renderer.sharedMaterials;
+                for(int sub=0;sub<filter.sharedMesh.subMeshCount&&sub<materials.Length;sub++)
+                {
+                Material material = materials[sub];if(material==null)continue;
                 CitizenMaterialBatch batch;
-                if (!citizenBatchesByMaterial.TryGetValue(material, out batch))
+                var key=(material,filter.sharedMesh,sub);
+                if (!citizenBatchesByMaterial.TryGetValue(key, out batch))
                 {
                     batch = new CitizenMaterialBatch
                     {
                         material = material,
                         mesh = filter.sharedMesh,
+                        submesh = sub,
                         renderParams = new RenderParams(material)
                     };
                     batch.renderParams.layer = renderer.gameObject.layer;
@@ -229,12 +249,13 @@ public sealed class IslandCityLife : MonoBehaviour
                     batch.renderParams.lightProbeUsage = renderer.lightProbeUsage;
                     batch.renderParams.reflectionProbeUsage = renderer.reflectionProbeUsage;
                     batch.renderParams.renderingLayerMask = renderer.renderingLayerMask;
-                    citizenBatchesByMaterial.Add(material, batch);
+                    citizenBatchesByMaterial.Add(key, batch);
                     citizenBatches.Add(batch);
                 }
 
                 batch.parts.Add(renderer.transform);
                 batch.renderers.Add(renderer);
+                }
             }
         }
 
@@ -325,10 +346,11 @@ public sealed class IslandCityLife : MonoBehaviour
 
             if (count == 0 || !hasBounds) continue;
             batch.renderParams.worldBounds = bounds;
-            for (int first = 0; first < count; first += 1023)
+            // Non-uniform body-part scales require both object/world matrices in Lit's instance buffer.
+            for (int first = 0; first < count; first += 511)
             {
-                int instanceCount = Mathf.Min(1023, count - first);
-                Graphics.RenderMeshInstanced(in batch.renderParams, batch.mesh, 0, batch.matrices, instanceCount, first);
+                int instanceCount = Mathf.Min(511, count - first);
+                Graphics.RenderMeshInstanced(in batch.renderParams, batch.mesh, batch.submesh, batch.matrices, instanceCount, first);
                 submittedBatches++;
             }
             submittedParts += count;
@@ -376,14 +398,19 @@ public sealed class IslandCityLife : MonoBehaviour
 
     private void SpawnCitizens()
     {
-        int count = Mathf.Max(1, citizenCount);
+        int people = Mathf.Max(1, citizenCount);
+        AnimalCount=Mathf.Clamp(animalCount,0,5);
+        int count = people+AnimalCount;
         for (int i = 0; i < count; i++)
         {
             int startNode = (i * 7) % RoadNodeCount;
             Color shirt = ShirtColors[Random.Range(0, ShirtColors.Length)];
             Color skin = SkinColors[Random.Range(0, SkinColors.Length)];
-            GameObject model = IslandEffectsFactory.CreateCitizen(cityLifeRoot, shirt, skin);
-            model.name = "Yaya_" + (i + 1).ToString("00");
+            bool animal=i>=people;
+            GameObject model = animal ? IslandActorArt.CreateAnimal(cityLifeRoot,(i-people)%2==0,i-people)
+                : IslandEffectsFactory.CreateCitizen(cityLifeRoot, shirt, skin);
+            if(!animal)IslandActorArt.EnhanceCitizen(model,i);
+            model.name = animal?"SokakHayvani_"+(i-people+1):"Yaya_" + (i + 1).ToString("00");
             Transform root = model.transform;
             root.position = roadNodePositions[startNode];
 
@@ -398,10 +425,11 @@ public sealed class IslandCityLife : MonoBehaviour
                 currentNode = startNode,
                 targetNode = startNode,
                 speed = Random.Range(1.5f, 2.41f),
-                emergencySpeed = Random.Range(10.5f, 12f),
+                emergencySpeed = Random.Range(18f, 21f),
                 gaitPhase = Random.Range(0f, Mathf.PI * 2f),
                 mode = CityLifeMode.Normal
             };
+            actor.isAnimal=animal;actor.id=i;
             citizens.Add(actor);
             ChooseWanderRoute(actor);
         }
@@ -479,7 +507,7 @@ public sealed class IslandCityLife : MonoBehaviour
 
     private void SpawnVehicles()
     {
-        if (vehiclePrefabs == null || vehiclePrefabs.Length == 0 || movingVehicleCount <= 0) return;
+        if (movingVehicleCount <= 0) return;
         int count = Mathf.Min(12, movingVehicleCount);
         for (int i = 0; i < count; i++)
         {
@@ -490,14 +518,11 @@ public sealed class IslandCityLife : MonoBehaviour
             Vector3 position, direction;
             EvaluateRoute(route, distance, out position, out direction);
 
-            GameObject prefab = vehiclePrefabs[i % vehiclePrefabs.Length];
-            if (prefab == null) continue;
-            GameObject car = Instantiate(prefab, cityLifeRoot, false);
+            GameObject car = IslandActorArt.CreateVehicle(cityLifeRoot,i%6);
             car.name = "AdaAraci_" + (i + 1).ToString("00");
             car.transform.position = position;
             car.transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
             RemoveVehicleColliders(car);
-            NormalizeVehicle(car, direction);
             PlaceVehicleOnGround(car.transform);
 
             vehicles.Add(new VehicleActor
@@ -577,7 +602,7 @@ public sealed class IslandCityLife : MonoBehaviour
         if (paused) return;
 
         float deltaTime = Time.deltaTime;
-        bool stopVehicles = incidentActive || paused;
+        bool stopVehicles = TrafficBlocked;
         if (!stopVehicles) UpdateVehicles(deltaTime);
         UpdateCitizens(deltaTime);
     }
@@ -602,23 +627,34 @@ public sealed class IslandCityLife : MonoBehaviour
     {
         incidentActive = true;
         incidentType = type;
-        CurrentMode = type == AfetTuru.Yangin || type == AfetTuru.Deprem
-            ? CityLifeMode.Assembly
-            : CityLifeMode.Shelter;
+        CurrentMode = CityLifeMode.Assembly;
+        float awareness=gameManager!=null?gameManager.farkindalikYuzdesi:100;
+        AwarenessBandAtIncident=awareness>=80?2:awareness>=40?1:0;
+        WrongResponseCount=PanickedAssemblyCount=0;
         shelteredCount = 0;
         gatheredCount = 0;
 
         for (int i = 0; i < citizens.Count; i++)
         {
             CitizenActor actor = citizens[i];
-            actor.mode = CurrentMode;
+            actor.unsafeResponse=!actor.isAnimal&&AwarenessBandAtIncident==0&&i%10<7;
+            actor.panicAtAssembly=!actor.isAnimal&&AwarenessBandAtIncident==1;
+            bool fireOrQuake=type==AfetTuru.Yangin||type==AfetTuru.Deprem;
+            actor.mode = actor.unsafeResponse ? (fireOrQuake?CityLifeMode.Shelter:CityLifeMode.Panic) : CityLifeMode.Assembly;
+            if(actor.unsafeResponse)WrongResponseCount++;
+            if(actor.panicAtAssembly)PanickedAssemblyCount++;
             actor.reachedGoal = false;
             actor.waitRemaining = 0f;
             actor.shelterHouse = null;
             Vector3 destination;
-            if (CurrentMode == CityLifeMode.Assembly)
+            if(actor.mode==CityLifeMode.Panic)
+            {
+                ChooseWanderRoute(actor);continue;
+            }
+            if (actor.mode == CityLifeMode.Assembly)
             {
                 destination = NearestGatheringPoint(actor.root.position, i);
+                actor.assemblyAnchor=destination;actor.panicTimer=0;
             }
             else
             {
@@ -639,6 +675,7 @@ public sealed class IslandCityLife : MonoBehaviour
         for (int i = 0; i < citizens.Count; i++)
         {
             CitizenActor actor = citizens[i];
+            actor.panicAtAssembly=actor.unsafeResponse=false;
             if (actor.mode == CityLifeMode.Assembly)
             {
                 if (actor.reachedGoal) gatheredCount = Mathf.Max(0, gatheredCount - 1);
@@ -663,9 +700,11 @@ public sealed class IslandCityLife : MonoBehaviour
                 PlanReturnToSidewalk(actor);
                 actor.shelterHouse = null;
             }
+            else if(actor.mode==CityLifeMode.Panic){actor.mode=CityLifeMode.Normal;PlanReturnToSidewalk(actor);}
         }
         gatheredCount = 0;
         shelteredCount = 0;
+        WrongResponseCount=PanickedAssemblyCount=0;
     }
 
     private Vector3 NearestGatheringPoint(Vector3 from, int citizenIndex)
@@ -801,6 +840,18 @@ public sealed class IslandCityLife : MonoBehaviour
         {
             CitizenActor actor = citizens[i];
             if (actor.gameObject == null || !actor.gameObject.activeSelf) continue;
+            if(actor.mode==CityLifeMode.Assembly && actor.reachedGoal)
+            {
+                if(actor.panicAtAssembly)
+                {
+                    actor.panicTimer-=deltaTime;
+                    if(actor.panicTimer<=0){actor.panicTimer=Random.Range(.4f,1.1f);Vector2 offset=Random.insideUnitCircle*1.8f;actor.worldGoal=actor.assemblyAnchor+new Vector3(offset.x,0,offset.y);}
+                    bool walking=!MoveCitizen(actor,actor.worldGoal,3.8f,deltaTime);
+                    AnimateCitizen(actor,walking,deltaTime);
+                }
+                else AnimateCitizen(actor,false,deltaTime);
+                continue;
+            }
             if (actor.waitRemaining > 0f && actor.mode == CityLifeMode.Normal)
             {
                 actor.waitRemaining = Mathf.Max(0f, actor.waitRemaining - deltaTime);
@@ -816,7 +867,7 @@ public sealed class IslandCityLife : MonoBehaviour
 
     private bool AdvanceCitizen(CitizenActor actor, float deltaTime)
     {
-        float speed = actor.mode == CityLifeMode.Normal ? actor.speed : actor.emergencySpeed;
+        float speed = actor.mode == CityLifeMode.Normal ? actor.speed : actor.mode==CityLifeMode.Panic ? 7f : actor.emergencySpeed;
         if (actor.hasInitialLeg)
         {
             if (!MoveCitizen(actor, actor.initialLegTarget, speed, deltaTime)) return true;
@@ -847,7 +898,8 @@ public sealed class IslandCityLife : MonoBehaviour
             return false;
         }
 
-        if (actor.mode == CityLifeMode.Normal)
+        if(actor.mode==CityLifeMode.Panic)ChooseWanderRoute(actor);
+        else if (actor.mode == CityLifeMode.Normal)
         {
             actor.waitRemaining = Random.Range(.25f, 1.1f);
         }
@@ -898,8 +950,14 @@ public sealed class IslandCityLife : MonoBehaviour
         ChooseWanderRoute(actor);
     }
 
-    private static void AnimateCitizen(CitizenActor actor, bool walking, float deltaTime)
+    private void AnimateCitizen(CitizenActor actor, bool walking, float deltaTime)
     {
+        if(actor.isAnimal)
+        {
+            if(walking)actor.gaitPhase+=deltaTime*11;
+            Vector3 p=actor.root.position;p.y=RoadSurfaceY+(walking?Mathf.Abs(Mathf.Sin(actor.gaitPhase))*.045f:0);actor.root.position=p;
+            return;
+        }
         float blend = 1f - Mathf.Exp(-10f * deltaTime);
         float swing = 0f;
         if (walking)

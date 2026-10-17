@@ -50,6 +50,15 @@ public sealed class GraphicsBufferProbe : MonoBehaviour
         report.AppendLine("NPC instanced parts="+city.InstancedPartCount+" batches="+city.InstancedBatchCount);
         if(runLabel!="baseline")
         {
+            var clock=FindAnyObjectByType<EconomyAndTime>();
+            var timer=typeof(EconomyAndTime).GetField("gunSayaci",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance);
+            timer.SetValue(clock,8000f);
+            yield return Sample("Night with headlights and lighthouse",8);
+            yield return new WaitForEndOfFrame();ScreenCapture.CaptureScreenshot("Logs/GraphicsBuffer-night.png");yield return null;
+            timer.SetValue(clock,0f);
+        }
+        if(runLabel!="baseline")
+        {
             Camera camera=Camera.main;Vector3 previous=camera.transform.position;float size=camera.orthographicSize;
             camera.transform.position=new Vector3(-26,4,0)-camera.transform.forward*230;camera.orthographicSize=32;
             yield return new WaitForEndOfFrame();

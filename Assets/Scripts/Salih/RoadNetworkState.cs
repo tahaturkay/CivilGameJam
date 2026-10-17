@@ -20,7 +20,7 @@ public class RoadNetworkState : MonoBehaviour
             for (int i = 0; i < 3; i++)
             {
                 Vector3 p = road.transform.TransformPoint(new Vector3(0,.34f,(i-1)*col.size.z*.26f));
-                var mark = IslandEffectsFactory.CreateConstructionMarkers(markers, p, col.size.x*.7f);
+                var mark = IslandEffectsFactory.CreateConstructionMarkers(markers, p, col.size.x,i);
                 mark.transform.rotation = road.transform.rotation;
             }
         }

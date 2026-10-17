@@ -19,6 +19,7 @@ public class IslandCameraController : MonoBehaviour
     [Min(1f)] public float minOrthographicSize = 18f;
     [Min(1f)] public float maxOrthographicSize = 140f;
     [Min(1f)] public float homeOrthographicSize = 100f;
+    [Min(1f)] public float startOrthographicSize = 58f;
     [Min(0.01f)] public float zoomSensitivity = 0.2f;
 
     [Header("Keyboard pan")]
@@ -48,6 +49,16 @@ public class IslandCameraController : MonoBehaviour
     private void OnDisable()
     {
         dragging = false;
+    }
+
+    private void Start(){FrameCity();}
+
+    /// <summary>Readable city view at startup; Home still fits the complete island.</summary>
+    public void FrameCity()
+    {
+        EnsureCameraReference();if(cachedCamera==null)return;
+        cachedCamera.orthographicSize=Mathf.Clamp(startOrthographicSize,minOrthographicSize,maxOrthographicSize);
+        SetCameraCenter(boundsCenter+new Vector3(0,0,-7));
     }
 
     private void Update()

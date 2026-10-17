@@ -28,6 +28,13 @@ public class QuizManager : MonoBehaviour
     private Image feedbackBoxImg;
     private TMP_Text feedbackText;
     private Button devamBtn;
+    private RectTransform quizCardRt;
+    private Rect quizLastSafeArea;
+    private int quizLastScreenWidth = -1;
+    private int quizLastScreenHeight = -1;
+    [Min(1f)] public float nominalQuizScale = 1.35f;
+
+    private static readonly Vector2 QuizCardSize = new Vector2(1000f, 720f);
 
     public QuestionSO AktifSoru { get { return aktifSoru; } } // otomatik test için
 
@@ -81,12 +88,21 @@ public class QuizManager : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
+    private void Update()
+    {
+        if (quizPanel != null && quizPanel.activeSelf)
+            FitQuizToSafeArea(false);
+    }
+
     private void ApplyPrototypeQuizStyle()
     {
         if (styleApplied || quizPanel == null) return;
         styleApplied = true;
 
         TMP_FontAsset font = soruText != null ? soruText.font : null;
+
+        if (quizPanel.GetComponent<RectTransform>() != null)
+            UIManager.StretchFull(quizPanel.GetComponent<RectTransform>());
 
         Image overlayImg = quizPanel.GetComponent<Image>();
         if (overlayImg != null)
@@ -111,13 +127,14 @@ public class QuizManager : MonoBehaviour
         VerticalLayoutGroup oldVlg = pencereTr.GetComponent<VerticalLayoutGroup>();
         if (oldVlg != null) Destroy(oldVlg);
 
-        // Kullanıcının isteğiyle daha geniş ve ferah Quiz modalı (860 x 650)
+        // Quiz kartı geniş tutulur; ekranda kalan gerçek güvenli alana göre aşağıda ölçeklenir.
         RectTransform cardRt = pencereTr.GetComponent<RectTransform>();
+        quizCardRt = cardRt;
         cardRt.anchorMin = new Vector2(0.5f, 0.5f);
         cardRt.anchorMax = new Vector2(0.5f, 0.5f);
         cardRt.pivot = new Vector2(0.5f, 0.5f);
         cardRt.anchoredPosition = Vector2.zero;
-        cardRt.sizeDelta = new Vector2(860f, 650f);
+        cardRt.sizeDelta = QuizCardSize;
 
         Image cardImg = pencereTr.GetComponent<Image>();
         if (cardImg != null)
@@ -198,9 +215,13 @@ public class QuizManager : MonoBehaviour
             stRt.offsetMin = new Vector2(24f, 14f);
             stRt.offsetMax = new Vector2(-24f, -14f);
             soruText.fontSize = 25f;
+            soruText.enableAutoSizing = true;
+            soruText.fontSizeMin = 20f;
+            soruText.fontSizeMax = 28f;
             soruText.fontStyle = FontStyles.Bold;
             soruText.color = Color.white;
             soruText.alignment = TextAlignmentOptions.Center;
+            soruText.textWrappingMode = TextWrappingModes.Normal;
         }
 
         // 3) 4'lü Şık Listesi (Krem Arka Planlı İki Tonlu Blok Butonlar)
@@ -255,6 +276,9 @@ public class QuizManager : MonoBehaviour
             {
                 TMP_Text st = sikTextleri[i];
                 st.fontSize = 21f;
+                st.enableAutoSizing = true;
+                st.fontSizeMin = 16f;
+                st.fontSizeMax = 22f;
                 st.fontStyle = FontStyles.Bold;
                 st.color = UIManager.DarkInk;
                 st.alignment = TextAlignmentOptions.MidlineLeft;
@@ -311,6 +335,42 @@ public class QuizManager : MonoBehaviour
         if (kapatButonu != null) kapatButonu.transform.SetAsLastSibling();
     }
 
+    private void FitQuizToSafeArea(bool force)
+    {
+        if (quizCardRt == null) return;
+        Rect safeArea = Screen.safeArea;
+        if (!force && quizLastScreenWidth == Screen.width && quizLastScreenHeight == Screen.height &&
+            quizLastSafeArea == safeArea) return;
+
+        RectTransform parentRect = quizCardRt.parent as RectTransform;
+        if (parentRect == null) return;
+
+        Canvas canvas = quizPanel.GetComponentInParent<Canvas>();
+        Camera uiCamera = canvas != null && canvas.rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay
+            ? canvas.rootCanvas.worldCamera
+            : null;
+        Vector2 safeMin;
+        Vector2 safeMax;
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(parentRect, safeArea.min, uiCamera, out safeMin) ||
+            !RectTransformUtility.ScreenPointToLocalPointInRectangle(parentRect, safeArea.max, uiCamera, out safeMax))
+        {
+            safeMin = parentRect.rect.min;
+            safeMax = parentRect.rect.max;
+        }
+
+        // Keep the close button and decorative card trim inside the usable screen area.
+        float availableWidth = Mathf.Max(1f, safeMax.x - safeMin.x - 96f);
+        float availableHeight = Mathf.Max(1f, safeMax.y - safeMin.y - 32f);
+        float fitScale = Mathf.Min(nominalQuizScale,
+            Mathf.Min(availableWidth / quizCardRt.sizeDelta.x, availableHeight / quizCardRt.sizeDelta.y));
+        quizCardRt.localScale = Vector3.one * Mathf.Max(0.01f, fitScale);
+        quizCardRt.anchoredPosition = (safeMin + safeMax) * 0.5f;
+
+        quizLastScreenWidth = Screen.width;
+        quizLastScreenHeight = Screen.height;
+        quizLastSafeArea = safeArea;
+    }
+
     private void ApplyChoiceVisualState(int index, Color32 mainFill, Color32 leftFill, Color32 shadowCol, Color32 textColor)
     {
         if (index < 0 || index >= sikButonlari.Length || sikButonlari[index] == null) return;
@@ -335,6 +395,7 @@ public class QuizManager : MonoBehaviour
         StopAllCoroutines();
         gm.oyunDurduMu = true;
         quizPanel.SetActive(true);
+        FitQuizToSafeArea(true);
         if (feedbackBox != null) feedbackBox.SetActive(false);
 
         // 1) Okul seviyesinin izin verdiği farkındalık tavanına ulaşıldı mı?

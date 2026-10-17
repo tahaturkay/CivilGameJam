@@ -51,6 +51,13 @@ public static class IslandSceneSetup
         Material template = AssetDatabase.LoadAssetAtPath<Material>(path);
         if (template == null) AssetDatabase.CreateAsset(new Material(Shader.Find("CivilIsland/Soft Particle")), path);
         else { template.shader = Shader.Find("CivilIsland/Soft Particle"); EditorUtility.SetDirty(template); }
+        const string glowPath="Assets/Resources/IslandEffects/NightGlow.mat";
+        Material glow=AssetDatabase.LoadAssetAtPath<Material>(glowPath);
+        if(glow==null){glow=new Material(Shader.Find("CivilIsland/Night Glow")){enableInstancing=true};AssetDatabase.CreateAsset(glow,glowPath);}
+        const string emissionPath="Assets/Resources/IslandEffects/NightEmission.mat";
+        Material emission=AssetDatabase.LoadAssetAtPath<Material>(emissionPath);
+        if(emission==null){emission=new Material(Shader.Find("Universal Render Pipeline/Lit")){enableInstancing=true};AssetDatabase.CreateAsset(emission,emissionPath);}
+        emission.EnableKeyword("_EMISSION");emission.SetColor("_EmissionColor",new Color(1,.61f,.22f));EditorUtility.SetDirty(emission);
     }
 
     static void InstallScene(string path)
@@ -96,6 +103,10 @@ public static class IslandSceneSetup
         navigation.disasterController = disaster;
         navigation.Configure(new Vector3(viewBounds.center.x, land.max.y, viewBounds.center.z),
             new Vector2(viewBounds.extents.x + 3, viewBounds.extents.z + 3), 18, 130, camera.orthographicSize);
+        navigation.startOrthographicSize=58;
+        navigation.FrameCity();
+        IslandNightLighting night=island.GetComponent<IslandNightLighting>();
+        if(night==null)night=island.AddComponent<IslandNightLighting>();
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
     }
@@ -163,7 +174,7 @@ public static class IslandSceneSetup
         string materialPath = "Assets/Materials/LowPolyAda/Ada_SaydamSelSuyu.mat";
         Material waterMaterial = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
         if (waterMaterial == null) { waterMaterial = new Material(Shader.Find("CivilIsland/Transparent Interior Flood")); AssetDatabase.CreateAsset(waterMaterial, materialPath); }
-        waterMaterial.SetColor("_BaseColor", new Color(.06f,.34f,.39f,.27f));
+        waterMaterial.SetColor("_BaseColor", new Color(.34f,.55f,.62f,1));
         flood.GetComponent<MeshRenderer>().sharedMaterial = waterMaterial;
         flood.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         flood.layer = 2;
@@ -194,8 +205,12 @@ public static class IslandSceneSetup
         IslandWeather weather = disaster.GetComponent<IslandWeather>();
         if (weather == null) weather = disaster.gameObject.AddComponent<IslandWeather>();
         weather.Configure(disaster, land);
+        IslandGroundQuake quake=disaster.GetComponent<IslandGroundQuake>();
+        if(quake==null)quake=disaster.gameObject.AddComponent<IslandGroundQuake>();
+        quake.disaster=disaster;quake.land=land;
         IslandCityLife city = island.GetComponent<IslandCityLife>();
         if (city == null) city = island.AddComponent<IslandCityLife>();
+        city.citizenCount=95;city.animalCount=5;
         Transform beach = island.transform.Find("SabitAlanlar/Kumsal/ToplanmaNoktasi");
         if (beach == null) { beach = new GameObject("ToplanmaNoktasi").transform; beach.SetParent(island.transform.Find("SabitAlanlar/Kumsal"), false); beach.position = new Vector3(-10,groundY+.35f,-58); }
         city.Configure(disaster, land, buildings.Where(b => b.binaTuru == BinaTuru.TemelBina).ToArray(),
