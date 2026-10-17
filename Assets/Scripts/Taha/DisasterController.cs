@@ -191,7 +191,7 @@ public class DisasterController : MonoBehaviour
         {
             yield return new WaitForSeconds(2.0f); // 2s yağmur yağar
             // Su 3s çıkar, 7s bekler, 3s iner (Toplam 13s + 2s = 15s)
-            yield return StartCoroutine(SuYukseltIndir(1.2f, 3f, 7f, 3f)); 
+            yield return StartCoroutine(SuYukseltIndir(5f, 6f, 7f, 3f)); 
         }
         else
         {
@@ -353,14 +353,20 @@ public class DisasterController : MonoBehaviour
     // Ortak Gelişmiş Su Kontrolcüsü
     IEnumerator SuYukseltIndir(float hedefYukseklik, float cikmaSuresi, float beklemeSuresi, float inmeSuresi)
     {
-        // 1. HAREKETE BAŞLAMADAN ÖNCE SUYU GÖRÜNÜR YAP!
-        if (tsunamiSuyu != null) tsunamiSuyu.gameObject.SetActive(true);
+        if (tsunamiSuyu == null) yield break;
+        
+        // 1. Suyu görünür yap
+        tsunamiSuyu.gameObject.SetActive(true);
 
+        // 2. Başlangıç yüksekliğini kesin olarak yerin dibi (-4f) yapalım
         Vector3 baslangic = tsunamiSuyu.position;
+        //baslangic.y = 4f; 
+        tsunamiSuyu.position = baslangic;
+
         Vector3 tepeNoktasi = new Vector3(baslangic.x, hedefYukseklik, baslangic.z);
         float gecenSure = 0;
 
-        // Çıkış
+        // Çıkış (Sular yükseliyor)
         while (gecenSure < cikmaSuresi) { 
             tsunamiSuyu.position = Vector3.Lerp(baslangic, tepeNoktasi, gecenSure / cikmaSuresi); 
             gecenSure += Time.deltaTime; 
@@ -368,20 +374,20 @@ public class DisasterController : MonoBehaviour
         }
         tsunamiSuyu.position = tepeNoktasi;
 
-        // Bekleme
+        // Bekleme (Şehir sular altında)
         yield return new WaitForSeconds(beklemeSuresi);
 
-        // İniş
+        // İniş (Sular çekiliyor)
         gecenSure = 0;
         while (gecenSure < inmeSuresi) { 
             tsunamiSuyu.position = Vector3.Lerp(tepeNoktasi, baslangic, gecenSure / inmeSuresi); 
             gecenSure += Time.deltaTime; 
             yield return null; 
         }
+        
+        // Su yavaşça -4f noktasına (yerin dibine) indi ve orada duracak. 
+        // Kapatma kodu sildiğimiz için aniden ekrandan silinmeyecek!
         tsunamiSuyu.position = baslangic;
-
-        // 2. SU ÇEKİLDİKTEN SONRA TEKRAR GİZLE!
-        if (tsunamiSuyu != null) tsunamiSuyu.gameObject.SetActive(false);
     }
 
     // Binanın hasar durumunu kontrol eder ve sadece toz/duman çıkartır
