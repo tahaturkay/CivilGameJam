@@ -15,6 +15,13 @@ public class DisasterController : MonoBehaviour
     public GameObject yanginPrefab;        // Klasördeki Yangın Prefabını buraya atacağız
     public Transform[] yanacakBinalar;     // Yangın çıkmasını istediğin binaları buraya sürükle
 
+    // --- YENİ DEPREM SİSTEMİ ---
+    [Header("Deprem Efektleri")]
+    public GameObject tozBulutuPrefab;     // Toz/Duman Particle Prefab'ı
+    public Transform temelBinaObj;
+    public Transform okulObj;
+    public Transform akutObj;
+    public Transform itfaiyeObj;
     private int sonAfetGunu = 0;
     private bool afetDevamEdiyorMu = false;
 
@@ -61,8 +68,23 @@ public class DisasterController : MonoBehaviour
         {
             case 0: // DEPREM (15 Saniye)
                 afetAdi = "DEPREM (Gereken Lvl: " + gerekenLevel + ")";
-                yield return StartCoroutine(KameraSalla(15.0f, 0.4f)); 
+                
+                // 1. Kamerayı 15 saniye boyunca salla (yield yok, paralel çalışır)
+                StartCoroutine(KameraSalla(15.0f, 0.4f)); 
 
+                // 2. İlk 10 saniye sadece sarsıntı olsun
+                yield return new WaitForSeconds(10.0f);
+
+                // 3. Son 5 saniyeye girdik. Hasar alanları kontrol et ve efektleri başlat
+                CheckAndTriggerCollapse(GameManager.Instance.temelBinaLevel, gerekenLevel, temelBinaObj);
+                CheckAndTriggerCollapse(GameManager.Instance.okulLevel, gerekenLevel, okulObj);
+                CheckAndTriggerCollapse(GameManager.Instance.akutLevel, gerekenLevel, akutObj);
+                CheckAndTriggerCollapse(GameManager.Instance.itfaiyeLevel, gerekenLevel, itfaiyeObj);
+
+                // 4. Kalan 5 saniyeyi bekle (Bu sırada Level 1 binalar çökecek)
+                yield return new WaitForSeconds(5.0f);
+
+                // 5. Süre bitti, levelleri düşür
                 if (GameManager.Instance.temelBinaLevel < gerekenLevel) { GameManager.Instance.temelBinaLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.temelBinaLevel); hasarAldiMi = true; }
                 if (GameManager.Instance.okulLevel < gerekenLevel) { GameManager.Instance.okulLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.okulLevel); hasarAldiMi = true; }
                 if (GameManager.Instance.akutLevel < gerekenLevel) { GameManager.Instance.akutLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.akutLevel); hasarAldiMi = true; }
@@ -347,5 +369,46 @@ public class DisasterController : MonoBehaviour
             yield return null; 
         }
         tsunamiSuyu.position = baslangic;
+    }
+
+    // Binanın hasar durumunu kontrol eder ve sadece toz/duman çıkartır
+    void CheckAndTriggerCollapse(int binaLevel, int gerekenLevel, Transform binaObj)
+    {
+        if (binaLevel < gerekenLevel && binaObj != null)
+        {
+            // Bina leveli 1'den büyükse çökecek (true), 1 ise sadece toz çıkacak (false)
+            bool cokecekMi = (binaLevel > 1);
+            StartCoroutine(BinaCokmeEfekti(binaObj, cokecekMi));
+        }
+    }
+
+    // Toz çıkarma ve duruma göre yerin dibine girme animasyonu
+    IEnumerator BinaCokmeEfekti(Transform bina, bool cokecekMi)
+    {
+        // 1. Toz bulutunu her türlü oluştur
+        if (tozBulutuPrefab != null)
+        {
+            Collider col = bina.GetComponent<Collider>();
+            Vector3 zeminPos = col != null ? new Vector3(bina.position.x, col.bounds.min.y, bina.position.z) : bina.position;
+            
+            GameObject toz = Instantiate(tozBulutuPrefab, zeminPos, Quaternion.identity);
+            toz.SetActive(true);
+            Destroy(toz, 5.0f); // 5 saniye sonra tozu temizle
+        }
+
+        // 2. Eğer bina Level 1'den büyükse son 5 saniyede çöksün
+        if (cokecekMi)
+        {
+            Vector3 baslangic = bina.position;
+            Vector3 bitis = baslangic + new Vector3(0, -20f, 0); // 4 birim aşağı göm
+            
+            float gecenSure = 0;
+            while(gecenSure < 5.0f)
+            {
+                bina.position = Vector3.Lerp(baslangic, bitis, gecenSure / 5.0f);
+                gecenSure += Time.deltaTime;
+                yield return null;
+            }
+        }
     }
 }
