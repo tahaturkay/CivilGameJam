@@ -48,16 +48,15 @@ public class MusicPlayer : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
-    // afetTipi DisasterController ile aynı: 0 Deprem, 1 Sel, 2 Yangın, 3 Tsunami
-    public void AfetMuzigiBaslat(int afetTipi)
+    public void AfetMuzigiBaslat(AfetTuru afet)
     {
         AudioClip klip = null;
-        switch (afetTipi)
+        switch (afet)
         {
-            case 0: klip = depremMuzigi; break;
-            case 1: klip = selMuzigi; break;
-            case 2: klip = yanginMuzigi; break;
-            case 3: klip = tsunamiMuzigi; break;
+            case AfetTuru.Deprem:  klip = depremMuzigi; break;
+            case AfetTuru.Sel:     klip = selMuzigi; break;
+            case AfetTuru.Yangin:  klip = yanginMuzigi; break;
+            case AfetTuru.Tsunami: klip = tsunamiMuzigi; break;
         }
         if (klip != null) Cal(klip);
     }

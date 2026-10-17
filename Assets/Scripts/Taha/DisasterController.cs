@@ -22,145 +22,129 @@ public class DisasterController : MonoBehaviour
     public Transform okulObj;
     public Transform akutObj;
     public Transform itfaiyeObj;
-    private int sonAfetGunu = 0;
+    private int sonKontrolEdilenGun = 0;
     private bool afetDevamEdiyorMu = false;
+    private readonly System.Collections.Generic.HashSet<int> gerceklesenAfetler = new System.Collections.Generic.HashSet<int>();
+
+    public bool AfetDevamEdiyorMu { get { return afetDevamEdiyorMu; } }
 
     void Update()
     {
-        if (afetDevamEdiyorMu) return;
+        if (afetDevamEdiyorMu || GameManager.Instance == null) return;
 
-        if (GameManager.Instance != null)
+        // Afetler sabit sırayla ve sabit günlerde gelir (DengeAyarlari.afetler)
+        int gun = GameManager.Instance.gun;
+        if (gun != sonKontrolEdilenGun)
         {
-            int mevcutGun = GameManager.Instance.gun;
-            if (mevcutGun > 0 && mevcutGun % 7 == 0 && mevcutGun != sonAfetGunu)
-            {
-                sonAfetGunu = mevcutGun;
-                RastgeleAfetBaslat(-1);
-            }
+            sonKontrolEdilenGun = gun;
+            int index = DengeAyarlari.Aktif.BuGunkuAfetIndex(gun);
+            if (index >= 0 && !gerceklesenAfetler.Contains(index)) AfetBaslat(index);
         }
 
-        // Test Tuşları
-        if (Input.GetKeyDown(KeyCode.Space)) RastgeleAfetBaslat(-1); 
-        if (Input.GetKeyDown(KeyCode.Alpha1)) RastgeleAfetBaslat(0); 
-        if (Input.GetKeyDown(KeyCode.Alpha2)) RastgeleAfetBaslat(1); 
-        if (Input.GetKeyDown(KeyCode.Alpha3)) RastgeleAfetBaslat(2); 
-        if (Input.GetKeyDown(KeyCode.Alpha4)) RastgeleAfetBaslat(3); 
+#if UNITY_EDITOR
+        // Sadece editörde test için: 1-4 tuşları sıradaki afetleri (Yangın, Sel, Deprem, Tsunami) hemen başlatır
+        if (Input.GetKeyDown(KeyCode.Alpha1)) AfetBaslat(0);
+        if (Input.GetKeyDown(KeyCode.Alpha2)) AfetBaslat(1);
+        if (Input.GetKeyDown(KeyCode.Alpha3)) AfetBaslat(2);
+        if (Input.GetKeyDown(KeyCode.Alpha4)) AfetBaslat(3);
+#endif
     }
 
-    public void RastgeleAfetBaslat(int zorunluAfetTipi = -1)
+    public void AfetBaslat(int index)
     {
         if (afetDevamEdiyorMu) return;
+        var afetler = DengeAyarlari.Aktif.afetler;
+        if (index < 0 || index >= afetler.Length) return;
 
-        int gerekenLevel = (GameManager.Instance.gun / 7) + 1;
-        if (gerekenLevel < 2) gerekenLevel = 2;
-
-        int afetTipi = (zorunluAfetTipi == -1) ? Random.Range(0, 4) : zorunluAfetTipi;
-        StartCoroutine(AfetSureciYonet(afetTipi, gerekenLevel));
+        gerceklesenAfetler.Add(index);
+        StartCoroutine(AfetSureciYonet(afetler[index]));
     }
 
-    IEnumerator AfetSureciYonet(int afetTipi, int gerekenLevel)
+    IEnumerator AfetSureciYonet(DengeAyarlari.AfetAyari afet)
     {
         afetDevamEdiyorMu = true;
-        bool hasarAldiMi = false;
-        string afetAdi = "";
+        var gm = GameManager.Instance;
+        var d = DengeAyarlari.Aktif;
 
-        switch (afetTipi)
+        // 1) Savunma yeterli mi? (kontrol edilen yapıların hepsi gereken seviyede ve hasarsız olmalı)
+        var yetersizler = new System.Collections.Generic.List<BinaTuru>();
+        foreach (BinaTuru b in afet.kontrolEdilen)
+            if (gm.Level(b) < afet.gerekenLevel || gm.Hasarli(b)) yetersizler.Add(b);
+        bool yeterli = yetersizler.Count == 0;
+
+        if (MusicPlayer.Instance != null) MusicPlayer.Instance.AfetMuzigiBaslat(afet.afet);
+
+        // 2) Görsel efekt
+        switch (afet.afet)
         {
-            case 0: // DEPREM (15 Saniye)
-                afetAdi = "DEPREM (Gereken Lvl: " + gerekenLevel + ")";
-                
-                // 1. Kamerayı 15 saniye boyunca salla (yield yok, paralel çalışır)
-                StartCoroutine(KameraSalla(15.0f, 0.4f)); 
-
-                // 2. İlk 10 saniye sadece sarsıntı olsun
+            case AfetTuru.Deprem:
+                StartCoroutine(KameraSalla(15.0f, 0.4f));
                 yield return new WaitForSeconds(5.0f);
-
-                // 3. Son 5 saniyeye girdik. Hasar alanları kontrol et ve efektleri başlat
-                // Temel binaları tek tek kontrol et
                 if (temelBinalar != null)
-                {
                     foreach (Transform bina in temelBinalar)
-                    {
-                        CheckAndTriggerCollapse(GameManager.Instance.temelBinaLevel, gerekenLevel, bina);
-                    }
-                }
-                CheckAndTriggerCollapse(GameManager.Instance.okulLevel, gerekenLevel, okulObj);
-                CheckAndTriggerCollapse(GameManager.Instance.akutLevel, gerekenLevel, akutObj);
-                CheckAndTriggerCollapse(GameManager.Instance.itfaiyeLevel, gerekenLevel, itfaiyeObj);
-
-                // 4. Kalan 5 saniyeyi bekle (Bu sırada Level 1 binalar çökecek)
+                        TozEfekti(yetersizler.Contains(BinaTuru.TemelBina), bina);
+                TozEfekti(yetersizler.Contains(BinaTuru.Okul), okulObj);
+                TozEfekti(yetersizler.Contains(BinaTuru.Akut), akutObj);
+                TozEfekti(yetersizler.Contains(BinaTuru.Itfaiye), itfaiyeObj);
                 yield return new WaitForSeconds(10.0f);
-
-                // 5. Süre bitti, levelleri düşür
-                if (GameManager.Instance.temelBinaLevel < gerekenLevel) { GameManager.Instance.temelBinaLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.temelBinaLevel); hasarAldiMi = true; }
-                if (GameManager.Instance.okulLevel < gerekenLevel) { GameManager.Instance.okulLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.okulLevel); hasarAldiMi = true; }
-                if (GameManager.Instance.akutLevel < gerekenLevel) { GameManager.Instance.akutLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.akutLevel); hasarAldiMi = true; }
-                if (GameManager.Instance.itfaiyeLevel < gerekenLevel) { GameManager.Instance.itfaiyeLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.itfaiyeLevel); hasarAldiMi = true; }
                 break;
 
-            case 1: // SEL (15 Saniye)
-                afetAdi = "SEL (Gereken Lvl: " + gerekenLevel + ")";
-                bool selHasariVar = GameManager.Instance.altyapiLevel < gerekenLevel;
-                yield return StartCoroutine(SelEfektiOynat(selHasariVar));
-
-                if (selHasariVar) {
-                    GameManager.Instance.altyapiLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.altyapiLevel);
-                    GameManager.Instance.temelBinaLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.temelBinaLevel);
-                    hasarAldiMi = true;
-                }
+            case AfetTuru.Sel:
+                yield return StartCoroutine(SelEfektiOynat(!yeterli));
                 break;
 
-            case 2: // YANGIN (15 Saniye)
-                afetAdi = "YANGIN (Gereken Lvl: " + gerekenLevel + ")";
-                
-                // İtfaiye yetersizse yangın binalara sıçrar!
-                bool yanginSivrildiMi = GameManager.Instance.itfaiyeLevel < gerekenLevel;
-                
-                yield return StartCoroutine(YanginEfektiOynat(15.0f, yanginSivrildiMi));
-
-                if (yanginSivrildiMi) {
-                    GameManager.Instance.temelBinaLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.temelBinaLevel);
-                    GameManager.Instance.okulLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.okulLevel);
-                    hasarAldiMi = true;
-                }
+            case AfetTuru.Yangin:
+                yield return StartCoroutine(YanginEfektiOynat(15.0f, !yeterli));
                 break;
 
-            case 3: // TSUNAMİ (15 Saniye)
-                afetAdi = "TSUNAMİ (Gereken Lvl: " + gerekenLevel + ")";
-                
-                // Set yeterli mi kontrol et
-                bool setYeterliMi = GameManager.Instance.setLevel >= gerekenLevel;
-                
-                // Efekti başlat ve setin yeterli olup olmadığını bildir
-                yield return StartCoroutine(TsunamiDalgaVeSuEfekti(1.5f, setYeterliMi)); 
-
-                // Hasar sadece set yetersizse alınır
-                if (!setYeterliMi) {
-                    GameManager.Instance.setLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.setLevel);
-                    GameManager.Instance.temelBinaLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.temelBinaLevel);
-                    hasarAldiMi = true;
-                }
+            case AfetTuru.Tsunami:
+                yield return StartCoroutine(TsunamiDalgaVeSuEfekti(1.5f, yeterli));
                 break;
         }
 
-        int vefatSayisi = 0;
-        if (hasarAldiMi)
-        {
-            int bazKayip = 120;
-            float korumaOrani = (GameManager.Instance.farkindalikYuzdesi / 100f) * 0.7f + (GameManager.Instance.akutLevel * 0.1f);
-            korumaOrani = Mathf.Clamp(korumaOrani, 0f, 0.95f);
-            vefatSayisi = Mathf.RoundToInt(bazKayip * (1f - korumaOrani));
-            GameManager.Instance.nufus = Mathf.Max(0, GameManager.Instance.nufus - vefatSayisi);
-        }
+        // 3) Hasar: depremde seviyesi yetmeyenler, diğerlerinde savunma yetersizse listedeki yapılar
+        var hasarAlanlar = afet.afet == AfetTuru.Deprem
+            ? yetersizler
+            : (yeterli ? new System.Collections.Generic.List<BinaTuru>() : new System.Collections.Generic.List<BinaTuru>(afet.hasarAlan));
+        foreach (BinaTuru b in hasarAlanlar) HasarVer(gm, b);
 
-        GameManager.Instance.sonVefatSayisi = vefatSayisi;
-        GameManager.Instance.afetOlduMu = true;
-        GameManager.Instance.oyunDurduMu = true;
+        // 4) Can kaybı = Baz × (savunma yeterliyse 0.2) × (1 − Farkındalık × 0.006) × (1 − AKUT × 0.10)
+        float baz = afet.bazKayip * (yeterli ? d.savunmaYeterliCarpani : 1f);
+        int akutEtkiLevel = gm.akutHasarli ? 0 : gm.akutLevel;
+        float koruma = (1f - gm.farkindalikYuzdesi * d.farkindalikEtkisi) * (1f - akutEtkiLevel * d.akutEtkisi);
+        int vefat = Mathf.Min(gm.nufus, Mathf.RoundToInt(baz * Mathf.Clamp01(koruma)));
+        int kurtarilan = Mathf.Max(0, Mathf.RoundToInt(baz) - vefat);
+        gm.nufus -= vefat;
 
-        if (hasarAldiMi) GameManager.Instance.sonAfetMesaji = $"{afetAdi} adayı vurdu! Savunma yetersiz kaldı.";
-        else GameManager.Instance.sonAfetMesaji = $"{afetAdi} gerçekleşti, ancak güçlü önlemler sayesinde hasar yok!";
+        // 5) Rapor ve istatistikler
+        gm.sonAfetTuru = afet.afet;
+        gm.sonSavunmaYeterli = yeterli;
+        gm.sonHasarliBinaSayisi = hasarAlanlar.Count;
+        gm.sonVefatSayisi = vefat;
+        gm.sonKurtarilanSayisi = kurtarilan;
+        gm.toplamVefat += vefat;
+        gm.toplamKurtarilan += kurtarilan;
+        gm.sonAfetMesaji = yeterli ? "Önlemler işe yaradı!" : "Savunma yetersiz kaldı.";
+        gm.afetOzeti += AfetRaporu.AfetAdi(afet.afet) + ": " + (yeterli ? "Korundu" : "Hasar aldı") + " (" + vefat + " vefat)\n";
 
+        if (MusicPlayer.Instance != null) MusicPlayer.Instance.NormalMuzigeDon();
+
+        gm.afetOlduMu = true; // afet raporu açılır, Devam'a basınca oyun sürer
         afetDevamEdiyorMu = false;
+    }
+
+    // Seviyesi 1'den büyükse bir düşer; zaten 1 ise "hasarlı" olur
+    void HasarVer(GameManager gm, BinaTuru bina)
+    {
+        int level = gm.Level(bina);
+        if (level > 1) gm.LevelAyarla(bina, level - 1);
+        else gm.HasarliAyarla(bina, true);
+    }
+
+    void TozEfekti(bool hasarAlacak, Transform binaObj)
+    {
+        if (hasarAlacak && binaObj != null)
+            StartCoroutine(BinaCokmeEfekti(binaObj, false)); // sadece toz; bina yerinden oynamaz
     }
 
     // --- 15 SANİYELİK GÜNCELLENMİŞ EFEKT KORUTİNLERİ ---
@@ -388,17 +372,6 @@ public class DisasterController : MonoBehaviour
         // Su yavaşça -4f noktasına (yerin dibine) indi ve orada duracak. 
         // Kapatma kodu sildiğimiz için aniden ekrandan silinmeyecek!
         tsunamiSuyu.position = baslangic;
-    }
-
-    // Binanın hasar durumunu kontrol eder ve sadece toz/duman çıkartır
-    void CheckAndTriggerCollapse(int binaLevel, int gerekenLevel, Transform binaObj)
-    {
-        if (binaLevel < gerekenLevel && binaObj != null)
-        {
-            // Bina leveli 1'den büyükse çökecek (true), 1 ise sadece toz çıkacak (false)
-            bool cokecekMi = (binaLevel > 1);
-            StartCoroutine(BinaCokmeEfekti(binaObj, cokecekMi));
-        }
     }
 
     // Toz çıkarma ve duruma göre yerin dibine girme animasyonu

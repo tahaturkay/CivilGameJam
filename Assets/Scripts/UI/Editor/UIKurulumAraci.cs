@@ -146,6 +146,132 @@ public static class UIKurulumAraci
         }
     }
 
+    // ---------- 4) Hız butonları, afet raporu, oyun sonu (Ana Canvas prefab'ına) ----------
+
+    [MenuItem("Araclar/UI Kurulum/4 - Ana Canvas'a Oyun Panellerini Ekle")]
+    public static void OyunPanelleriniEkle()
+    {
+        GameObject kok = PrefabUtility.LoadPrefabContents(AnaCanvasYolu);
+        try
+        {
+            // Yeni paneller ESC menüsünün ve ayarların altında kalsın
+            Transform pause = kok.transform.Find("PausePanel");
+            int sira = pause != null ? pause.GetSiblingIndex() : kok.transform.childCount;
+
+            if (kok.GetComponent<HizKontrol>() == null)
+            {
+                GameObject hizPaneli = new GameObject("HizPaneli", typeof(RectTransform));
+                hizPaneli.transform.SetParent(kok.transform, false);
+                hizPaneli.transform.SetSiblingIndex(sira++);
+                var rt = hizPaneli.GetComponent<RectTransform>();
+                rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(1f, 1f);
+                rt.anchoredPosition = new Vector2(-20f, -100f);
+                rt.sizeDelta = new Vector2(440f, 64f);
+                var h = hizPaneli.AddComponent<HorizontalLayoutGroup>();
+                h.spacing = 10;
+                h.childControlWidth = h.childControlHeight = true;
+                h.childForceExpandWidth = h.childForceExpandHeight = true;
+
+                Button duraklat = Buton("DuraklatButonu", hizPaneli.transform, "II");
+                Button x1 = Buton("Hiz1xButonu", hizPaneli.transform, "1x");
+                Button x2 = Buton("Hiz2xButonu", hizPaneli.transform, "2x");
+                Button x3 = Buton("Hiz3xButonu", hizPaneli.transform, "3x");
+
+                var hiz = kok.AddComponent<HizKontrol>();
+                hiz.duraklatButonu = duraklat;
+                hiz.hizButonlari = new[] { x1, x2, x3 };
+                Bagla(duraklat, hiz.DuraklatDegistir);
+                UnityEventTools.AddIntPersistentListener(x1.onClick, hiz.HizAyarla, 1);
+                UnityEventTools.AddIntPersistentListener(x2.onClick, hiz.HizAyarla, 2);
+                UnityEventTools.AddIntPersistentListener(x3.onClick, hiz.HizAyarla, 3);
+            }
+
+            if (kok.GetComponent<AfetRaporu>() == null)
+            {
+                GameObject panel = Panel("AfetRaporuPanel", kok.transform, Vector2.zero, OrtuRengi);
+                panel.transform.SetSiblingIndex(sira++);
+                GameObject pencere = Panel("Pencere", panel.transform, new Vector2(820, 560), PencereRengi);
+                Dikey(pencere, 14);
+
+                var rapor = kok.AddComponent<AfetRaporu>();
+                rapor.panel = panel;
+                rapor.baslikText = Yazi("BaslikText", pencere.transform, "AFET", 52);
+                rapor.savunmaText = Yazi("SavunmaText", pencere.transform, "Savunma", 28);
+                rapor.savunmaText.GetComponent<LayoutElement>().preferredHeight = 80;
+                rapor.vefatText = Yazi("VefatText", pencere.transform, "Vefat", 30);
+                rapor.kurtarilanText = Yazi("KurtarilanText", pencere.transform, "Kurtarılan", 28);
+                rapor.hasarText = Yazi("HasarText", pencere.transform, "Hasar", 28);
+                rapor.nufusText = Yazi("NufusText", pencere.transform, "Nüfus", 28);
+                Bagla(Buton("DevamButonu", pencere.transform, "Devam"), rapor.Devam);
+            }
+
+            if (kok.GetComponent<OyunSonu>() == null)
+            {
+                GameObject panel = Panel("OyunSonuPanel", kok.transform, Vector2.zero, OrtuRengi);
+                panel.transform.SetSiblingIndex(sira++);
+                GameObject pencere = Panel("Pencere", panel.transform, new Vector2(900, 820), PencereRengi);
+                Dikey(pencere, 12);
+
+                var son = kok.AddComponent<OyunSonu>();
+                son.panel = panel;
+                son.baslikText = Yazi("BaslikText", pencere.transform, "OYUN BİTTİ", 56);
+                son.dereceText = Yazi("DereceText", pencere.transform, "Derece", 34);
+                son.istatistikText = Yazi("IstatistikText", pencere.transform, "İstatistikler", 26);
+                son.istatistikText.alignment = TextAlignmentOptions.TopLeft;
+                son.istatistikText.GetComponent<LayoutElement>().preferredHeight = 250;
+                son.afetOzetiText = Yazi("AfetOzetiText", pencere.transform, "Afetler", 24);
+                son.afetOzetiText.GetComponent<LayoutElement>().preferredHeight = 190;
+                Bagla(Buton("TekrarOynaButonu", pencere.transform, "Tekrar Oyna"), son.TekrarOyna);
+                Bagla(Buton("AnaMenuButonu", pencere.transform, "Ana Menü"), son.AnaMenu);
+            }
+
+            PrefabUtility.SaveAsPrefabAsset(kok, AnaCanvasYolu);
+            Debug.Log("UI Kurulum: Hız butonları, afet raporu ve oyun sonu ekranı Ana Canvas'a eklendi.");
+        }
+        finally
+        {
+            PrefabUtility.UnloadPrefabContents(kok);
+        }
+    }
+
+    // ---------- 5) Yönlendirici ipucu şeridi (Ana Canvas prefab'ına) ----------
+
+    [MenuItem("Araclar/UI Kurulum/5 - Ana Canvas'a Ipucu Seridi Ekle")]
+    public static void IpucuSeridiEkle()
+    {
+        GameObject kok = PrefabUtility.LoadPrefabContents(AnaCanvasYolu);
+        try
+        {
+            if (kok.GetComponent<IpucuSistemi>() != null) return;
+
+            Transform pause = kok.transform.Find("PausePanel");
+            int sira = pause != null ? pause.GetSiblingIndex() : kok.transform.childCount;
+
+            GameObject serit = Panel("IpucuSeridi", kok.transform, new Vector2(1200, 90), new Color(0f, 0f, 0f, 0.7f));
+            serit.transform.SetSiblingIndex(sira);
+            var rt = serit.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0f);
+            rt.anchoredPosition = new Vector2(0f, 30f);
+            serit.GetComponent<Image>().raycastTarget = false; // arkadaki binalara tıklamayı engellemesin
+
+            TMP_Text yazi = Yazi("IpucuText", serit.transform, "İpucu", 30);
+            TamEkranYap(yazi.rectTransform);
+            yazi.rectTransform.offsetMin = new Vector2(30, 0);
+            yazi.rectTransform.offsetMax = new Vector2(-30, 0);
+
+            var sistem = kok.AddComponent<IpucuSistemi>();
+            sistem.serit = serit;
+            sistem.ipucuText = yazi;
+
+            PrefabUtility.SaveAsPrefabAsset(kok, AnaCanvasYolu);
+            Debug.Log("UI Kurulum: İpucu şeridi Ana Canvas'a eklendi.");
+        }
+        finally
+        {
+            PrefabUtility.UnloadPrefabContents(kok);
+        }
+    }
+
     // ---------- Yardımcılar ----------
 
     static GameObject SettingsPrefabiAl()

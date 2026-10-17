@@ -14,10 +14,12 @@ public class UIManager : MonoBehaviour
         var gm = GameManager.Instance;
         if (gm == null) return;
 
-        int kalan = (7 - gm.gun % 7) % 7;
-        gunText.text = "Gün: " + gm.gun + (kalan == 0 ? " (AFET GÜNÜ!)" : " (Afete " + kalan + " gün)");
-        paraText.text = "Para: " + gm.para + "₺";
+        var d = DengeAyarlari.Aktif;
+        int kalan = d.SonrakiAfeteKalanGun(gm.gun);
+        string afet = kalan == 0 ? " (AFET GÜNÜ!)" : kalan > 0 ? " (Afete " + kalan + " gün)" : "";
+        gunText.text = "Gün: " + gm.gun + "/" + d.toplamGun + afet;
+        paraText.text = "Para: " + gm.para + "₺ (+" + Ekonomi.GunlukGelir() + "/gün)";
         farkindalikText.text = "Farkındalık: %" + Mathf.RoundToInt(gm.farkindalikYuzdesi);
-        nufusText.text = "Nüfus: " + gm.nufus;
+        nufusText.text = "Nüfus: " + gm.nufus + "/" + Ekonomi.NufusKapasitesi();
     }
 }

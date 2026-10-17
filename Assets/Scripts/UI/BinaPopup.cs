@@ -28,102 +28,70 @@ public class BinaPopup : MonoBehaviour
 
     public void Ac(BinaTuru bina)
     {
+        var gm = GameManager.Instance;
+        if (gm != null && (gm.afetOlduMu || gm.oyunBittiMi)) return;
+
         aktifBina = bina;
         acilisZamani = Time.unscaledTime;
         panel.SetActive(true);
+        if (gm != null) gm.oyunDurduMu = true; // oyuncu rahatça okusun diye zaman durur
     }
 
     public void Kapat()
     {
         if (YeniAcildi()) return;
+        PaneliKapat();
+    }
+
+    void PaneliKapat()
+    {
         panel.SetActive(false);
+        if (GameManager.Instance != null) GameManager.Instance.oyunDurduMu = false;
     }
 
     void Update()
     {
-        // Para ve level sürekli değişebildiği için popup açıkken her karede yenile
-        if (!panel.activeSelf || GameManager.Instance == null) return;
+        // Para ve level değişebildiği için popup açıkken her karede yenile
+        var gm = GameManager.Instance;
+        if (!panel.activeSelf || gm == null) return;
 
-        int level = LevelGetir(aktifBina);
-        int maliyet = Maliyet(level);
+        int level = gm.Level(aktifBina);
+        bool hasarli = gm.Hasarli(aktifBina);
 
-        baslikText.text = Ad(aktifBina);
-        levelText.text = "Seviye: " + level;
-        aciklamaText.text = Aciklama(aktifBina);
-        yukseltButonText.text = "Yükselt (" + maliyet + "₺)";
-        yukseltButonu.interactable = GameManager.Instance.para >= maliyet; // para yetmezse buton gri olur
-        quizButonu.gameObject.SetActive(aktifBina == BinaTuru.Okul);
+        baslikText.text = Ad(aktifBina) + (hasarli ? "  (HASARLI)" : "");
+        levelText.text = "Seviye: " + level + " / " + DengeAyarlari.Aktif.maxLevel;
+        aciklamaText.text = hasarli ? "Bu yapı afette hasar aldı. Onarılana kadar görevini yapamaz." : Aciklama(aktifBina);
+
+        if (hasarli)
+        {
+            yukseltButonText.text = "Onar (" + Ekonomi.OnarimMaliyeti(aktifBina) + "₺)";
+            yukseltButonu.interactable = Ekonomi.OnarilabilirMi(aktifBina);
+        }
+        else
+        {
+            int maliyet = Ekonomi.YukseltmeMaliyeti(aktifBina);
+            yukseltButonText.text = maliyet < 0 ? "MAKS SEVİYE" : "Yükselt (" + maliyet + "₺)";
+            yukseltButonu.interactable = Ekonomi.YukseltilebilirMi(aktifBina); // para yetmezse ya da maksta gri
+        }
+
+        quizButonu.gameObject.SetActive(aktifBina == BinaTuru.Okul && !hasarli);
     }
 
     public void YukseltTiklandi()
     {
         if (YeniAcildi()) return;
 
-        // Sahnede Nisa'nın EconomyAndTime'ı varsa yükseltmeyi o yapar (tek kaynak)
-        var ekonomi = FindAnyObjectByType<EconomyAndTime>();
-        if (ekonomi != null)
-        {
-            switch (aktifBina)
-            {
-                case BinaTuru.TemelBina: ekonomi.TemelBinaYukselt(); break;
-                case BinaTuru.Okul:      ekonomi.OkulYukselt();      break;
-                case BinaTuru.Akut:      ekonomi.AkutYukselt();      break;
-                case BinaTuru.Itfaiye:   ekonomi.ItfaiyeYukselt();   break;
-                case BinaTuru.DenizSeti: ekonomi.SetYukselt();       break;
-                default:                 ekonomi.AltyapiYukselt();   break;
-            }
-            return;
-        }
-
-        // Yoksa (örn. sadece Scene_UI'da test ederken) aynı formülle burada yükselt
-        var gm = GameManager.Instance;
-        int level = LevelGetir(aktifBina);
-        int maliyet = Maliyet(level);
-
-        if (gm.para < maliyet) return;
-
-        gm.para -= maliyet;
-        LevelAyarla(aktifBina, level + 1);
+        if (GameManager.Instance != null && GameManager.Instance.Hasarli(aktifBina))
+            Ekonomi.Onar(aktifBina);
+        else
+            Ekonomi.Yukselt(aktifBina);
     }
 
     public void QuizTiklandi()
     {
         if (YeniAcildi()) return;
-        panel.SetActive(false);
-        QuizManager.Instance.QuizAc();
-    }
-
-    int Maliyet(int level)
-    {
-        return level * 100; // 1. kişinin formülüyle aynı olmalı
-    }
-
-    int LevelGetir(BinaTuru b)
-    {
-        var gm = GameManager.Instance;
-        switch (b)
-        {
-            case BinaTuru.TemelBina: return gm.temelBinaLevel;
-            case BinaTuru.Okul:      return gm.okulLevel;
-            case BinaTuru.Akut:      return gm.akutLevel;
-            case BinaTuru.Itfaiye:   return gm.itfaiyeLevel;
-            case BinaTuru.DenizSeti: return gm.setLevel;
-            default:                 return gm.altyapiLevel;
-        }
-    }
-
-    void LevelAyarla(BinaTuru b, int yeniLevel)
-    {
-        var gm = GameManager.Instance;
-        switch (b)
-        {
-            case BinaTuru.TemelBina: gm.temelBinaLevel = yeniLevel; break;
-            case BinaTuru.Okul:      gm.okulLevel = yeniLevel;      break;
-            case BinaTuru.Akut:      gm.akutLevel = yeniLevel;      break;
-            case BinaTuru.Itfaiye:   gm.itfaiyeLevel = yeniLevel;   break;
-            case BinaTuru.DenizSeti: gm.setLevel = yeniLevel;       break;
-            default:                 gm.altyapiLevel = yeniLevel;   break;
-        }
+        PaneliKapat();
+        QuizManager.Instance.QuizAc(); // quiz de zamanı durdurur
     }
 
     string Ad(BinaTuru b)
@@ -141,10 +109,13 @@ public class BinaPopup : MonoBehaviour
 
     string Aciklama(BinaTuru b)
     {
+        var gm = GameManager.Instance;
         switch (b)
         {
-            case BinaTuru.TemelBina: return "Ana gelir kaynağı. Seviyesi depreme dayanıklılığı artırır.";
-            case BinaTuru.Okul:      return "Quiz çözerek halkın afet farkındalığını artır.";
+            case BinaTuru.TemelBina:
+                return "Nüfus kapasitesini belirler. Günlük gelir: " + Ekonomi.GunlukGelir() + "₺ · Kapasite: " + Ekonomi.NufusKapasitesi();
+            case BinaTuru.Okul:
+                return "Quiz çözerek halkı bilinçlendir. Farkındalık sınırı: %" + DengeAyarlari.Aktif.FarkindalikTavani(gm.okulLevel);
             case BinaTuru.Akut:      return "Afetlerde can kaybını azaltır.";
             case BinaTuru.Itfaiye:   return "Yangın hasarını önler.";
             case BinaTuru.DenizSeti: return "Tsunamiye karşı adayı korur.";
