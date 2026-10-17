@@ -75,6 +75,19 @@ public class UIManager : MonoBehaviour
 
     private bool initialized;
 
+    // Üst bar ölçüleri (ikonlar 1.5 kat büyütüldü: yuva 44→66, ikon 32→48; kartlar buna göre uzadı)
+    private const float IkonOlcek = 1.5f;
+    private const float IkonYuvasi = 44f * IkonOlcek;
+    private const float IkonBoyu = 32f * IkonOlcek;
+    private const float KartYuksekligi = 84f;
+    private const float YaziSolBosluk = 10f + IkonYuvasi + 10f;
+    private const float EkGenislik = YaziSolBosluk - 64f;
+
+    // Update'te her karede yazı/sprite üretmemek için son gösterilen değerler
+    private int sonGun = -1, sonPara = int.MinValue, sonGelir = -1, sonNufus = -1, sonKapasite = -1, sonFark = -1, sonKalan = int.MinValue, sonTavan = -1, sonHizModu = -1;
+    private Vector2 sonFarePos = new Vector2(-1f, -1f);
+    private BuildingVisuals sonHoverBina;
+
     private void Awake()
     {
         sharedFont = gunText != null ? gunText.font : TMP_Settings.defaultFontAsset;
@@ -87,7 +100,7 @@ public class UIManager : MonoBehaviour
         if (fontAsset == null) fontAsset = TMP_Settings.defaultFontAsset;
         if (fontAsset == null) return;
 
-        const string requiredChars = "İıŞşĞğÜüÖöÇç₺•";
+        const string requiredChars = "İıŞşĞğÜüÖöÇç•";
 
         if (fontAsset.fallbackFontAssetTable == null)
             fontAsset.fallbackFontAssetTable = new List<TMP_FontAsset>();
@@ -108,20 +121,7 @@ public class UIManager : MonoBehaviour
             }
         }
 
-        if (!fontAsset.HasCharacters(requiredChars, out _, true, false))
-        {
-            Font osFont = Font.CreateDynamicFontFromOSFont(new[] { "Arial", "Helvetica", "Liberation Sans", "Segoe UI" }, 36);
-            if (osFont != null)
-            {
-                TMP_FontAsset dynFallback = TMP_FontAsset.CreateFontAsset(osFont);
-                if (dynFallback != null)
-                {
-                    dynFallback.atlasPopulationMode = AtlasPopulationMode.Dynamic;
-                    dynFallback.TryAddCharacters(requiredChars, out _);
-                    fontAsset.fallbackFontAssetTable.Add(dynFallback);
-                }
-            }
-        }
+        // Not: ₺ işareti LiberationSans'ta yok; para "TL" olarak yazılıyor.
     }
 
     private void ApplyPrototypeHudAndModals()
@@ -144,7 +144,7 @@ public class UIManager : MonoBehaviour
             ustRt.anchorMax = new Vector2(1f, 1f);
             ustRt.pivot = new Vector2(0.5f, 1f);
             ustRt.anchoredPosition = Vector2.zero;
-            ustRt.sizeDelta = new Vector2(0f, 160f);
+            ustRt.sizeDelta = new Vector2(0f, 200f);
 
             BuildTopLeftHud(ustBar);
             BuildTopRightHud(ustBar);
@@ -164,7 +164,7 @@ public class UIManager : MonoBehaviour
         lgRt.anchorMax = new Vector2(0f, 1f);
         lgRt.pivot = new Vector2(0f, 1f);
         lgRt.anchoredPosition = new Vector2(20f, -18f);
-        lgRt.sizeDelta = new Vector2(900f, 68f);
+        lgRt.sizeDelta = new Vector2(1000f, KartYuksekligi + 4f);
 
         HorizontalLayoutGroup hlg = leftGroup.GetComponent<HorizontalLayoutGroup>();
         hlg.spacing = 14f;
@@ -177,20 +177,20 @@ public class UIManager : MonoBehaviour
         // 1. İNSAN SAYISI (NÜFUS) - Basit İnsan Figürü İkonu
         TMP_Text nufusSub;
         CreateHudPillCard(
-            leftGroup.transform, "NufusPill", 230f, 64f,
+            leftGroup.transform, "NufusPill", 230f + EkGenislik, KartYuksekligi,
             IconType.Person, new Color32(56, 178, 232, 255),
             "NÜFUS", nufusText, out nufusSub, false, out _);
 
         // 2. PARA (BÜTÇE) - Altıgen Sikke İkonu
         TMP_Text paraSub;
         CreateHudPillCard(
-            leftGroup.transform, "ParaPill", 265f, 64f,
+            leftGroup.transform, "ParaPill", 265f + EkGenislik, KartYuksekligi,
             IconType.HexCoin, new Color32(255, 204, 41, 255),
             "BÜTÇE", paraText, out paraSub, false, out _);
 
         // 3. FARKINDALIK - Basic Açık Kitap İkonu + İlerleme Çubuğu
         CreateHudPillCard(
-            leftGroup.transform, "FarkindalikPill", 275f, 64f,
+            leftGroup.transform, "FarkindalikPill", 275f + EkGenislik, KartYuksekligi,
             IconType.Book, new Color32(82, 183, 255, 255),
             "FARKINDALIK", farkindalikText, out farkindalikSubLabelText, true, out awarenessFillBar);
     }
@@ -205,11 +205,11 @@ public class UIManager : MonoBehaviour
         rcRt.anchorMax = new Vector2(1f, 1f);
         rcRt.pivot = new Vector2(1f, 1f);
         rcRt.anchoredPosition = new Vector2(-20f, -18f);
-        rcRt.sizeDelta = new Vector2(260f, 130f);
+        rcRt.sizeDelta = new Vector2(260f + EkGenislik, KartYuksekligi + 70f);
 
         // Üstte Gün Kutusu (Krem arka planlı)
         RectTransform dayPill = CreateHudPillCard(
-            rightCol.transform, "GunPill", 248f, 64f,
+            rightCol.transform, "GunPill", 248f + EkGenislik, KartYuksekligi,
             IconType.Calendar, new Color32(240, 100, 73, 255),
             "GÜN SAYACI", gunText, out gunSubLabelText, false, out _);
         dayPill.anchorMin = new Vector2(1f, 1f);
@@ -224,8 +224,8 @@ public class UIManager : MonoBehaviour
         srRt.anchorMin = new Vector2(1f, 1f);
         srRt.anchorMax = new Vector2(1f, 1f);
         srRt.pivot = new Vector2(1f, 1f);
-        srRt.anchoredPosition = new Vector2(0f, -72f);
-        srRt.sizeDelta = new Vector2(248f, 44f);
+        srRt.anchoredPosition = new Vector2(0f, -(KartYuksekligi + 8f));
+        srRt.sizeDelta = new Vector2(248f + EkGenislik, 44f);
 
         HorizontalLayoutGroup sHlg = speedRow.GetComponent<HorizontalLayoutGroup>();
         sHlg.spacing = 8f;
@@ -301,6 +301,8 @@ public class UIManager : MonoBehaviour
         {
             activeMode = gm.kullaniciDurdurdu ? 0 : Mathf.Clamp(gm.hizCarpani, 1, 3);
         }
+        if (activeMode == sonHizModu) return;
+        sonHizModu = activeMode;
 
         for (int i = 0; i < 4; i++)
         {
@@ -344,7 +346,7 @@ public class UIManager : MonoBehaviour
         isRt.anchorMax = new Vector2(0f, 0.5f);
         isRt.pivot = new Vector2(0f, 0.5f);
         isRt.anchoredPosition = new Vector2(10f, 2f);
-        isRt.sizeDelta = new Vector2(44f, 44f);
+        isRt.sizeDelta = new Vector2(IkonYuvasi, IkonYuvasi);
 
         Image slotImg = iconSlot.GetComponent<Image>();
         slotImg.sprite = GetDarkSlotSprite();
@@ -355,7 +357,7 @@ public class UIManager : MonoBehaviour
         RectTransform igRt = iconGraphic.GetComponent<RectTransform>();
         igRt.anchorMin = new Vector2(0.5f, 0.5f);
         igRt.anchorMax = new Vector2(0.5f, 0.5f);
-        igRt.sizeDelta = new Vector2(32f, 32f);
+        igRt.sizeDelta = new Vector2(IkonBoyu, IkonBoyu);
         igRt.anchoredPosition = Vector2.zero;
 
         Image igImg = iconGraphic.GetComponent<Image>();
@@ -368,8 +370,8 @@ public class UIManager : MonoBehaviour
         slRt.anchorMin = new Vector2(0f, 1f);
         slRt.anchorMax = new Vector2(1f, 1f);
         slRt.pivot = new Vector2(0f, 1f);
-        slRt.anchoredPosition = new Vector2(64f, -8f);
-        slRt.sizeDelta = new Vector2(-74f, 16f);
+        slRt.anchoredPosition = new Vector2(YaziSolBosluk, -10f);
+        slRt.sizeDelta = new Vector2(-(YaziSolBosluk + 10f), 16f);
 
         // Ana Değer Metni (Mevcut TMP_Text referansını koruyarak içine taşıyoruz)
         if (existingValueText != null)
@@ -378,7 +380,7 @@ public class UIManager : MonoBehaviour
             RectTransform vtRt = existingValueText.rectTransform;
             vtRt.anchorMin = new Vector2(0f, 0f);
             vtRt.anchorMax = new Vector2(1f, 1f);
-            vtRt.offsetMin = new Vector2(64f, withProgressBar ? 18f : 8f);
+            vtRt.offsetMin = new Vector2(YaziSolBosluk, withProgressBar ? 20f : 10f);
             vtRt.offsetMax = new Vector2(-12f, -22f);
             existingValueText.fontSize = withProgressBar ? 20f : 21f;
             existingValueText.fontStyle = FontStyles.Bold;
@@ -396,8 +398,8 @@ public class UIManager : MonoBehaviour
             bbRt.anchorMin = new Vector2(0f, 0f);
             bbRt.anchorMax = new Vector2(1f, 0f);
             bbRt.pivot = new Vector2(0f, 0f);
-            bbRt.anchoredPosition = new Vector2(64f, 10f);
-            bbRt.sizeDelta = new Vector2(-78f, 10f);
+            bbRt.anchoredPosition = new Vector2(YaziSolBosluk, 12f);
+            bbRt.sizeDelta = new Vector2(-(YaziSolBosluk + 14f), 10f);
 
             Image bbImg = barBg.GetComponent<Image>();
             bbImg.color = DarkInk;
@@ -584,30 +586,32 @@ public class UIManager : MonoBehaviour
 
         var d = DengeAyarlari.Aktif;
         int kalan = d.SonrakiAfeteKalanGun(gm.gun);
+        int tavan = Mathf.RoundToInt(d.FarkindalikTavani(gm.okulLevel));
+        int gelir = Ekonomi.GunlukGelir();
+        int kapasite = Ekonomi.NufusKapasitesi();
+        int fark = Mathf.RoundToInt(gm.farkindalikYuzdesi);
 
-        if (gunSubLabelText != null)
+        if (kalan != sonKalan && gunSubLabelText != null)
         {
             gunSubLabelText.text = kalan > 0
                 ? "AFETE " + kalan + " GÜN"
                 : (kalan == 0 ? "AFET GÜNÜ!" : "GÜN SAYACI");
         }
-
-        if (farkindalikSubLabelText != null)
-        {
-            farkindalikSubLabelText.text = "FARKINDALIK (MAKS %" + Mathf.RoundToInt(d.FarkindalikTavani(gm.okulLevel)) + ")";
-        }
-
-        if (gunText != null)
+        if (tavan != sonTavan && farkindalikSubLabelText != null)
+            farkindalikSubLabelText.text = "FARKINDALIK (MAKS %" + tavan + ")";
+        if (gm.gun != sonGun && gunText != null)
             gunText.text = "Gün: " + gm.gun + "/" + d.toplamGun;
-        if (paraText != null)
-            paraText.text = gm.para + "₺ (+" + Ekonomi.GunlukGelir() + "/g)";
-        if (nufusText != null)
-            nufusText.text = gm.nufus + "/" + Ekonomi.NufusKapasitesi();
-        if (farkindalikText != null)
-            farkindalikText.text = "%" + Mathf.RoundToInt(gm.farkindalikYuzdesi);
-
-        if (awarenessFillBar != null)
-            awarenessFillBar.fillAmount = Mathf.Clamp01(gm.farkindalikYuzdesi / 100f);
+        if ((gm.para != sonPara || gelir != sonGelir) && paraText != null)
+            paraText.text = gm.para + " TL (+" + gelir + "/g)";
+        if ((gm.nufus != sonNufus || kapasite != sonKapasite) && nufusText != null)
+            nufusText.text = gm.nufus + "/" + kapasite;
+        if (fark != sonFark)
+        {
+            if (farkindalikText != null) farkindalikText.text = "%" + fark;
+            if (awarenessFillBar != null) awarenessFillBar.fillAmount = Mathf.Clamp01(gm.farkindalikYuzdesi / 100f);
+        }
+        sonKalan = kalan; sonTavan = tavan; sonGun = gm.gun; sonPara = gm.para; sonGelir = gelir;
+        sonNufus = gm.nufus; sonKapasite = kapasite; sonFark = fark;
 
         RefreshSpeedButtonVisuals();
         UpdateBuildingHoverLabel(gm);
@@ -636,22 +640,16 @@ public class UIManager : MonoBehaviour
         mousePos = Input.mousePosition;
 #endif
 
-        Ray ray = mainCam.ScreenPointToRay(mousePos);
-        BuildingVisuals bv = null;
-        if (Physics.Raycast(ray, out RaycastHit hit3D))
+        // Fare kıpırdamadıysa aynı binayı tekrar aramaya gerek yok (oyun 3D; 2D fizik sorgusu yapılmıyor)
+        BuildingVisuals bv = sonHoverBina;
+        if ((mousePos - sonFarePos).sqrMagnitude > 0.25f)
         {
-            bv = hit3D.collider.GetComponent<BuildingVisuals>();
-            if (bv == null) bv = hit3D.collider.GetComponentInParent<BuildingVisuals>();
-        }
-        else
-        {
-            Vector2 worldPoint = mainCam.ScreenToWorldPoint(mousePos);
-            Collider2D hit2D = Physics2D.OverlapPoint(worldPoint);
-            if (hit2D != null)
-            {
-                bv = hit2D.GetComponent<BuildingVisuals>();
-                if (bv == null) bv = hit2D.GetComponentInParent<BuildingVisuals>();
-            }
+            sonFarePos = mousePos;
+            bv = null;
+            Ray ray = mainCam.ScreenPointToRay(mousePos);
+            if (Physics.Raycast(ray, out RaycastHit hit3D, 500f))
+                bv = hit3D.collider.GetComponentInParent<BuildingVisuals>();
+            sonHoverBina = bv;
         }
 
         if (bv != null)
@@ -659,9 +657,10 @@ public class UIManager : MonoBehaviour
             string bName = GetBuildingDisplayName(bv.binaTuru);
             int lvl = gm.Level(bv.binaTuru);
             bool hasarli = gm.Hasarli(bv.binaTuru);
-            hoverTooltipText.text = hasarli
+            string yeni = hasarli
                 ? bName + " • LVL " + lvl + " (HASARLI)"
                 : bName + " • LVL " + lvl;
+            if (hoverTooltipText.text != yeni) hoverTooltipText.text = yeni;
 
             if (!hoverTooltipRt.gameObject.activeSelf)
                 hoverTooltipRt.gameObject.SetActive(true);
@@ -700,7 +699,28 @@ public class UIManager : MonoBehaviour
     private static Sprite solidWhiteSprite;
     private static Sprite steppedModalSprite;
     private static Sprite darkSlotSprite;
-    private static readonly Dictionary<string, Sprite> creamBoxCache = new Dictionary<string, Sprite>();
+    private static readonly Dictionary<ulong, Sprite> creamBoxCache = new Dictionary<ulong, Sprite>();
+    private static readonly Dictionary<string, Sprite> spriteCache = new Dictionary<string, Sprite>();
+
+    // Domain Reload kapalıyken Play'den çıkınca oluşturulan sprite'lar yok olur; önbelleği her Play başında temizle
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void OnbellegiSifirla()
+    {
+        creamBoxCache.Clear();
+        spriteCache.Clear();
+        solidWhiteSprite = null; steppedModalSprite = null; darkSlotSprite = null;
+    }
+
+    private static ulong RenkAnahtari(Color32 a, Color32 b)
+    {
+        return ((ulong)a.r << 56) | ((ulong)a.g << 48) | ((ulong)a.b << 40) | ((ulong)a.a << 32)
+             | ((ulong)b.r << 24) | ((ulong)b.g << 16) | ((ulong)b.b << 8) | b.a;
+    }
+
+    private static bool OnbellekteVar(string anahtar, out Sprite sprite)
+    {
+        return spriteCache.TryGetValue(anahtar, out sprite) && sprite != null;
+    }
 
     public static Sprite GetSolidWhiteSprite()
     {
@@ -715,7 +735,7 @@ public class UIManager : MonoBehaviour
     // 1) KREM KUTU SPRITE: Kalın koyu çerçeve (#141D2B) + Alt blok gölge + Yuvarlatılmış/Stepped köşe
     public static Sprite GetCreamBoxSprite(Color32 fillColor, Color32 bottomShade)
     {
-        string key = fillColor.ToString() + "_" + bottomShade.ToString();
+        ulong key = RenkAnahtari(fillColor, bottomShade);
         if (creamBoxCache.TryGetValue(key, out Sprite cached) && cached != null)
             return cached;
 
@@ -853,6 +873,8 @@ public class UIManager : MonoBehaviour
     // 4) ÜST KURDELE (RIBBON BANNER) OLUŞTURUCU
     public static Sprite GetRibbonMainSprite(Color32 fill, Color32 bottomLip)
     {
+        string anahtar = "ribbon" + RenkAnahtari(fill, bottomLip);
+        if (OnbellekteVar(anahtar, out Sprite onceki)) return onceki;
         int w = 32, h = 32;
         Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
         tex.filterMode = FilterMode.Point;
@@ -862,11 +884,13 @@ public class UIManager : MonoBehaviour
             for (int x = 0; x < w; x++) tex.SetPixel(x, y, c);
         }
         tex.Apply();
-        return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(4, 6, 4, 4));
+        return spriteCache[anahtar] = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(4, 6, 4, 4));
     }
 
     public static Sprite GetRibbonTailSprite(bool leftSide)
     {
+        string anahtar = leftSide ? "tailL" : "tailR";
+        if (OnbellekteVar(anahtar, out Sprite onceki)) return onceki;
         int w = 32, h = 40;
         Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
         tex.filterMode = FilterMode.Point;
@@ -882,7 +906,7 @@ public class UIManager : MonoBehaviour
             }
         }
         tex.Apply();
-        return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f);
+        return spriteCache[anahtar] = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f);
     }
 
     public static RectTransform CreateRibbonBanner(
@@ -939,6 +963,8 @@ public class UIManager : MonoBehaviour
     // 5) İKİ TONLU (TWO-TONE) ARCADE BUTON SPRITE & YARDIMCISI (IMAGE 2 STİLİ)
     public static Sprite GetTwoToneButtonSprite(Color32 mainFill, Color32 leftIconFill, Color32 shadowColor)
     {
+        string anahtar = "btn" + RenkAnahtari(mainFill, leftIconFill) + "_" + RenkAnahtari(shadowColor, shadowColor);
+        if (OnbellekteVar(anahtar, out Sprite onceki)) return onceki;
         int w = 128, h = 48;
         int leftWidth = 44;
         int border = 3;
@@ -974,7 +1000,7 @@ public class UIManager : MonoBehaviour
             }
         }
         tex.Apply();
-        return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(46, 10, 8, 6));
+        return spriteCache[anahtar] = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(46, 10, 8, 6));
     }
 
     public static Button CreateTwoToneArcadeButton(
@@ -1016,6 +1042,8 @@ public class UIManager : MonoBehaviour
     // 6) İKON ÜRETİCİ (BASİT İNSAN FİGÜRÜ, ALTIGEN SİKKE, BASİT KİTAP, TAKVİM, YILDIZ)
     public static Sprite GetColoredIconSprite(IconType type, Color32 mainColor)
     {
+        string anahtar = "icon" + (int)type + "_" + RenkAnahtari(mainColor, mainColor);
+        if (OnbellekteVar(anahtar, out Sprite onceki)) return onceki;
         int size = 48;
         Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
         tex.filterMode = FilterMode.Bilinear;
@@ -1031,7 +1059,7 @@ public class UIManager : MonoBehaviour
             }
         }
         tex.Apply();
-        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+        return spriteCache[anahtar] = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
     }
 
     private static Color EvaluateIconPixel(IconType type, float x, float y, Color32 mainColor)
@@ -1079,13 +1107,9 @@ public class UIManager : MonoBehaviour
                 return Color.white;
 
             case IconType.Star:
-                // Bloklu Yıldız
-                float sx = Mathf.Abs(x - 0.5f);
-                float sy = y - 0.5f;
-                float r = Mathf.Sqrt(sx * sx + sy * sy);
-                float angle = Mathf.Atan2(sy, sx);
-                float starR = 0.32f + 0.10f * Mathf.Cos(angle * 5f);
-                return r <= starR ? (Color)mainColor : Color.clear;
+                // 5 köşeli yıldız: koyu dış çizgi + dolgu (diğer ikonlarla aynı piksel stil)
+                if (YildizIcinde(x, y, 0.49f, 0.21f)) return YildizIcinde(x, y, 0.38f, 0.16f) ? (Color)mainColor : (Color)DarkInk;
+                return Color.clear;
 
             case IconType.UpArrow:
                 bool head = y >= 0.50f && y <= 0.86f && Mathf.Abs(x - 0.5f) <= (0.86f - y) * 0.95f;
@@ -1103,6 +1127,24 @@ public class UIManager : MonoBehaviour
                 return inX ? (Color)mainColor : Color.clear;
         }
         return mainColor;
+    }
+
+    // Merkezi (0.5, 0.48), sivri ucu yukarıda olan 5 köşeli yıldızın içinde mi?
+    private static bool YildizIcinde(float x, float y, float disYaricap, float icYaricap)
+    {
+        const int kose = 10;
+        bool icinde = false;
+        float oncekiX = 0f, oncekiY = 0f;
+        for (int i = 0; i <= kose; i++)
+        {
+            float aci = Mathf.PI / 2f + i * Mathf.PI / 5f;
+            float r = i % 2 == 0 ? disYaricap : icYaricap;
+            float px = 0.5f + Mathf.Cos(aci) * r, py = 0.48f + Mathf.Sin(aci) * r;
+            if (i > 0 && ((py > y) != (oncekiY > y)) && (x < (oncekiX - px) * (y - py) / (oncekiY - py) + px))
+                icinde = !icinde;
+            oncekiX = px; oncekiY = py;
+        }
+        return icinde;
     }
 
     public static TMP_Text CreateText(

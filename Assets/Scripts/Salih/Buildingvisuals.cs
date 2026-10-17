@@ -17,6 +17,10 @@ public class BuildingVisuals : MonoBehaviour
     // BuildingVisuals.BinaTiklandi += (tur) => { ... };
     public static event Action<BinaTuru> BinaTiklandi;
 
+    // Domain Reload kapalıyken eski Play'den kalan abonelikler silinsin
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void StatikSifirla() { BinaTiklandi = null; }
+
     [Header("Bu obje hangi bina?")]
     public BinaTuru binaTuru;
 

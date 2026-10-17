@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.Serialization;
 
 // Sahnede tek bir tane vardır. Herhangi bir binaya tıklanınca BinaPopup.Instance.Ac(binaTuru) çağrılır.
 // Zaman (oyunDurduMu) Time.timeScale ile değil, kendi bayrağımızla durur; böylece animasyonlar çalışmaya devam eder.
@@ -11,7 +12,7 @@ public class BinaPopup : MonoBehaviour
     [Header("Panel ve Yazılar")]
     public GameObject panel;
     public TMP_Text baslikText;
-    public TMP_Text seviyeText;
+    [FormerlySerializedAs("levelText")] public TMP_Text seviyeText; // eski adı levelText; prefab bağlantısı korunur
     public TMP_Text aciklamaText;
 
     [Header("Butonlar")]
@@ -24,18 +25,46 @@ public class BinaPopup : MonoBehaviour
     private Image[] starFillImages = new Image[3];
     private bool styleApplied;
 
+    // Popup bir binaya tıklanınca açılıyor; aynı tıklama alttaki butona (ör. X) denk gelmesin diye kısa koruma
+    private float acilisZamani;
+    private const float TiklamaKorumasi = 0.2f;
+    private bool YeniAcildi { get { return Time.unscaledTime - acilisZamani < TiklamaKorumasi; } }
+
     private void Awake()
     {
         Instance = this;
+        if (kapatButonu == null && panel != null)
+        {
+            Transform x = FindChild(panel.transform, "KapatButonu");
+            if (x != null) kapatButonu = x.GetComponent<Button>();
+        }
         ApplyPrototypePopupStyle();
         panel.SetActive(false);
     }
 
     private void Start()
     {
-        yukseltButonu.onClick.AddListener(YukseltTiklandi);
-        quizButonu.onClick.AddListener(QuizTiklandi);
-        kapatButonu.onClick.AddListener(Kapat);
+        // Prefab'da Inspector'dan bağlı olan butonlara kodla ikinci kez bağlanırsa bir tık iki kez çalışır (çift yükseltme)
+        BagliDegilseBagla(yukseltButonu, YukseltTiklandi);
+        BagliDegilseBagla(quizButonu, QuizTiklandi);
+        BagliDegilseBagla(kapatButonu, Kapat);
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
+
+    private static void BagliDegilseBagla(Button btn, UnityEngine.Events.UnityAction fonksiyon)
+    {
+        if (btn != null && btn.onClick.GetPersistentEventCount() == 0) btn.onClick.AddListener(fonksiyon);
+    }
+
+    private static Transform FindChild(Transform kok, string ad)
+    {
+        foreach (Transform t in kok.GetComponentsInChildren<Transform>(true))
+            if (t.name == ad) return t;
+        return null;
     }
 
     private void ApplyPrototypePopupStyle()
@@ -54,7 +83,7 @@ public class BinaPopup : MonoBehaviour
         }
 
         Transform pencereTr = panel.transform.Find("Pencere");
-        if (pencereTr == null) return;
+        if (pencereTr == null) pencereTr = PencereOlustur();
 
         // Eski otomatik layout ve eski çocukları temizleyip referans görseldeki kurdeleli + yıldızlı piksel-art modal kartı kuralım
         VerticalLayoutGroup oldVlg = pencereTr.GetComponent<VerticalLayoutGroup>();
@@ -248,9 +277,31 @@ public class BinaPopup : MonoBehaviour
         }
 
         StyleExistingButtonAsTwoTone(yukseltButonu, yukseltButonText, UIManager.GreenBtn, UIManager.GreenBtnLeft, UIManager.GreenBtnDark, UIManager.IconType.UpArrow);
+        if (kapatButonu != null) kapatButonu.transform.SetAsLastSibling(); // kurdelenin ve diğer kutuların önünde dursun
         TMP_Text quizBtnText = quizButonu != null ? quizButonu.GetComponentInChildren<TMP_Text>() : null;
         if (quizBtnText != null) quizBtnText.text = "QUİZ ÇÖZ";
         StyleExistingButtonAsTwoTone(quizButonu, quizBtnText, UIManager.GoldBtn, UIManager.GoldBtnLeft, UIManager.GoldBtnDark, UIManager.IconType.Book);
+    }
+
+    // Prefab'da kart (Pencere) yoksa oluştur: panel ekranı kaplayan karartma olur, eski çocuklar kartın içine taşınır
+    private Transform PencereOlustur()
+    {
+        RectTransform panelRt = panel.GetComponent<RectTransform>();
+        UIManager.StretchFull(panelRt);
+
+        var eskiCocuklar = new System.Collections.Generic.List<Transform>();
+        foreach (Transform ch in panel.transform) eskiCocuklar.Add(ch);
+
+        GameObject pencere = new GameObject("Pencere", typeof(RectTransform), typeof(Image));
+        pencere.transform.SetParent(panel.transform, false);
+        foreach (Transform ch in eskiCocuklar) ch.SetParent(pencere.transform, false);
+
+        GameObject alt = new GameObject("AltButonlar", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        alt.transform.SetParent(pencere.transform, false);
+        if (yukseltButonu != null) yukseltButonu.transform.SetParent(alt.transform, false);
+        if (quizButonu != null) quizButonu.transform.SetParent(alt.transform, false);
+
+        return pencere.transform;
     }
 
     private void StyleExistingButtonAsTwoTone(
@@ -303,6 +354,7 @@ public class BinaPopup : MonoBehaviour
         if (gm != null && (gm.afetOlduMu || gm.oyunBittiMi)) return;
 
         aktifBina = bina;
+        acilisZamani = Time.unscaledTime;
         if (gm != null) gm.oyunDurduMu = true;
 
         Guncelle();
@@ -311,6 +363,7 @@ public class BinaPopup : MonoBehaviour
 
     public void Kapat()
     {
+        if (YeniAcildi) return;
         PaneliKapat();
     }
 
@@ -330,7 +383,7 @@ public class BinaPopup : MonoBehaviour
         bool hasarli = gm.Hasarli(aktifBina);
         int maxLevel = DengeAyarlari.Aktif.maxLevel;
 
-        seviyeText.text = hasarli
+        if (seviyeText != null) seviyeText.text = hasarli
             ? "Seviye " + level + "  (HASARLI)"
             : "Seviye " + level + " / " + maxLevel;
         BinaBilgileriniDoldur(aktifBina, level, hasarli);
@@ -347,7 +400,7 @@ public class BinaPopup : MonoBehaviour
         if (hasarli)
         {
             int maliyet = Ekonomi.OnarimMaliyeti(aktifBina);
-            yukseltButonText.text = "Onar (" + maliyet + "₺)";
+            yukseltButonText.text = "Onar (" + maliyet + " TL)";
             yukseltButonu.interactable = Ekonomi.OnarilabilirMi(aktifBina);
         }
         else if (level >= maxLevel)
@@ -358,7 +411,7 @@ public class BinaPopup : MonoBehaviour
         else
         {
             int maliyet = Ekonomi.YukseltmeMaliyeti(aktifBina);
-            yukseltButonText.text = "Yükselt (" + maliyet + "₺)";
+            yukseltButonText.text = "Yükselt (" + maliyet + " TL)";
             yukseltButonu.interactable = Ekonomi.YukseltilebilirMi(aktifBina);
         }
 
@@ -426,14 +479,15 @@ public class BinaPopup : MonoBehaviour
     public void YukseltTiklandi()
     {
         var gm = GameManager.Instance;
-        if (gm == null) return;
+        if (gm == null || YeniAcildi) return;
 
         bool degisti = gm.Hasarli(aktifBina) ? Ekonomi.Onar(aktifBina) : Ekonomi.Yukselt(aktifBina);
         if (degisti) Guncelle();
     }
 
-    private void QuizTiklandi()
+    public void QuizTiklandi()
     {
+        if (YeniAcildi) return;
         PaneliKapat();
         if (QuizManager.Instance != null)
             QuizManager.Instance.QuizAc();

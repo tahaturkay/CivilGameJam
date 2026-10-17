@@ -24,7 +24,7 @@ public class OyunTestRobotu : MonoBehaviour
 
     IEnumerator Calistir()
     {
-        Yaz("=== OYUN TESTİ " + DateTime.Now + " ===");
+        Yaz("=== OYUN TESTİ " + DateTime.Now + " · " + UnityEngine.SceneManagement.SceneManager.GetActiveScene().name + " ===");
         yield return null;
         yield return null;
 
@@ -119,6 +119,9 @@ public class OyunTestRobotu : MonoBehaviour
         g0 = gm.gun;
         yield return new WaitForSecondsRealtime(1.5f);
         Kontrol(popup.panel.activeSelf, "Popup açıldı");
+        var kart = popup.panel.transform.Find("Pencere");
+        var kartImg = kart != null ? kart.GetComponent<UnityEngine.UI.Image>() : null;
+        Kontrol(kartImg != null && kartImg.sprite != null && kartImg.enabled, "Bina popup'ının kart arka planı var");
         Kontrol(gm.oyunDurduMu && gm.gun == g0, "Popup açıkken zaman durdu");
         Yaz("   Buton yazısı: " + popup.yukseltButonText.text);
         Kontrol(popup.yukseltButonText.text.Contains("200"), "Konut Lv1→2 fiyatı 200₺");
@@ -159,11 +162,16 @@ public class OyunTestRobotu : MonoBehaviour
         quiz.QuizAc();
         yield return null;
         Kontrol(quiz.quizPanel.activeSelf && gm.oyunDurduMu, "Quiz açıldı, zaman durdu");
+        var qKart = quiz.quizPanel.transform.Find("Pencere");
+        var qImg = qKart != null ? qKart.GetComponent<UnityEngine.UI.Image>() : null;
+        Kontrol(qImg != null && qImg.sprite != null, "Quiz kartının arka planı var");
         int dogru = quiz.AktifSoru.dogruSikIndex;
         quiz.sikButonlari[dogru].onClick.Invoke();
         Kontrol(Mathf.Approximately(gm.farkindalikYuzdesi, 20f), "Doğru cevap: farkındalık %10 → %" + gm.farkindalikYuzdesi);
-        yield return new WaitForSecondsRealtime(quiz.sonucGosterimSuresi + 0.3f);
-        Kontrol(!quiz.quizPanel.activeSelf && !gm.oyunDurduMu, "Quiz kendiliğinden kapandı");
+        yield return new WaitForSecondsRealtime(2.5f);
+        Kontrol(quiz.quizPanel.activeSelf, "Cevaptan sonra quiz açık kalıyor (açıklama okunabilir)");
+        quiz.QuizKapat();
+        Kontrol(!quiz.quizPanel.activeSelf && !gm.oyunDurduMu, "Quiz kapatılınca zaman devam ediyor");
 
         quiz.QuizAc();
         yield return null;
@@ -171,7 +179,7 @@ public class OyunTestRobotu : MonoBehaviour
         quiz.sikButonlari[yanlis].onClick.Invoke();
         Kontrol(Mathf.Approximately(gm.farkindalikYuzdesi, 20f), "Yanlış cevap: farkındalık değişmedi");
         Yaz("   Yanlış cevap mesajı: " + quiz.soruText.text);
-        yield return new WaitForSecondsRealtime(quiz.sonucGosterimSuresi + 0.3f);
+        quiz.QuizKapat();
 
         gm.farkindalikYuzdesi = 40f;
         quiz.QuizAc();
@@ -193,7 +201,22 @@ public class OyunTestRobotu : MonoBehaviour
         Time.timeScale = 6f;
         afet.AfetBaslat(0);
         sinir = Time.realtimeSinceStartup + 30f;
-        while (!gm.afetOlduMu && Time.realtimeSinceStartup < sinir) yield return null;
+        int itfaiyedeAtes = 0, toplamAtes = 0;
+        Transform itf = null;
+        foreach (var bv in FindObjectsByType<BuildingVisuals>())
+            if (bv.binaTuru == BinaTuru.Itfaiye) { itf = bv.transform; break; }
+        while (!gm.afetOlduMu && Time.realtimeSinceStartup < sinir)
+        {
+            if (afet.yanginPrefab != null)
+                foreach (var ps in FindObjectsByType<ParticleSystem>())
+                {
+                    if (!ps.name.StartsWith(afet.yanginPrefab.name) || ps.transform.parent != null) continue;
+                    toplamAtes++;
+                    if (itf != null && Vector2.Distance(new Vector2(ps.transform.position.x, ps.transform.position.z), new Vector2(itf.position.x, itf.position.z)) < 1.5f) itfaiyedeAtes++;
+                }
+            yield return null;
+        }
+        Kontrol(itf == null || itfaiyedeAtes == 0, "İtfaiye binasında ateş yok (görülen ateş karesi: " + toplamAtes + ", itfaiye " + (itf != null ? "bulundu" : "sahnede yok") + ")");
         Time.timeScale = 1f;
         Kontrol(gm.afetOlduMu, "Afet bitti, rapor bayrağı kalktı");
         yield return null;

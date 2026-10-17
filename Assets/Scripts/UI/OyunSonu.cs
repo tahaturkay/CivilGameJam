@@ -34,7 +34,7 @@ public class OyunSonu : MonoBehaviour
             "Hayatını kaybeden: " + gm.toplamVefat + "\n" +
             "Kurtarılan (farkındalık + AKUT): " + gm.toplamKurtarilan + "\n" +
             "Kalan nüfus: " + gm.nufus + "\n" +
-            "Kazanılan para: " + gm.toplamKazanc + "₺   Harcanan: " + gm.toplamHarcama + "₺\n" +
+            "Kazanılan para: " + gm.toplamKazanc + " TL   Harcanan: " + gm.toplamHarcama + " TL\n" +
             "Yapılan yükseltme: " + gm.yukseltmeSayisi + "\n" +
             "Doğru cevaplanan soru: " + gm.dogruCevapSayisi + "\n" +
             "En yüksek farkındalık: %" + Mathf.RoundToInt(gm.enYuksekFarkindalik);

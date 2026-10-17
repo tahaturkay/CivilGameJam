@@ -21,12 +21,15 @@ static class OtomatikTest
     }
 
     [MenuItem("Araclar/Otomatik Oyun Testi")]
-    public static void Baslat()
+    public static void Baslat() { Baslat(TestSahnesi); }
+
+    // Başlatma dosyasının içine sahne yolu yazılırsa test o sahnede koşar
+    public static void Baslat(string sahne)
     {
         if (EditorApplication.isPlaying) return;
         if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
 
-        EditorSceneManager.OpenScene(TestSahnesi);
+        EditorSceneManager.OpenScene(string.IsNullOrWhiteSpace(sahne) ? TestSahnesi : sahne.Trim());
         SessionState.SetBool(AktifAnahtari, true);
         EditorApplication.isPlaying = true;
     }
@@ -42,8 +45,9 @@ static class OtomatikTest
             AssetDatabase.Refresh();
             if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
 
+            string sahne = File.ReadAllText(BaslatDosyasi);
             File.Delete(BaslatDosyasi);
-            Baslat();
+            Baslat(sahne);
         }
     }
 

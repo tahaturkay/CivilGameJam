@@ -24,31 +24,18 @@ public static class UIKurulumAraci
     private const string MainFontPath = "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset";
     private const string FallbackFontPath = "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset";
     private const string SourceTtfPath = "Assets/TextMesh Pro/Fonts/LiberationSans.ttf";
-    private const string TurkceKarakterler = "İıŞşĞğÜüÖöÇç₺•";
+    private const string TurkceKarakterler = "İıŞşĞğÜüÖöÇç•";
 
-    [InitializeOnLoadMethod]
+    // Türkçe harfler kare görünürse elle çalıştır. Eskiden her derlemede otomatik çalışıyordu;
+    // font dosyalarını her seferinde yeniden kaydettiği için git'te sürekli değişiklik ve çakışma üretiyordu.
+    [MenuItem("Araclar/Turkce Font Onar")]
     public static void TurkceFontFallbackOnar()
     {
         OnarFontFallback();
-        EditorApplication.delayCall += OnarFontFallback;
     }
 
     private static void OnarFontFallback()
     {
-        // Eksik harici kod editörü yolu uyarısını (Downloads/Visual Studio Code.app) otomatik temizle
-        string externalEditor = EditorPrefs.GetString("kScriptsDefaultApp", "");
-        if (!string.IsNullOrEmpty(externalEditor) && !Directory.Exists(externalEditor) && !File.Exists(externalEditor))
-        {
-            if (Directory.Exists("/Applications/Visual Studio Code.app"))
-                EditorPrefs.SetString("kScriptsDefaultApp", "/Applications/Visual Studio Code.app");
-            else if (Directory.Exists("/Applications/Antigravity.app"))
-                EditorPrefs.SetString("kScriptsDefaultApp", "/Applications/Antigravity.app");
-            else if (Directory.Exists("/Applications/Cursor.app"))
-                EditorPrefs.SetString("kScriptsDefaultApp", "/Applications/Cursor.app");
-            else
-                EditorPrefs.DeleteKey("kScriptsDefaultApp");
-        }
-
         var mainFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(MainFontPath);
         var fallbackFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FallbackFontPath);
         var sourceTtf = AssetDatabase.LoadAssetAtPath<Font>(SourceTtfPath);

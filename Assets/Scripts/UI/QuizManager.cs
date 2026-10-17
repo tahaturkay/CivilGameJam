@@ -18,10 +18,6 @@ public class QuizManager : MonoBehaviour
     public TMP_Text[] sikTextleri;
     public Button kapatButonu;
 
-    [Header("Ayarlar")]
-    [Tooltip("Şık seçildikten sonra doğru/yanlış renginin görünme süresi (saniye)")]
-    public float sonucGosterimSuresi = 1.6f;
-
     // Doğru bilinen sorular havuzdan çıkar; yanlış bilinenler tekrar sorulabilir
     private readonly List<QuestionSO> kalanSorular = new List<QuestionSO>();
     private QuestionSO aktifSoru;
@@ -48,6 +44,20 @@ public class QuizManager : MonoBehaviour
         kalanSorular.Clear();
         if (sorular != null) kalanSorular.AddRange(sorular);
 
+        // Prefab'da şık yazıları ya da kapat butonu bağlanmadıysa butonların içinden bul
+        if (sikButonlari == null) sikButonlari = new Button[0];
+        if (sikTextleri == null || sikTextleri.Length < sikButonlari.Length)
+        {
+            sikTextleri = new TMP_Text[sikButonlari.Length];
+            for (int i = 0; i < sikButonlari.Length; i++)
+                if (sikButonlari[i] != null) sikTextleri[i] = sikButonlari[i].GetComponentInChildren<TMP_Text>(true);
+        }
+        if (kapatButonu == null && quizPanel != null)
+        {
+            foreach (Button b in quizPanel.GetComponentsInChildren<Button>(true))
+                if (b.name == "QuizKapatButonu" || b.name == "KapatButonu") { kapatButonu = b; break; }
+        }
+
         ApplyPrototypeQuizStyle();
         quizPanel.SetActive(false);
     }
@@ -56,12 +66,19 @@ public class QuizManager : MonoBehaviour
     {
         for (int i = 0; i < sikButonlari.Length; i++)
         {
+            if (sikButonlari[i] == null) continue;
             int index = i; // Closure için yerel kopya şart
             sikButonlari[i].onClick.AddListener(() => SikSecildi(index));
         }
 
-        if (kapatButonu != null)
+        // Inspector'da zaten bağlıysa tekrar bağlama
+        if (kapatButonu != null && kapatButonu.onClick.GetPersistentEventCount() == 0)
             kapatButonu.onClick.AddListener(QuizKapat);
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
     }
 
     private void ApplyPrototypeQuizStyle()
@@ -79,7 +96,17 @@ public class QuizManager : MonoBehaviour
         }
 
         Transform pencereTr = quizPanel.transform.Find("Pencere");
-        if (pencereTr == null) return;
+        if (pencereTr == null)
+        {
+            // Prefab'da kart (Pencere) yoksa oluştur ve eski çocukları içine taşı
+            UIManager.StretchFull(quizPanel.GetComponent<RectTransform>());
+            var eskiCocuklar = new List<Transform>();
+            foreach (Transform ch in quizPanel.transform) eskiCocuklar.Add(ch);
+            GameObject pencere = new GameObject("Pencere", typeof(RectTransform), typeof(Image));
+            pencere.transform.SetParent(quizPanel.transform, false);
+            foreach (Transform ch in eskiCocuklar) ch.SetParent(pencere.transform, false);
+            pencereTr = pencere.transform;
+        }
 
         VerticalLayoutGroup oldVlg = pencereTr.GetComponent<VerticalLayoutGroup>();
         if (oldVlg != null) Destroy(oldVlg);
@@ -126,6 +153,7 @@ public class QuizManager : MonoBehaviour
             closeRt.pivot = new Vector2(0.5f, 0.5f);
             closeRt.anchoredPosition = new Vector2(-10f, -14f);
             closeRt.sizeDelta = new Vector2(46f, 46f);
+            kapatButonu.transform.SetAsLastSibling(); // kurdelenin önünde dursun
 
             Image closeImg = kapatButonu.GetComponent<Image>();
             closeImg.sprite = UIManager.GetCreamBoxSprite(UIManager.RedClose, UIManager.RedCloseDark);
@@ -255,6 +283,9 @@ public class QuizManager : MonoBehaviour
         feedbackText = UIManager.CreateText(
             feedbackBox.transform, "FeedbackText", font, "", 18f, FontStyles.Bold,
             UIManager.DarkInk, TextAlignmentOptions.MidlineLeft);
+        feedbackText.enableAutoSizing = true;
+        feedbackText.fontSizeMin = 12f;
+        feedbackText.fontSizeMax = 18f;
         RectTransform ftRt = feedbackText.rectTransform;
         ftRt.anchorMin = Vector2.zero;
         ftRt.anchorMax = Vector2.one;
@@ -272,9 +303,12 @@ public class QuizManager : MonoBehaviour
         dvRt.pivot = new Vector2(1f, 0.5f);
         dvRt.anchoredPosition = new Vector2(-14f, 2f);
         dvRt.sizeDelta = new Vector2(166f, 52f);
-        devamBtn.onClick.AddListener(QuizKapat);
+        devamBtn.onClick.AddListener(OkulaDon); // okul popup'ına döner: oyuncu isterse yeniden Quiz Çöz der, isterse çıkar
 
         feedbackBox.SetActive(false);
+
+        // Sonradan eklenen objeler kapat butonunun üstüne binmesin
+        if (kapatButonu != null) kapatButonu.transform.SetAsLastSibling();
     }
 
     private void ApplyChoiceVisualState(int index, Color32 mainFill, Color32 leftFill, Color32 shadowCol, Color32 textColor)
@@ -325,15 +359,16 @@ public class QuizManager : MonoBehaviour
         cevapVerildi = false;
         SiklariGoster(true);
         aktifSoru = kalanSorular[Random.Range(0, kalanSorular.Count)];
-        soruText.text = aktifSoru.soruMetni;
+        soruText.text = aktifSoru.soruMetni.Trim();
 
         for (int i = 0; i < sikButonlari.Length; i++)
         {
+            if (sikButonlari[i] == null) continue;
             bool aktif = i < aktifSoru.siklar.Length;
             sikButonlari[i].gameObject.SetActive(aktif);
             if (!aktif) continue;
 
-            sikTextleri[i].text = aktifSoru.siklar[i];
+            if (sikTextleri[i] != null) sikTextleri[i].text = aktifSoru.siklar[i].Trim();
             sikButonlari[i].interactable = true;
 
             // Tüm şıkların başlangıç arka planı KREM (#FFF8E7), sol harf kutusu mavi
@@ -356,7 +391,7 @@ public class QuizManager : MonoBehaviour
         var gm = GameManager.Instance;
 
         for (int i = 0; i < sikButonlari.Length; i++)
-            sikButonlari[i].interactable = false;
+            if (sikButonlari[i] != null) sikButonlari[i].interactable = false;
 
         // Doğru ve yanlış şıkların arka plan renklerini koru (Yeşil / Kırmızı)
         ApplyChoiceVisualState(
@@ -365,7 +400,7 @@ public class QuizManager : MonoBehaviour
 
         string aciklamaStr = !string.IsNullOrEmpty(aktifSoru.aciklama)
             ? aktifSoru.aciklama
-            : "Doğru cevap: " + aktifSoru.siklar[aktifSoru.dogruSikIndex];
+            : "Doğru cevap: " + aktifSoru.siklar[aktifSoru.dogruSikIndex].Trim();
 
         if (secilenIndex == aktifSoru.dogruSikIndex)
         {
@@ -389,7 +424,7 @@ public class QuizManager : MonoBehaviour
                 secilenIndex,
                 UIManager.RedClose, UIManager.RedCloseDark, UIManager.RedCloseDark, Color.white);
 
-            soruText.text = "YANLIŞ!  Doğru cevap: " + aktifSoru.siklar[aktifSoru.dogruSikIndex];
+            soruText.text = "YANLIŞ!  Doğru cevap: " + aktifSoru.siklar[aktifSoru.dogruSikIndex].Trim();
 
             if (feedbackBox != null)
             {
@@ -400,13 +435,13 @@ public class QuizManager : MonoBehaviour
             }
         }
 
-        StartCoroutine(SonrakiAdim());
+        // Kendiliğinden kapanmaz: oyuncu açıklamayı okuyup DEVAM ET ya da X ile kapatır
     }
 
-    private IEnumerator SonrakiAdim()
+    public void OkulaDon()
     {
-        yield return new WaitForSecondsRealtime(sonucGosterimSuresi);
         QuizKapat();
+        if (BinaPopup.Instance != null) BinaPopup.Instance.Ac(BinaTuru.Okul);
     }
 
     public void QuizKapat()

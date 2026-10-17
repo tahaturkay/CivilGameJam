@@ -133,6 +133,14 @@ public class DisasterController : MonoBehaviour
         afetDevamEdiyorMu = false;
     }
 
+    bool ItfaiyeMi(Transform bina)
+    {
+        if (bina == itfaiyeObj) return true;
+        var bv = bina.GetComponentInParent<BuildingVisuals>();
+        if (bv == null) bv = bina.GetComponentInChildren<BuildingVisuals>();
+        return bv != null && bv.binaTuru == BinaTuru.Itfaiye;
+    }
+
     // Seviyesi 1'den büyükse bir düşer; zaten 1 ise "hasarlı" olur
     void HasarVer(GameManager gm, BinaTuru bina)
     {
@@ -197,7 +205,7 @@ public class DisasterController : MonoBehaviour
             
             foreach (Transform bina in yanacakBinalar)
             {
-                if (bina != null)
+                if (bina != null && !ItfaiyeMi(bina)) // itfaiye binası yangını söndüren taraf, kendisi yanmaz
                 {
                     // Başlangıç olarak binanın kendi pozisyonunu al
                     Vector3 tepeNoktasi = bina.position;
