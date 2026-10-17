@@ -18,7 +18,7 @@ public class DisasterController : MonoBehaviour
     // --- YENİ DEPREM SİSTEMİ ---
     [Header("Deprem Efektleri")]
     public GameObject tozBulutuPrefab;     // Toz/Duman Particle Prefab'ı
-    public Transform temelBinaObj;
+    public Transform[] temelBinalar;
     public Transform okulObj;
     public Transform akutObj;
     public Transform itfaiyeObj;
@@ -73,16 +73,23 @@ public class DisasterController : MonoBehaviour
                 StartCoroutine(KameraSalla(15.0f, 0.4f)); 
 
                 // 2. İlk 10 saniye sadece sarsıntı olsun
-                yield return new WaitForSeconds(10.0f);
+                yield return new WaitForSeconds(5.0f);
 
                 // 3. Son 5 saniyeye girdik. Hasar alanları kontrol et ve efektleri başlat
-                CheckAndTriggerCollapse(GameManager.Instance.temelBinaLevel, gerekenLevel, temelBinaObj);
+                // Temel binaları tek tek kontrol et
+                if (temelBinalar != null)
+                {
+                    foreach (Transform bina in temelBinalar)
+                    {
+                        CheckAndTriggerCollapse(GameManager.Instance.temelBinaLevel, gerekenLevel, bina);
+                    }
+                }
                 CheckAndTriggerCollapse(GameManager.Instance.okulLevel, gerekenLevel, okulObj);
                 CheckAndTriggerCollapse(GameManager.Instance.akutLevel, gerekenLevel, akutObj);
                 CheckAndTriggerCollapse(GameManager.Instance.itfaiyeLevel, gerekenLevel, itfaiyeObj);
 
                 // 4. Kalan 5 saniyeyi bekle (Bu sırada Level 1 binalar çökecek)
-                yield return new WaitForSeconds(5.0f);
+                yield return new WaitForSeconds(10.0f);
 
                 // 5. Süre bitti, levelleri düşür
                 if (GameManager.Instance.temelBinaLevel < gerekenLevel) { GameManager.Instance.temelBinaLevel = GameManager.Instance.LeveliniBirDusur(GameManager.Instance.temelBinaLevel); hasarAldiMi = true; }
@@ -346,6 +353,9 @@ public class DisasterController : MonoBehaviour
     // Ortak Gelişmiş Su Kontrolcüsü
     IEnumerator SuYukseltIndir(float hedefYukseklik, float cikmaSuresi, float beklemeSuresi, float inmeSuresi)
     {
+        // 1. HAREKETE BAŞLAMADAN ÖNCE SUYU GÖRÜNÜR YAP!
+        if (tsunamiSuyu != null) tsunamiSuyu.gameObject.SetActive(true);
+
         Vector3 baslangic = tsunamiSuyu.position;
         Vector3 tepeNoktasi = new Vector3(baslangic.x, hedefYukseklik, baslangic.z);
         float gecenSure = 0;
@@ -369,6 +379,9 @@ public class DisasterController : MonoBehaviour
             yield return null; 
         }
         tsunamiSuyu.position = baslangic;
+
+        // 2. SU ÇEKİLDİKTEN SONRA TEKRAR GİZLE!
+        if (tsunamiSuyu != null) tsunamiSuyu.gameObject.SetActive(false);
     }
 
     // Binanın hasar durumunu kontrol eder ve sadece toz/duman çıkartır
@@ -385,15 +398,29 @@ public class DisasterController : MonoBehaviour
     // Toz çıkarma ve duruma göre yerin dibine girme animasyonu
     IEnumerator BinaCokmeEfekti(Transform bina, bool cokecekMi)
     {
-        // 1. Toz bulutunu her türlü oluştur
+        // 1. Toz bulutunu oluştur ve binanın boyutuna göre büyüt
         if (tozBulutuPrefab != null)
         {
             Collider col = bina.GetComponent<Collider>();
-            Vector3 zeminPos = col != null ? new Vector3(bina.position.x, col.bounds.min.y + 0.5f, bina.position.z) : bina.position;
+            Vector3 zeminPos = col != null ? new Vector3(bina.position.x, col.bounds.min.y + 0.5f, bina.position.z) : bina.position + new Vector3(0, 0.5f, 0);
             
             GameObject toz = Instantiate(tozBulutuPrefab, zeminPos, Quaternion.identity);
+            
+            // YENİ: Orantılı ve Sınırlı Büyütme
+            if (col != null)
+            {
+                // Binanın en geniş tarafını bul
+                float maxGenislik = Mathf.Max(col.bounds.size.x, col.bounds.size.z);
+                
+                // Formül: Genişliği biraz yumuşat (0.4 ile çarp) ve sınırlar arasına hapset
+                // Min: 1.0f (Normal boy) | Max: 2.5f (En fazla 2.5 kat büyüyebilir)
+                float orantiliScale = Mathf.Clamp(maxGenislik * 0.2f, 1.0f, 1.5f);
+                
+                toz.transform.localScale = new Vector3(orantiliScale, orantiliScale, orantiliScale);
+            }
+
             toz.SetActive(true);
-            Destroy(toz, 5.0f); // 5 saniye sonra tozu temizle
+            Destroy(toz, 10.0f); 
         }
 
         // 2. Eğer bina Level 1'den büyükse son 5 saniyede çöksün
