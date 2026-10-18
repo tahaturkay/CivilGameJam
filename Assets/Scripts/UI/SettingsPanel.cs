@@ -146,12 +146,13 @@ public class SettingsPanel : MonoBehaviour
         guideTitle.fontStyle=FontStyles.Bold;guideTitle.alignment=TextAlignmentOptions.Center;CivicUI.Fill(guideTitle.rectTransform,4);
 
         Guide(rightCard.transform,"W A S D / OK TUŞLARI","Haritada gezin",58,font);
-        Guide(rightCard.transform,"SAĞ / ORTA TUŞ","Basılı tutup sürükle",122,font);
-        Guide(rightCard.transform,"SPACE","Oyunu duraklat / devam ettir",186,font);
-        Guide(rightCard.transform,"TEKERLEK / İKİ PARMAK ↑↓","Yakınlaş / uzaklaş",250,font);
-        Guide(rightCard.transform,"SHIFT + KAYDIRMA","Haritayı kaydır",314,font);
-        Guide(rightCard.transform,"Q / E   ·   HOME","Yakınlık   ·   Şehri ortala",378,font);
-        Guide(rightCard.transform,"ESC","Duraklatma menüsü / ayarları kapat",442,font);
+        Guide(rightCard.transform,"SAĞ / ORTA TUŞ","Basılı tutup sürükle",118,font);
+        Guide(rightCard.transform,"SPACE","Oyunu duraklat / devam ettir",178,font);
+        Guide(rightCard.transform,"1 / 2 / 3","Oyun hızını 1× / 2× / 3× yap",238,font);
+        Guide(rightCard.transform,"TEKERLEK / İKİ PARMAK ↑↓","Yakınlaş / uzaklaş",298,font);
+        Guide(rightCard.transform,"SHIFT + KAYDIRMA","Haritayı kaydır",358,font);
+        Guide(rightCard.transform,"Q / E   ·   HOME","Yakınlık   ·   Şehri ortala",418,font);
+        Guide(rightCard.transform,"ESC","Duraklatma menüsü / ayarları kapat",478,font);
 
         // Bottom Action Buttons
         var reset=CivicUI.CreateTwoToneButton(card,"ResetHud",font,"ÜST PANELİ SIFIRLA",

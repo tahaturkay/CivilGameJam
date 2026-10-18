@@ -197,6 +197,93 @@ public static class IslandActorArt
         return root;
     }
 
+    /// <summary>
+    /// Shared low-poly rescue engine: ground origin, +Z front, 1.90 m body / 2.10 m mirrors,
+    /// 5.14 m bumper-to-bumper, 2.47 m roof beacon height. Attachment points survive mesh combining.
+    /// </summary>
+    public static GameObject CreateFireEngine(Transform parent)
+    {
+        const int fireEngineKey=100; // Ordinary traffic variants retain their existing keys 0..5.
+        var root=Root(parent,"ItfaiyeAraci");
+        if(!vehicleModels.TryGetValue(fireEngineKey,out Model model))
+        {
+            Color32 red=new Color32(196,48,39,255),ivory=new Color32(234,232,215,255);
+            Transform frame=root.transform;
+            Part(frame,"TasiyiciSasi",new Vector3(0,.53f,0),new Vector3(1.76f,.25f,4.90f),Rubber);
+            Part(frame,"KabinAltGovde",new Vector3(0,.99f,1.46f),new Vector3(1.90f,.78f,1.86f),red);
+            Part(frame,"MurettebatKabini",new Vector3(0,1.69f,1.43f),new Vector3(1.80f,.78f,1.66f),Window);
+            Part(frame,"BeyazKabinTavani",new Vector3(0,2.12f,1.37f),new Vector3(1.91f,.15f,1.82f),ivory);
+            Part(frame,"OnCamOrtasi",new Vector3(0,1.70f,2.274f),new Vector3(.075f,.77f,.055f),red);
+            Part(frame,"OnCamGunesligi",new Vector3(0,2.055f,2.285f),new Vector3(1.88f,.09f,.13f),red);
+            Part(frame,"MotorIzgarasi",new Vector3(0,.98f,2.421f),new Vector3(.88f,.29f,.045f),Rubber);
+            for(int slat=0;slat<3;slat++)
+                Part(frame,"IzgaraCizgisi",new Vector3(0,.89f+slat*.085f,2.448f),new Vector3(.77f,.022f,.025f),Chrome);
+            Part(frame,"OnTampon",new Vector3(0,.61f,2.50f),new Vector3(1.98f,.19f,.14f),Chrome);
+            Part(frame,"ArkaTampon",new Vector3(0,.61f,-2.50f),new Vector3(1.98f,.19f,.14f),Chrome);
+            Part(frame,"OnYansiticiSerit",new Vector3(0,1.28f,2.414f),new Vector3(1.88f,.12f,.035f),ivory);
+
+            // Box-shaped tool lockers, inset aluminium shutters and two continuous reflective stripes.
+            Part(frame,"EkipmanGovdesi",new Vector3(0,1.34f,-.98f),new Vector3(1.90f,1.39f,2.92f),red);
+            Part(frame,"EkipmanTavanKenari",new Vector3(0,2.07f,-.98f),new Vector3(1.96f,.12f,2.98f),Chrome);
+            for(int side=-1;side<=1;side+=2)
+            {
+                for(int end=-1;end<=1;end+=2)
+                    Part(frame,"KabinKoseleri",new Vector3(side*.855f,1.69f,1.43f+end*.79f),new Vector3(.10f,.83f,.105f),red);
+                Part(frame,"KabinKapiDiregi",new Vector3(side*.91f,1.66f,1.26f),new Vector3(.065f,.80f,.085f),red);
+                Part(frame,"KabinKolu",new Vector3(side*.966f,1.25f,1.07f),new Vector3(.033f,.045f,.20f),Chrome);
+                Part(frame,"DikizAynasiKolu",new Vector3(side*.958f,1.63f,2.05f),new Vector3(.13f,.045f,.055f),Chrome);
+                Part(frame,"DikizAynasi",new Vector3(side*1.015f,1.64f,2.05f),new Vector3(.07f,.23f,.16f),Rubber);
+                Part(frame,"KabinBeyazSerit",new Vector3(side*.957f,1.27f,1.44f),new Vector3(.025f,.13f,1.82f),ivory);
+                Part(frame,"Basamak",new Vector3(side*.86f,.59f,.67f),new Vector3(.28f,.10f,.64f),Chrome);
+                for(int locker=0;locker<3;locker++)
+                {
+                    float z=-1.99f+locker*.98f;
+                    Part(frame,"EkipmanDolabi",new Vector3(side*.958f,1.40f,z),new Vector3(.035f,.90f,.85f),Chrome);
+                    for(int seam=0;seam<4;seam++)
+                        Part(frame,"DolapPanjuru",new Vector3(side*.979f,1.12f+seam*.19f,z),new Vector3(.016f,.018f,.81f),Rubber);
+                    Part(frame,"DolapKilidi",new Vector3(side*.986f,1.03f,z),new Vector3(.02f,.04f,.20f),Rubber);
+                }
+                Part(frame,"ArkaYansiticiSerit",new Vector3(side*.975f,.83f,-.98f),new Vector3(.035f,.12f,2.88f),ivory);
+                Part(frame,"OnFar",new Vector3(side*.70f,1.02f,2.431f),new Vector3(.31f,.20f,.055f),Lamp);
+                Part(frame,"ArkaStop",new Vector3(side*.73f,1.07f,-2.458f),new Vector3(.24f,.28f,.05f),red);
+                Part(frame,"ArkaGeriVitesLambasi",new Vector3(side*.73f,.91f,-2.461f),new Vector3(.24f,.07f,.055f),Lamp);
+                for(int end=-1;end<=1;end+=2)
+                {
+                    Vector3 axle=new Vector3(side*.89f,.42f,end>0?1.54f:-1.59f);
+                    Part(frame,"Lastik",axle,new Vector3(.28f,.42f,.42f),Rubber,WheelMesh());
+                    Part(frame,"CelikJant",axle+Vector3.right*side*.151f,new Vector3(.035f,.23f,.23f),Chrome,WheelMesh());
+                    Part(frame,"JantGobegi",axle+Vector3.right*side*.172f,new Vector3(.025f,.095f,.095f),Rubber,WheelMesh());
+                    Part(frame,"CamurlukUstu",new Vector3(side*.94f,.91f,axle.z),new Vector3(.12f,.10f,1.04f),red);
+                }
+                Part(frame,"MerdivenRayi",new Vector3(side*.30f,2.22f,-.65f),new Vector3(.07f,.08f,3.30f),Chrome);
+                for(int support=0;support<2;support++)
+                    Part(frame,"MerdivenSabitleme",new Vector3(side*.30f,2.14f,-1.65f+support*2.05f),new Vector3(.11f,.18f,.13f),Rubber);
+                Part(frame,"AlarmTabani",new Vector3(side*.61f,2.255f,1.54f),new Vector3(.30f,.09f,.30f),Rubber);
+                Transform beacon=Part(frame,"KirmiziTepeLambasi",new Vector3(side*.61f,2.375f,1.54f),new Vector3(.15f,.12f,.12f),red,WheelMesh());
+                beacon.localRotation=Quaternion.Euler(0,0,90);
+                Part(frame,"TepeLambasiPariltisi",new Vector3(side*.61f,2.455f,1.54f),new Vector3(.14f,.025f,.14f),Lamp);
+            }
+            for(int rung=0;rung<10;rung++)
+                Part(frame,"MerdivenBasamagi",new Vector3(0,2.22f,-2.15f+rung*.33f),new Vector3(.60f,.045f,.045f),Chrome);
+            // Rear pump panel and folded hose give the silhouette a rescue role without textures or text meshes.
+            Part(frame,"ArkaPompaPaneli",new Vector3(0,1.35f,-2.456f),new Vector3(.91f,.91f,.045f),Rubber);
+            Part(frame,"PompaKaplini",new Vector3(-.24f,1.18f,-2.49f),new Vector3(.17f,.19f,.07f),Chrome);
+            Part(frame,"PompaGostergesi",new Vector3(.21f,1.59f,-2.49f),new Vector3(.20f,.20f,.04f),ivory);
+            for(int fold=0;fold<3;fold++)
+                Part(frame,"KatliHortum",new Vector3(.20f,1.21f+fold*.10f,-2.49f),new Vector3(.43f,.065f,.07f),Lamp);
+            model=Combine(frame,"Ada_ItfaiyeAraci");vehicleModels[fireEngineKey]=model;
+        }
+        else Apply(root,model);
+        for(int side=-1;side<=1;side+=2)
+        {
+            Transform headlight=Root(root.transform,side<0?"FarSol":"FarSag").transform;
+            headlight.localPosition=new Vector3(side*.70f,1.02f,2.48f);
+            Transform alarm=Root(root.transform,side<0?"AlarmSol":"AlarmSag").transform;
+            alarm.localPosition=new Vector3(side*.61f,2.46f,1.54f);
+        }
+        return root;
+    }
+
     static Mesh WheelMesh()
     {
         if(wheel!=null)return wheel;

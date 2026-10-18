@@ -232,7 +232,7 @@ public class MainMenu : MonoBehaviour
         CreateGuideStep(
             cardRt, rowY, CivicUI.IconType.UpArrow, new Color32(255, 184, 46, 255),
             "1. YAPILARI GÜÇLENDİR & GELİR KAZAN",
-            "• Konutlar nüfus kapasitesi ve günlük coin geliri sağlar.\n• İtfaiye yangını, Deniz Seti tsunamiyi, Altyapı seli önler.\n• AKUT Merkezi tüm afetlerde arama-kurtarma yaparak can kaybını azaltır.",
+            "• Konutlar nüfus kapasitesi ve günlük coin geliri sağlar.\n• İtfaiye yangını kontrol altına alır, Deniz Seti tsunami etkisini azaltır, Altyapı seli sınırlar.\n• Bina seviyesi deprem hasarını azaltır; AKUT Merkezi arama-kurtarmayla can kaybını düşürür.",
             font);
         rowY += rowHeight + 12f;
 

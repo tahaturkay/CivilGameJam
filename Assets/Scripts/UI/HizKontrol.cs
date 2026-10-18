@@ -46,6 +46,12 @@ public class HizKontrol : MonoBehaviour
             var ui = FindAnyObjectByType<UIManager>();
             if (ui != null) ui.TryHandleSpacePauseInput();
         }
+        else if (!PlaybackModifierHeld() && SpeedKeyPressed(out int speed))
+        {
+            // Match the HUD buttons and Space shortcut, including modal/text-field guards.
+            var ui = FindAnyObjectByType<UIManager>();
+            if (ui != null) ui.TryHandleSpeedHotkeyInput(speed);
+        }
 
         var gm = GameManager.Instance;
         if (gm == null) return;
@@ -72,5 +78,46 @@ public class HizKontrol : MonoBehaviour
 #else
         return false;
 #endif
+    }
+
+    static bool SpeedKeyPressed(out int speed)
+    {
+        speed = 0;
+#if ENABLE_INPUT_SYSTEM
+        var keyboard = Keyboard.current;
+        if (keyboard != null)
+        {
+            if (keyboard.digit1Key.wasPressedThisFrame || keyboard.numpad1Key.wasPressedThisFrame) speed = 1;
+            else if (keyboard.digit2Key.wasPressedThisFrame || keyboard.numpad2Key.wasPressedThisFrame) speed = 2;
+            else if (keyboard.digit3Key.wasPressedThisFrame || keyboard.numpad3Key.wasPressedThisFrame) speed = 3;
+            if (speed != 0) return true;
+        }
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+        if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1)) speed = 1;
+        else if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2)) speed = 2;
+        else if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3)) speed = 3;
+#endif
+        return speed != 0;
+    }
+
+    static bool PlaybackModifierHeld()
+    {
+        bool held = false;
+#if ENABLE_INPUT_SYSTEM
+        var keyboard = Keyboard.current;
+        if (keyboard != null)
+            held |= keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed ||
+                    keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed ||
+                    keyboard.leftAltKey.isPressed || keyboard.rightAltKey.isPressed ||
+                    keyboard.leftCommandKey.isPressed || keyboard.rightCommandKey.isPressed;
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+        held |= Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) ||
+                Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ||
+                Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt) ||
+                Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand);
+#endif
+        return held;
     }
 }

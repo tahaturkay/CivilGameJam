@@ -54,7 +54,9 @@ public class AfetRaporu : MonoBehaviour
                 savunmaPillBg.sprite = CivicUI.GetPillBadgeSprite(CivicUI.Green, CivicUI.GreenShadow);
             if (savunmaText != null)
             {
-                savunmaText.text = "SAVUNMA: YETERLİ  ·  Şehir hasar almadan atlattı!";
+                savunmaText.text = gm.sonAfetTuru == AfetTuru.Yangin
+                    ? "SAVUNMA: YETERLİ  ·  İtfaiye yangını kontrol altına aldı; bazı binalarda hasar kaldı."
+                    : "SAVUNMA: YETERLİ  ·  Şehir hasar almadan atlattı!";
                 savunmaText.color = Color.white;
             }
         }
@@ -83,6 +85,8 @@ public class AfetRaporu : MonoBehaviour
             nufusText.text = "Kalan nüfus: " + gm.nufus + "   ·   Etkilenen yapı: " + gm.sonHasarliBinaSayisi;
 
         panel.SetActive(true);
+        if(gm.sonAfetTuru==AfetTuru.Yangin)
+            FindAnyObjectByType<DisasterController>()?.ExtinguishReportedFire();
     }
 
     void BuildStoryLayout()

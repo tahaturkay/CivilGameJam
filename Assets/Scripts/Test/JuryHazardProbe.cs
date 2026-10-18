@@ -84,9 +84,10 @@ public sealed class JuryHazardProbe : MonoBehaviour
             var story=Array.Find(data.hikayeler,h=>h.afet==hazard);
             string expected=defended?(!string.IsNullOrEmpty(story.yuksekFarkindalik)?story.yuksekFarkindalik:story.iyi):story.kotu;
             Check(report.hasarText.text.Contains(expected),hazard+" actual report shows "+(defended?"good":"bad")+" character story");
-            if(defended)Check(disaster.DamagedInstanceCount==0,hazard+" protected structures remain intact");
+            if(defended)Check(hazard==AfetTuru.Yangin ? disaster.DamagedInstanceCount>0&&disaster.DamagedInstanceCount<=3 : disaster.DamagedInstanceCount==0,
+                hazard+ (hazard==AfetTuru.Yangin?" protected fire is contained to a few buildings":" protected structures remain intact"));
             if(hazard==AfetTuru.Sel||hazard==AfetTuru.Tsunami)Check(wet!=defended,hazard+" water appears only when defense fails");
-            if(hazard==AfetTuru.Tsunami){Check(impact,"Tsunami visibly impacts the seawall in both branches");if(!defended)Check(swept,"Tsunami carries exposed outdoor citizens");}
+            if(hazard==AfetTuru.Tsunami){Check(impact,"Tsunami visibly impacts the seawall in both branches");Check(city.ShelteredCount==city.LivingActorCount,"Tsunami warning keeps everyone sheltered regardless of awareness");}
             if(hazard==AfetTuru.Deprem&&!defended)
             {
                 int roofs=0;bool retained=true;

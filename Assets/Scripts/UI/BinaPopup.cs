@@ -294,7 +294,25 @@ public class BinaPopup : MonoBehaviour
             else yImg.sprite = CivicUI.GetTwoToneButtonSprite(CivicUI.GoldBtn, CivicUI.GoldBtnLeft, CivicUI.GoldBtnDark);
         }
 
-        actionHint.text=max?"Bu yapı tamamen geliştirildi.":gm.para<cost?(cost-gm.para)+" coin daha gerekli. Günlük geliri bekleyebilirsin.":damaged?"Onar ve yapıyı yeniden göreve döndür.":"Bir sonraki seviye için hazır.";
+        actionHint.text=max?"TAMAMEN GELİŞTİRİLDİ":gm.para<cost?(cost-gm.para)+" coin daha gerekli. Günlük geliri bekleyebilirsin.":damaged?"Onar ve yapıyı yeniden göreve döndür.":"Bir sonraki seviye için hazır.";
+        if(max)
+        {
+            actionHint.font=TurkishTMPFontSupport.DisplayFont;
+            actionHint.fontSize=15f;
+            actionHint.enableAutoSizing=true;
+            actionHint.fontSizeMin=12f;
+            actionHint.fontSizeMax=15f;
+            actionHint.color=CivicUI.GreenBtnDark;
+            actionHint.alignment=TextAlignmentOptions.Center;
+        }
+        else
+        {
+            actionHint.font=TurkishTMPFontSupport.PreferredFont;
+            actionHint.enableAutoSizing=false;
+            actionHint.fontSize=15f;
+            actionHint.color=CivicUI.Muted;
+            actionHint.alignment=TextAlignmentOptions.MidlineLeft;
+        }
         if(damaged && gm.para>=cost)actionHint.text=selectedDamaged?"Onarım, bu gruptaki hasarlı yapıları iyileştirir.":"Bu yapı sağlam. Onarım gruptaki hasarlı yapılar içindir.";
         if(quizButonu!=null)quizButonu.gameObject.SetActive(school);
     }
@@ -347,13 +365,13 @@ public class BinaPopup : MonoBehaviour
     string Defense(AfetTuru type,int level,bool damaged)
     {
         int required=Required(type);
-        return AfetAdi(type)+" eşiği: Seviye "+required+"\nBu yapı: "+(damaged?"onarım bekliyor":level>=required?"hazır":"güçlendirme gerekli");
+        return AfetAdi(type)+" eşiği: Seviye "+required+"\nSavunma seviyesi: "+(damaged?"onarım bekliyor":level>=required?"yeterli":"güçlendirme gerekli");
     }
     string DefenseBenefit(AfetTuru type,int level,bool damaged)
     {
         if(damaged)return "Savunma için önce hasarı onar.";
         int reduction=Mathf.RoundToInt((1-DengeAyarlari.Aktif.savunmaYeterliCarpani)*100);
-        return level>=Required(type)?"Savunma hazır: baz can kaybı %"+reduction+" azalır.":"Eşiğe ulaşınca baz can kaybı %"+reduction+" azalır.";
+        return level>=Required(type)?"Bu seviye baz can kaybını %"+reduction+" azaltır.":"Eşiğe ulaşınca baz can kaybı %"+reduction+" azalır.";
     }
     public void YukseltTiklandi()
     {

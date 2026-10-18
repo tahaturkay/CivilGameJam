@@ -131,9 +131,11 @@ public sealed class IslandPolishTestRobotu : MonoBehaviour
 
         yield return ProbeAwareness(0f, 0, 0, true, "0 awareness / fire");
         yield return ProbeAwareness(39.99f, 3, 0, true, "39.99 awareness / tsunami");
-        yield return ProbeAwareness(40f, 1, 1, false, "40 awareness / flood");
+        yield return ProbeAwareness(60f, 1, 0, true, "60 awareness / flood");
+        yield return ProbeAwareness(60.01f, 1, 1, false, "60.01 awareness / flood");
         yield return ProbeAwareness(79.99f, 0, 1, false, "79.99 awareness / fire");
-        yield return ProbeAwareness(80f, 2, 2, false, "80 awareness / earthquake");
+        yield return ProbeAwareness(80f, 2, 1, false, "80 awareness / earthquake");
+        yield return ProbeAwareness(80.01f, 2, 2, false, "80.01 awareness / earthquake");
         yield return ProbeAwareness(100f, 3, 2, false, "100 awareness / tsunami");
     }
 
@@ -202,7 +204,17 @@ public sealed class IslandPolishTestRobotu : MonoBehaviour
         Check(disaster.AfetDevamEdiyorMu && city.AwarenessBandAtIncident == expectedBand,
             label + ": awareness bracket captured at incident start");
         ActorModeCounts modes = ReadActorModes();
-        if (lowAwareness)
+        if(incidentIndex==3||(incidentIndex==1&&!lowAwareness))
+        {
+            Check(city.WrongResponseCount==0&&modes.shelter==city.LivingActorCount,
+                label+": all residents and animals shelter indoors");
+        }
+        else if(incidentIndex==1)
+        {
+            Check(modes.panic==city.LivingActorCount&&modes.assembly==0,
+                label+": low-awareness flood response remains on the streets");
+        }
+        else if (lowAwareness)
         {
             int routedWrong = incidentIndex == 0 || incidentIndex == 2 ? modes.shelter : modes.panic;
             Check(city.WrongResponseCount > city.CitizenCount / 2 && city.WrongResponseCount < city.CitizenCount &&

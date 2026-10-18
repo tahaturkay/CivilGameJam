@@ -25,6 +25,9 @@ public class DisasterController : MonoBehaviour
     public int DefendedIncidentCount {get;private set;}
     public int DamagedInstanceCount=>incidentDamage.Count;
     public bool TsunamiImpactTriggered {get;private set;}
+    public Vector3 FireOrigin {get;private set;}
+    public int BurningBuildingCount {get;private set;}
+    public bool FireAwaitingReport {get;private set;}
     public float FloodSurfaceY=>tsunamiSuyu!=null&&tsunamiSuyu.gameObject.activeSelf?tsunamiSuyu.position.y:float.NegativeInfinity;
     float incidentStarted,revealLimit=10000;
     BuildingVisuals[] islandBuildings;
@@ -45,6 +48,8 @@ public class DisasterController : MonoBehaviour
     {
         if(AfetDevamEdiyorMu)IncidentProgress=Mathf.Clamp01((Time.time-incidentStarted)/Mathf.Max(.1f,afetSuresi));
         var gm = GameManager.Instance;
+        // A hidden/removed report must not leave a previous incident burning forever.
+        if(FireAwaitingReport && (gm==null || !gm.afetOlduMu)) ExtinguishReportedFire();
         if (AfetDevamEdiyorMu || gm == null || gm.afetOlduMu || gm.oyunBittiMi || gm.oyunDurduMu || gm.kullaniciDurdurdu) return;
         if (gm.gun != sonKontrolEdilenGun)
         {
@@ -77,7 +82,8 @@ public class DisasterController : MonoBehaviour
         var gm = GameManager.Instance;
         var d = DengeAyarlari.Aktif;
         AfetDevamEdiyorMu = gm.afetSuruyor = true;
-        incidentStarted=Time.time;IncidentProgress=0;TsunamiImpactTriggered=false;
+        ExtinguishReportedFire();
+        incidentStarted=Time.time;IncidentProgress=0;TsunamiImpactTriggered=false;BurningBuildingCount=0;
         incidentDamage.Clear();damagedTypes.Clear();
         if(islandBuildings==null)islandBuildings=FindObjectsByType<BuildingVisuals>(FindObjectsSortMode.None);
         foreach(var b in islandBuildings)if(b!=null)b.EnableLocalDamage();
@@ -131,13 +137,19 @@ public class DisasterController : MonoBehaviour
             gm.sonKurtarilanSayisi = kurtarilan;
             gm.toplamVefat += vefat;
             gm.toplamKurtarilan += kurtarilan;
-            gm.sonAfetMesaji = SavunmaYeterli ? "Önlemler işe yaradı!" : "Savunma yetersiz kaldı.";
-            gm.afetOzeti += AfetRaporu.AfetAdi(afet.afet) + ": " + (SavunmaYeterli ? "Korundu" : "Hasar aldı") + " (" + vefat + " vefat)\n";
+            gm.sonAfetMesaji = afet.afet==AfetTuru.Yangin&&SavunmaYeterli
+                ? "İtfaiye yangını mahalleye yayılmadan kontrol altına aldı. Etkilenen yapılar onarım bekliyor."
+                : SavunmaYeterli ? "Önlemler işe yaradı!" : "Savunma yetersiz kaldı.";
+            gm.afetOzeti += AfetRaporu.AfetAdi(afet.afet) + ": " + (SavunmaYeterli
+                ? afet.afet==AfetTuru.Yangin?"Kontrol altına alındı":"Korundu" : "Hasar aldı") + " (" + vefat + " vefat)\n";
             gm.afetOlduMu = true;
         }
         finally
         {
-            EfektleriTemizle();
+            // All preparations still allow a visible local fire. Extinguish once the
+            // report actually appears; soot, local damage and repair costs remain.
+            if(afet.afet==AfetTuru.Yangin&&gm.afetOlduMu)FireAwaitingReport=true;
+            else EfektleriTemizle();
             AfetDevamEdiyorMu = gm.afetSuruyor = false;
             if (MusicPlayer.Instance != null) MusicPlayer.Instance.NormalMuzigeDon();
         }
@@ -255,8 +267,9 @@ public class DisasterController : MonoBehaviour
         if(yanacakBinalar!=null)foreach(var b in yanacakBinalar)if(b!=null&&b!=itfaiyeObj)candidates.Add(b);
         if(candidates.Count==0){yield return new WaitForSeconds(afetSuresi);yield break;}
         Vector3 origin=candidates[Random.Range(0,candidates.Count)].position;
+        FireOrigin=origin;
         candidates.Sort((a,b)=>(a.position-origin).sqrMagnitude.CompareTo((b.position-origin).sqrMagnitude));
-        int count=Mathf.Min(candidates.Count,hasar?9:2),next=0;
+        int count=Mathf.Min(candidates.Count,hasar?9:3),next=0;
         for(float t=0;t<afetSuresi;t+=Time.deltaTime)
         {
             if(IslandSimulationPause.IsPaused){yield return null;continue;}
@@ -268,12 +281,8 @@ public class DisasterController : MonoBehaviour
                 Vector3 p = bina.position; float size = 1;
                 if (col != null) { p.y = col.bounds.max.y - .15f; size = Mathf.Clamp(col.bounds.size.x * .16f, .7f, 1.8f); }
                 geciciEfektler.Add(IslandEffectsFactory.CreateFire(transform, p, size));
-                if(hasar)Damage(bina.GetComponent<BuildingVisuals>(),AfetTuru.Yangin);
-            }
-            if(!hasar&&t>afetSuresi*.70f)
-            {
-                foreach(var effect in geciciEfektler)if(effect!=null)
-                    foreach(var ps in effect.GetComponentsInChildren<ParticleSystem>())ps.Stop(false,ParticleSystemStopBehavior.StopEmitting);
+                BurningBuildingCount++;
+                Damage(bina.GetComponent<BuildingVisuals>(),AfetTuru.Yangin);
             }
             yield return null;
         }
@@ -348,6 +357,7 @@ public class DisasterController : MonoBehaviour
 
     void EfektleriTemizle()
     {
+        FireAwaitingReport=false;
         foreach (GameObject go in geciciEfektler) if (go != null) { go.SetActive(false); Destroy(go); }
         geciciEfektler.Clear();
         if (tsunamiSuyu != null) tsunamiSuyu.gameObject.SetActive(false);
@@ -356,6 +366,11 @@ public class DisasterController : MonoBehaviour
         if (kameraSallaniyor && kamera != null) kamera.localPosition = kameraIlk;
         if(kamera!=null)kamera.GetComponent<IslandCameraController>()?.StopShake();
         kameraSallaniyor = false;
+    }
+
+    public void ExtinguishReportedFire()
+    {
+        if(FireAwaitingReport)EfektleriTemizle();
     }
 
     void OnDisable()

@@ -169,6 +169,7 @@ public sealed class IslandCityLife : MonoBehaviour
     private RoofShelter[] roofShelters;
     private Transform cityLifeRoot;
     private GameManager gameManager;
+    private IslandFireResponse fireResponse;
     private bool runtimeBuilt;
     private bool incidentActive;
     private bool instancingSupported;
@@ -253,6 +254,8 @@ public sealed class IslandCityLife : MonoBehaviour
         SpawnCitizens();
         BuildCitizenMaterialBatches();
         SpawnVehicles();
+        fireResponse=GetComponent<IslandFireResponse>();
+        if(fireResponse==null)fireResponse=gameObject.AddComponent<IslandFireResponse>();
         runtimeBuilt = true;
     }
 
@@ -1034,9 +1037,11 @@ public sealed class IslandCityLife : MonoBehaviour
     {
         incidentActive = true;
         incidentType = type;
-        CurrentMode = CityLifeMode.Assembly;
         float awareness=gameManager!=null?gameManager.farkindalikYuzdesi:100;
-        AwarenessBandAtIncident=awareness>=80?2:awareness>=40?1:0;
+        // Closed upper endpoints: 0..60 low, >60..80 cautious, >80..100 calm.
+        AwarenessBandAtIncident=awareness>80?2:awareness>60?1:0;
+        CurrentMode=type==AfetTuru.Tsunami?CityLifeMode.Shelter
+            : type==AfetTuru.Sel ? (AwarenessBandAtIncident==0?CityLifeMode.Panic:CityLifeMode.Shelter) : CityLifeMode.Assembly;
         WrongResponseCount=PanickedAssemblyCount=0;
         shelteredCount = 0;
         gatheredCount = 0;
@@ -1044,9 +1049,12 @@ public sealed class IslandCityLife : MonoBehaviour
         for (int i = 0; i < citizens.Count; i++)
         {
             CitizenActor actor = citizens[i];
-            actor.unsafeResponse=!actor.isAnimal&&AwarenessBandAtIncident==0&&i%10<7;
             bool fireOrQuake=type==AfetTuru.Yangin||type==AfetTuru.Deprem;
-            actor.mode = actor.unsafeResponse ? (fireOrQuake?CityLifeMode.Shelter:CityLifeMode.Panic) : CityLifeMode.Assembly;
+            bool flood=type==AfetTuru.Sel;
+            actor.unsafeResponse=type!=AfetTuru.Tsunami&&!actor.isAnimal&&AwarenessBandAtIncident==0&&(flood||i%10<7);
+            actor.mode = type==AfetTuru.Tsunami?CityLifeMode.Shelter
+                : flood ? (AwarenessBandAtIncident==0?CityLifeMode.Panic:CityLifeMode.Shelter)
+                : actor.unsafeResponse ? (fireOrQuake?CityLifeMode.Shelter:CityLifeMode.Panic) : CityLifeMode.Assembly;
             actor.panicAtAssembly = !actor.isAnimal && actor.mode == CityLifeMode.Assembly &&
                 (AwarenessBandAtIncident == 1 || (AwarenessBandAtIncident == 0 && fireOrQuake));
             if(actor.unsafeResponse)WrongResponseCount++;
@@ -1057,7 +1065,9 @@ public sealed class IslandCityLife : MonoBehaviour
             Vector3 destination;
             if(actor.mode==CityLifeMode.Panic)
             {
-                ChooseWanderRoute(actor);continue;
+                // A water emergency starts where the person stands, not at a snapped
+                // graph node. Regain the nearest pavement before choosing street routes.
+                PlanReturnToSidewalk(actor);continue;
             }
             if (actor.mode == CityLifeMode.Assembly)
             {
@@ -1073,6 +1083,10 @@ public sealed class IslandCityLife : MonoBehaviour
                     : roadNodePositions[FindNearestNode(actor.root.position)];
             }
             PlanRouteToWorldPoint(actor, destination);
+            // A safe flood response stays indoors for the entire incident, including
+            // debug/day jumps where there is no full warning day to walk home first.
+            if((type==AfetTuru.Tsunami||(flood&&AwarenessBandAtIncident>0))&&actor.shelterHouse!=null)
+            {actor.root.position=actor.worldGoal;CompleteWorldGoal(actor);}
         }
     }
 
@@ -1733,6 +1747,7 @@ public sealed class IslandCityLife : MonoBehaviour
 
     private bool IsVehiclePositionSafe(VehicleActor actor, Vector3 proposedPosition, Vector3 proposedDirection)
     {
+        if(fireResponse!=null&&!fireResponse.IsVehiclePositionSafe(proposedPosition,proposedDirection,2.6f,1.05f))return false;
         for (int i = 0; i < vehicles.Count; i++)
         {
             VehicleActor other = vehicles[i];

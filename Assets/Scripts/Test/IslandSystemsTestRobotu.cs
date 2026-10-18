@@ -121,7 +121,7 @@ public class IslandSystemsTestRobotu : MonoBehaviour
         disaster.AfetBaslat(1); yield return new WaitForSeconds(7);
         Check(weather.RainActive && weather.StormAmount > .75f, "Flood enables rain and dark storm lighting");
         Check(disaster.tsunamiSuyu.gameObject.activeSelf && Mathf.Abs(disaster.tsunamiSuyu.position.y-disaster.selSuYuksekligi)<.03f, "Insufficient infrastructure produces shallow flood water");
-        Check(city.CurrentMode == IslandCityLife.CityLifeMode.Assembly, "Flood evacuates the full city to gathering areas at high awareness");
+        Check(city.CurrentMode == IslandCityLife.CityLifeMode.Shelter, "Flood sends the full city indoors at high awareness");
         Renderer water = disaster.tsunamiSuyu.GetComponent<Renderer>();
         Check(water.sharedMaterial.GetColor("_BaseColor").a > .98f && water.bounds.size.x < city.landBounds.size.x, "Flood water is opaque and stays inside the seawall");
         Capture("Logs/Ada_Sel.png");

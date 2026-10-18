@@ -440,6 +440,19 @@ public class UIManager : MonoBehaviour
         return true;
     }
 
+    /// <summary>Sets simulation speed from the 1, 2 and 3 keyboard shortcuts.</summary>
+    public bool TryHandleSpeedHotkeyInput(int mode)
+    {
+        GameManager gm = GameManager.Instance;
+        if (mode < 1 || mode > 3 || gm == null || SpacePauseIsBlocked(gm)) return false;
+
+        if (EventSystem.current != null)
+            EventSystem.current.SetSelectedGameObject(null);
+
+        SetTimeSpeed(mode);
+        return true;
+    }
+
     private static bool SpacePauseIsBlocked(GameManager gm)
     {
         if (gm.oyunDurduMu || gm.oyunBittiMi || gm.afetOlduMu || PauseMenu.DurdurulduMu)
