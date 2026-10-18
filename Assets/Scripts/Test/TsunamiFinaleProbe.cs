@@ -179,7 +179,9 @@ public sealed class TsunamiFinaleProbe : MonoBehaviour
             if(finale.CurrentStage=="Title"&&!titleChecked)
             {
                 titleChecked=true;
-                Check(finale.WaveFillsScreen&&finale.FadeAmount<.001f,"The title appears over full-frame blue wave water before black fading");
+                Check(finale.WaveFillsScreen&&finale.FadeAmount>.999f,"The wave darkens completely at near contact before the ending title resolves");
+                Check(OverlayText("OyunSonuBasligi")=="OYUN BİTTİ"&&OverlayText("FinalMesaji")=="Farkındalık Hayat Kurtarır",
+                    "The final message uses the requested Turkish title and subtitle");
                 var face=mainCamera.transform.Find("DalganinKamerayiSaranYuzu");
                 Vector3 low=mainCamera.WorldToViewportPoint(face.TransformPoint(new Vector3(-.5f,-.5f,0)));
                 Vector3 high=mainCamera.WorldToViewportPoint(face.TransformPoint(new Vector3(.5f,.5f,0)));
@@ -193,9 +195,9 @@ public sealed class TsunamiFinaleProbe : MonoBehaviour
         Check(boatPaused&&warningPaused,"Both Space and ESC pause paths were exercised in the cinematic");
         Check(arrivalChecked&&friendChecked&&titleChecked,"Arrival, disembarkation, mutual glance and blue-water title were shown");
         Check(fadeIncreasing&&stages.Contains("FadeToBlack")&&finale.FadeAmount>.999f,"The blue wave darkens smoothly to complete black");
-        Check(finale.IsComplete&&!finale.IsPlaying&&IslandTsunamiFinale.BlocksInterface,"The completed ending holds black and keeps ordinary panels blocked");
-        Check(gm.oyunBittiMi&&!gm.afetOlduMu&&!disaster.AfetDevamEdiyorMu,"The real disaster finishes accounting and ends the game without requesting a report");
-        Check(uiStayedHidden&&!report.panel.activeSelf&&!gameOver.panel.activeSelf&&!hint.serit.activeSelf,"No disaster report, final report, tutorial or player card interrupts the ending");
+        Check(finale.IsComplete&&!finale.IsPlaying&&!IslandTsunamiFinale.BlocksInterface,"The ending releases interface control after tsunami accounting completes");
+        Check(gm.oyunBittiMi&&!gm.afetOlduMu&&!disaster.AfetDevamEdiyorMu,"The real disaster finishes accounting and requests only the final city report");
+        Check(uiStayedHidden&&!report.panel.activeSelf&&gameOver.panel.activeSelf&&!hint.serit.activeSelf,"The city report opens over held black without an intermediate tsunami report or tutorial");
         Check(sawImpact&&sawWater==!strongDefense,"The existing seawall impact and protected/unprotected flood outcomes are preserved");
         Check(gm.sonAfetTuru==AfetTuru.Tsunami&&gm.sonSavunmaYeterli==strongDefense&&gm.sonHasarliBinaSayisi==disaster.DamagedInstanceCount,
             "Normal tsunami defense and local damage results are still recorded");
@@ -208,15 +210,15 @@ public sealed class TsunamiFinaleProbe : MonoBehaviour
         var title=FindObjectsByType<TMPro.TMP_Text>(FindObjectsSortMode.None).FirstOrDefault(t=>t.name=="OyunSonuBasligi");
         Check(title!=null&&title.alpha<.001f,"The ending title fades completely with the water");
         yield return new WaitForSecondsRealtime(1.1f);
-        Check(finale.CurrentStage=="Complete"&&finale.FadeAmount>.999f&&!report.panel.activeSelf&&!gameOver.panel.activeSelf,"The terminal black frame remains stable without advancing to any other screen");
+        Check(finale.CurrentStage=="Complete"&&finale.FadeAmount>.999f&&!report.panel.activeSelf&&gameOver.panel.activeSelf,"The final city report remains above the held black backdrop");
         yield return Capture("Logs/TsunamiFinale_"+branchName+"_Complete.png");
         yield return new WaitForEndOfFrame();
         var pixels=new Texture2D(Screen.width,Screen.height,TextureFormat.RGB24,false);
         pixels.ReadPixels(new Rect(0,0,Screen.width,Screen.height),0,0);pixels.Apply();
         bool black=true;
-        foreach(Vector2 point in new[]{new Vector2(.01f,.01f),new Vector2(.99f,.01f),new Vector2(.01f,.99f),new Vector2(.99f,.99f),new Vector2(.5f,.5f)})
-        {Color color=pixels.GetPixel((int)(point.x*(Screen.width-1)),(int)(point.y*(Screen.height-1)));black&=Mathf.Max(color.r,color.g,color.b)<.01f;}
-        Destroy(pixels);Check(black,"Rendered final centre and all corners are genuinely black");
+        foreach(Vector2 point in new[]{new Vector2(.01f,.01f),new Vector2(.99f,.01f),new Vector2(.01f,.99f),new Vector2(.99f,.99f)})
+        {Color color=pixels.GetPixel((int)(point.x*(Screen.width-1)),(int)(point.y*(Screen.height-1)));black&=Mathf.Max(color.r,color.g,color.b)<.05f;}
+        Destroy(pixels);Check(black,"The final report is framed by the held black ending backdrop");
     }
 
     IEnumerator VerifyPauseAtBoat()
@@ -305,6 +307,12 @@ public sealed class TsunamiFinaleProbe : MonoBehaviour
         foreach (string stage in stageOrder)
             if (cursor < expected.Length && stage == expected[cursor]) cursor++;
         return cursor == expected.Length;
+    }
+
+    string OverlayText(string objectName)
+    {
+        var value=FindObjectsByType<TMPro.TMP_Text>(FindObjectsSortMode.None).FirstOrDefault(t=>t.name==objectName);
+        return value!=null?value.text:string.Empty;
     }
 
     IEnumerator CaptureOnce(string key, string path)

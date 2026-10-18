@@ -22,7 +22,10 @@ public class BinaPopup : MonoBehaviour
     Transform worldAnchor;
     BuildingVisuals selectedVisual;
     RectTransform card;
+    RectTransform infoCard;
     TMP_Text actionHint, quizLabel;
+    string measuredDescription, measuredActionHint;
+    bool measuredSchool, hasMeasuredLayout;
     float openedAt, refreshAt;
     bool styled;
     bool JustOpened { get { return Time.unscaledTime-openedAt<.2f; } }
@@ -118,6 +121,7 @@ public class BinaPopup : MonoBehaviour
         innerCard.transform.SetParent(card, false);
         var icRt = innerCard.GetComponent<RectTransform>();
         CivicUI.Place(icRt, 24f, 114f, 412f, 168f);
+        infoCard = icRt;
         var icImg = innerCard.GetComponent<Image>();
         icImg.sprite = CivicUI.GetBeveledCardSprite(CivicUI.Cream, CivicUI.CreamShadow);
         icImg.type = Image.Type.Sliced;
@@ -127,7 +131,7 @@ public class BinaPopup : MonoBehaviour
         else aciklamaText.transform.SetParent(innerCard.transform,false);
         StyleText(aciklamaText,18,CivicUI.DarkInk,false);
         aciklamaText.alignment=TextAlignmentOptions.TopLeft;
-        CivicUI.Place(aciklamaText.rectTransform, 14f, 10f, 384f, 110f);
+        CivicUI.Place(aciklamaText.rectTransform, 14f, 12f, 384f, 110f);
 
         actionHint=CivicUI.Text("ActionHint",innerCard.transform,"",15,CivicUI.Muted,font);
         actionHint.fontStyle=FontStyles.Bold;
@@ -266,7 +270,6 @@ public class BinaPopup : MonoBehaviour
         var gm=GameManager.Instance; if(gm==null)return;
         var d=DengeAyarlari.Aktif; int level=gm.Level(aktifBina); bool damaged=gm.Hasarli(aktifBina);
         bool school=aktifBina==BinaTuru.Okul && !damaged;
-        card.sizeDelta=new Vector2(460,school?490:425);
         bool selectedDamaged=selectedVisual!=null?selectedVisual.IsDamaged:damaged;
         string condition=selectedDamaged?(selectedVisual!=null?AfetAdi(selectedVisual.DamageCause)+" HASARI":"HASARLI"):"BU YAPI SAĞLAM";
         seviyeText.text="SEVİYE "+level+" / "+d.maxLevel+"   ·   "+TurkishTMPFontSupport.TurkceBuyukHarf(condition);
@@ -314,7 +317,55 @@ public class BinaPopup : MonoBehaviour
             actionHint.alignment=TextAlignmentOptions.MidlineLeft;
         }
         if(damaged && gm.para>=cost)actionHint.text=selectedDamaged?"Onarım, bu gruptaki hasarlı yapıları iyileştirir.":"Bu yapı sağlam. Onarım gruptaki hasarlı yapılar içindir.";
+        FitDescriptionAndActions(school);
         if(quizButonu!=null)quizButonu.gameObject.SetActive(school);
+    }
+
+    void FitDescriptionAndActions(bool school)
+    {
+        if(infoCard==null||aciklamaText==null||actionHint==null)return;
+        if(hasMeasuredLayout&&measuredSchool==school&&measuredDescription==aciklamaText.text&&measuredActionHint==actionHint.text)return;
+
+        const float textWidth=384f;
+        const float innerTop=10f;
+        const float gap=6f;
+        const float innerBottom=8f;
+        const float infoTop=114f;
+        const float buttonGap=12f;
+
+        aciklamaText.textWrappingMode=TextWrappingModes.Normal;
+        aciklamaText.overflowMode=TextOverflowModes.Overflow;
+        aciklamaText.enableAutoSizing=true;
+        aciklamaText.fontSizeMin=14f;
+        aciklamaText.fontSizeMax=18f;
+        aciklamaText.rectTransform.sizeDelta=new Vector2(textWidth,400f);
+        aciklamaText.ForceMeshUpdate();
+        float descriptionHeight=Mathf.Clamp(aciklamaText.GetPreferredValues(aciklamaText.text,textWidth,0f).y+4f,110f,184f);
+
+        actionHint.textWrappingMode=TextWrappingModes.Normal;
+        actionHint.overflowMode=TextOverflowModes.Overflow;
+        actionHint.enableAutoSizing=true;
+        actionHint.fontSizeMin=11f;
+        actionHint.fontSizeMax=14f;
+        actionHint.rectTransform.sizeDelta=new Vector2(textWidth,120f);
+        actionHint.ForceMeshUpdate();
+        float hintHeight=Mathf.Clamp(actionHint.GetPreferredValues(actionHint.text,textWidth,0f).y+4f,34f,76f);
+
+        float innerHeight=Mathf.Max(168f,innerTop+descriptionHeight+gap+hintHeight+innerBottom);
+        CivicUI.Place(infoCard,24f,infoTop,412f,innerHeight);
+        CivicUI.Place(aciklamaText.rectTransform,14f,innerTop,textWidth,descriptionHeight);
+        CivicUI.Place(actionHint.rectTransform,14f,innerTop+descriptionHeight+gap,textWidth,hintHeight);
+
+        float upgradeY=infoTop+innerHeight+buttonGap;
+        CivicUI.Place((RectTransform)yukseltButonu.transform,24f,upgradeY,412f,58f);
+        float quizY=upgradeY+58f+8f;
+        CivicUI.Place((RectTransform)quizButonu.transform,24f,quizY,412f,54f);
+        float contentBottom=school?quizY+54f+20f:upgradeY+58f+20f;
+        card.sizeDelta=new Vector2(460f,Mathf.Max(school?490f:425f,contentBottom));
+        measuredSchool=school;
+        measuredDescription=aciklamaText.text;
+        measuredActionHint=actionHint.text;
+        hasMeasuredLayout=true;
     }
     void BinaBilgileriniDoldur(BinaTuru bina,int level,bool damaged)
     {

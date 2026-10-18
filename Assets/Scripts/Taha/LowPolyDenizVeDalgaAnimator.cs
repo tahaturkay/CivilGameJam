@@ -29,6 +29,7 @@ public class LowPolyDenizVeDalgaAnimator : MonoBehaviour
     private Mesh calismaMeshi;
     private Vector3[] baslangicNoktalari;
     private Vector3[] guncelNoktalar;
+    bool oceanShader;
 
     void Awake()
     {
@@ -48,6 +49,8 @@ public class LowPolyDenizVeDalgaAnimator : MonoBehaviour
     void MeshHazirla()
     {
         if (meshFilter == null || meshFilter.sharedMesh == null) return;
+        var surface=GetComponent<Renderer>();
+        oceanShader=surface!=null&&surface.sharedMaterial!=null&&surface.sharedMaterial.shader.name=="CivilIsland/Stylized Ocean";
         if (!meshFilter.sharedMesh.isReadable)
         {
             Debug.LogWarning(name + ": Dalga animasyonu için modelin Read/Write ayarını açın.", this);
@@ -115,7 +118,8 @@ public class LowPolyDenizVeDalgaAnimator : MonoBehaviour
 
         calismaMeshi.vertices = guncelNoktalar;
         calismaMeshi.RecalculateBounds();
-        if (normalleriGuncelle)
+        // The stylized ocean shader does not read normals; other scene shaders retain them.
+        if (normalleriGuncelle&&!oceanShader)
         {
             calismaMeshi.RecalculateNormals();
         }

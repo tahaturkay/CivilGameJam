@@ -38,6 +38,8 @@ public sealed class IslandGroundQuake : MonoBehaviour
             for(int k=0;k<5;k++)
             {
                 Vector3 q=p+new Vector3(Mathf.Sin(i*1.7f+k*2.1f)*1.7f,0,1.1f);
+                // A crack is a soil detail, not a second sheet laid across road decks.
+                if(OnStreet(p)||OnStreet(q)){p=q;continue;}
                 Vector3 side=Vector3.Cross(Vector3.up,(q-p).normalized)*(.07f+(k%2)*.035f);
                 int n=v.Count;v.Add(p-side);v.Add(p+side);v.Add(q+side*.4f);v.Add(q-side*.4f);
                 tris.Add(n);tris.Add(n+2);tris.Add(n+1);tris.Add(n);tris.Add(n+3);tris.Add(n+2);p=q;
@@ -48,6 +50,13 @@ public sealed class IslandGroundQuake : MonoBehaviour
         crackMesh=new Mesh{name="Ada Kademeli Zemin Yarilmasi"};crackMesh.SetVertices(v);crackMesh.SetTriangles(tris,0);crackMesh.RecalculateNormals();crackMesh.RecalculateBounds();
         cracks.GetComponent<MeshFilter>().sharedMesh=crackMesh;cracks.GetComponent<MeshRenderer>().sharedMaterial=soil;
         cracks.GetComponent<MeshRenderer>().shadowCastingMode=ShadowCastingMode.Off;cracks.SetActive(false);initialized=true;
+    }
+    bool OnStreet(Vector3 point)
+    {
+        float x=point.x-land.center.x,z=point.z-land.center.z;
+        foreach(float row in new[]{-42f,-14f,14f,40f})if(Mathf.Abs(z-row)<3.8f)return true;
+        foreach(float column in new[]{-60f,-30f,30f,60f})if(Mathf.Abs(x-column)<3.8f)return true;
+        return Mathf.Abs(x)<3.8f&&(z<=-14||z>=14);
     }
     void LateUpdate()
     {

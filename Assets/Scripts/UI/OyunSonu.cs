@@ -41,6 +41,10 @@ public class OyunSonu : MonoBehaviour
 
     void Goster(GameManager gm)
     {
+        // Continue the cinematic's black ending behind the existing scorecard.
+        var finale = FindAnyObjectByType<IslandTsunamiFinale>();
+        var backdrop = panel.GetComponent<Image>();
+        if (finale != null && finale.IsComplete && backdrop != null) backdrop.color = Color.black;
         int yildiz = gm.Yildiz();
 
         if (ribbonMain != null && ribbonLeft != null && ribbonRight != null)

@@ -19,16 +19,19 @@ Shader "CivilIsland/Soft Particle"
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag
+            #pragma multi_compile_instancing
+            #pragma instancing_options assumeuniformscaling
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
             CBUFFER_START(UnityPerMaterial)
                 half4 _BaseColor;
                 float4 _BaseMap_ST;
             CBUFFER_END
-            struct Attributes { float4 positionOS:POSITION; float2 uv:TEXCOORD0; half4 color:COLOR; };
+            struct Attributes { float4 positionOS:POSITION; float2 uv:TEXCOORD0; half4 color:COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings { float4 positionCS:SV_POSITION; float2 uv:TEXCOORD0; half4 color:COLOR; };
             Varyings Vert(Attributes input)
             {
+                UNITY_SETUP_INSTANCE_ID(input);
                 Varyings o; o.positionCS=TransformObjectToHClip(input.positionOS.xyz);
                 o.uv=input.uv; o.color=input.color*_BaseColor; return o;
             }

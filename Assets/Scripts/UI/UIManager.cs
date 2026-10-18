@@ -73,6 +73,17 @@ public class UIManager : MonoBehaviour
     private TMP_FontAsset sharedFont;
     private Image awarenessFillBar;
     private TMP_Text gunSubLabelText;
+    private TMP_Text gunTotalText;
+    private RectTransform gunValueRect;
+    private bool gunCounterReady;
+    private bool gunFlipActive;
+    private bool gunFlipSwapped;
+    private int gunDisplayedDay;
+    private int gunRequestedDay;
+    private int gunFlipTargetDay;
+    private int gunTotalDays = -1;
+    private float gunFlipElapsed;
+    private const float GunFlipDuration = 0.44f;
     private TMP_Text farkindalikSubLabelText;
     private RectTransform disasterAlertBadgeRt;
     private Image disasterAlertBadgeImg;
@@ -89,6 +100,8 @@ public class UIManager : MonoBehaviour
     private Camera mainCam;
 
     private bool initialized;
+
+    public bool GunDayFlipActive => gunFlipActive;
 
     // HUD ölçüleri tek bir ölçekte tutulur; mevcut canvas sabit piksel kullandığı için
     // yalnızca ekran kenar boşlukları ve dar ekranlarda grup ölçeği uyarlanır.
@@ -304,6 +317,7 @@ public class UIManager : MonoBehaviour
         dayPill.anchorMax = new Vector2(1f, 1f);
         dayPill.pivot = new Vector2(1f, 1f);
         dayPill.anchoredPosition = Vector2.zero;
+        ConfigureDayCounter(dayPill);
 
         // Afet uyarısı kendi satırını kullanır; gün kartının metnini ve hız kontrollerini örtmez.
         GameObject alertObj = new GameObject("DisasterAlertBadge", typeof(RectTransform), typeof(Image));
@@ -820,8 +834,20 @@ public class UIManager : MonoBehaviour
         }
         if (tavan != sonTavan && farkindalikSubLabelText != null)
             farkindalikSubLabelText.text = "FARKINDALIK (MAKS %" + tavan + ")";
-        if (gm.gun != sonGun && gunText != null)
-            gunText.text = "Gün: " + gm.gun + "/" + d.toplamGun;
+        if (gunText != null)
+        {
+            if (!gunCounterReady)
+                InitializeDayCounter(gm.gun, d.toplamGun);
+            else
+            {
+                if (gm.gun != sonGun) gunRequestedDay = gm.gun;
+                if (gunTotalDays != d.toplamGun)
+                {
+                    gunTotalDays = d.toplamGun;
+                    if (gunTotalText != null) gunTotalText.text = "/ " + gunTotalDays;
+                }
+            }
+        }
 
         if (disasterAlertBadgeText != null && disasterAlertBadgeImg != null && (kalan != sonKalan || gm.gun != sonGun))
         {
@@ -871,6 +897,85 @@ public class UIManager : MonoBehaviour
 
         RefreshSpeedButtonVisuals();
         UpdateBuildingHoverLabel(gm);
+        AdvanceDayFlipCounter();
+    }
+
+    private void ConfigureDayCounter(RectTransform dayPill)
+    {
+        if (gunText == null || dayPill == null) return;
+        gunValueRect = gunText.rectTransform;
+        gunValueRect.anchorMin = gunValueRect.anchorMax = new Vector2(.5f,.5f);
+        gunValueRect.pivot = new Vector2(.5f,.5f);
+        gunValueRect.anchoredPosition = new Vector2(-4f,-14f);
+        gunValueRect.sizeDelta = new Vector2(158f,58f);
+        gunText.alignment = TextAlignmentOptions.Center;
+        gunText.fontSize = 27f;
+        gunText.fontSizeMin = 23f;
+        gunText.fontSizeMax = 30f;
+        gunText.enableAutoSizing = true;
+        gunText.textWrappingMode = TextWrappingModes.NoWrap;
+        gunText.overflowMode = TextOverflowModes.Overflow;
+        gunValueRect.localRotation = Quaternion.identity;
+
+        gunTotalText = CreateText(dayPill,"GunToplam",sharedFont,"/ 20",19f,FontStyles.Bold,DarkInk,TextAlignmentOptions.Center);
+        RectTransform totalRect=gunTotalText.rectTransform;
+        totalRect.anchorMin=totalRect.anchorMax=new Vector2(.5f,.5f);
+        totalRect.pivot=new Vector2(.5f,.5f);
+        totalRect.anchoredPosition=new Vector2(113f,-14f);
+        totalRect.sizeDelta=new Vector2(76f,48f);
+        gunTotalText.textWrappingMode=TextWrappingModes.NoWrap;
+        gunTotalText.overflowMode=TextOverflowModes.Overflow;
+    }
+
+    private void InitializeDayCounter(int day,int totalDays)
+    {
+        gunCounterReady=true;
+        gunDisplayedDay=gunRequestedDay=day;
+        gunTotalDays=totalDays;
+        if(gunText!=null)gunText.text=day.ToString();
+        if(gunTotalText!=null)gunTotalText.text="/ "+totalDays;
+    }
+
+    private void AdvanceDayFlipCounter()
+    {
+        if(!gunCounterReady||gunText==null||gunValueRect==null)return;
+        if(!gunFlipActive&&gunRequestedDay!=gunDisplayedDay)
+        {
+            gunFlipActive=true;
+            gunFlipSwapped=false;
+            gunFlipTargetDay=gunRequestedDay;
+            gunFlipElapsed=0f;
+        }
+        if(!gunFlipActive)
+        {
+            gunValueRect.localRotation=Quaternion.identity;
+            return;
+        }
+
+        gunFlipElapsed+=Time.unscaledDeltaTime;
+        float progress=Mathf.Clamp01(gunFlipElapsed/GunFlipDuration);
+        if(!gunFlipSwapped&&progress>=.5f)
+        {
+            gunText.text=gunFlipTargetDay.ToString();
+            gunDisplayedDay=gunFlipTargetDay;
+            gunFlipSwapped=true;
+        }
+        if(progress<.5f)
+        {
+            float turn=Mathf.SmoothStep(0f,1f,progress*2f);
+            gunValueRect.localRotation=Quaternion.Euler(Mathf.Lerp(0f,90f,turn),0f,0f);
+        }
+        else
+        {
+            float turn=Mathf.SmoothStep(0f,1f,(progress-.5f)*2f);
+            gunValueRect.localRotation=Quaternion.Euler(Mathf.Lerp(-90f,0f,turn),0f,0f);
+        }
+        if(progress>=1f)
+        {
+            gunValueRect.localRotation=Quaternion.identity;
+            gunFlipActive=false;
+            gunFlipSwapped=false;
+        }
     }
 
     private void GelirEtkinligineBaglan(GameManager manager)

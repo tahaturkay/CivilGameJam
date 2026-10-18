@@ -189,7 +189,8 @@ public sealed class IslandCityLife : MonoBehaviour
     public int PanickedAssemblyCount { get; private set; }
     public int SweptCitizenCount {get{int n=0;foreach(var a in citizens)if(a.waterDriftBlend>0)n++;return n;}}
     public int DisplacedVehicleCount {get{int n=0;foreach(var a in vehicles)if(a.displaced)n++;return n;}}
-    public bool TrafficBlocked => incidentActive || tsunamiShelterOrdered || (gameManager != null && gameManager.altyapiHasarli);
+    public bool TrafficBlocked => (incidentActive&&incidentType!=AfetTuru.Yangin) || tsunamiShelterOrdered ||
+        (gameManager != null && gameManager.altyapiHasarli);
     public int VehicleCount { get { return vehicles.Count; } }
     public int TrafficSignalCount { get { return trafficJunctions == null ? 0 : trafficJunctions.Length * 2; } }
     public int TrafficCrossingCount { get; private set; }
@@ -1514,6 +1515,9 @@ public sealed class IslandCityLife : MonoBehaviour
 
             Vector3 previousPosition = actor.root.position;
             float movement = actor.speed * deltaTime;
+            bool emergencyHold=false,clearEmergencyCrossing=false;
+            if(fireResponse!=null)fireResponse.TrafficPriority(actor.root.position,actor.root.forward,out emergencyHold,out clearEmergencyCrossing);
+            if(emergencyHold){actor.waitingAtSignal=true;continue;}
             float distanceToCorner;
             int junctionIndex;
             GetNextJunction(actor, out distanceToCorner, out junctionIndex);
@@ -1522,7 +1526,7 @@ public sealed class IslandCityLife : MonoBehaviour
             {
                 TrafficJunction junction = trafficJunctions[junctionIndex];
                 int group = actor.routeIndex % 2;
-                bool green = IsTrafficGroupGreen(junction, group);
+                bool green = clearEmergencyCrossing || IsTrafficGroupGreen(junction, group);
                 bool reachesStopLine = distanceToCorner <= TrafficStopLineDistance ||
                     movement >= distanceToCorner - TrafficStopLineDistance;
                 greenForUpcomingJunction = green;
@@ -1760,13 +1764,23 @@ public sealed class IslandCityLife : MonoBehaviour
 
     private bool IsVehiclePositionSafe(VehicleActor actor, Vector3 proposedPosition, Vector3 proposedDirection)
     {
-        if(fireResponse!=null&&!fireResponse.IsVehiclePositionSafe(proposedPosition,proposedDirection,2.6f,1.05f))return false;
+        if(fireResponse!=null&&!fireResponse.IsVehiclePositionSafe(proposedPosition,proposedDirection,VehicleHalfLength,VehicleHalfWidth))return false;
         for (int i = 0; i < vehicles.Count; i++)
         {
             VehicleActor other = vehicles[i];
             if (other == actor || other.root == null) continue;
             if (VehicleOverlaps(proposedPosition, proposedDirection, other.root.position, other.root.forward)) return false;
         }
+        return true;
+    }
+
+    /// <summary>Emergency routing reuses live vehicle bounds without scene scans or temporary obstacle lists.</summary>
+    public bool IsEmergencyVehiclePositionSafe(Vector3 position,Vector3 forward,float halfLength,float halfWidth)
+    {
+        Quaternion rotation=forward.sqrMagnitude>.001f?Quaternion.LookRotation(forward,Vector3.up):Quaternion.identity;
+        foreach(var actor in vehicles)
+            if(actor.root!=null&&IslandResponseVehicle.Overlaps(position,rotation,halfLength,halfWidth,
+                actor.root.position,actor.root.rotation,VehicleHalfLength,VehicleHalfWidth,.18f))return false;
         return true;
     }
 

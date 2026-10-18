@@ -12,7 +12,8 @@ using UnityEngine.UI;
 public sealed class IslandTsunamiFinale : MonoBehaviour
 {
     static IslandTsunamiFinale active;
-    public static bool BlocksInterface => active!=null&&(active.IsPlaying||active.IsComplete);
+    public static bool BlocksInterface => active!=null&&
+        (active.IsPlaying||(active.IsComplete&&!active.AccountingComplete));
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetStatics(){active=null;}
 
@@ -20,6 +21,7 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
     public bool HasPlayed {get;private set;}
     public bool IsPlaying {get;private set;}
     public bool IsComplete {get;private set;}
+    public bool AccountingComplete => gm!=null&&gm.oyunBittiMi;
     public bool WaveFillsScreen {get;private set;}
     public float FadeAmount => blackout!=null?blackout.color.a:0;
     public Vector3 SunsetDirection {get;private set;}
@@ -51,6 +53,9 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
     bool savedCamera,savedCursor,navigationEnabled,oldOrthographic,effectsDone;
     Vector3 oldCameraPosition,waveScale;
     Quaternion oldCameraRotation;
+    int oldCullingMask;
+    CameraClearFlags oldClearFlags;
+    Color oldBackground;
     float oldSize,oldFov,oldNear,oldFar,desiredGap=105,storyElapsed,curtainAmount;
     readonly List<HudState> hud=new List<HudState>();
     sealed class HudState {public CanvasGroup group;public float alpha;public bool interactable,raycasts;}
@@ -83,7 +88,8 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
     {
         if(gm==null)gm=GameManager.Instance;
         if(overlayCanvas!=null)overlayCanvas.enabled=!PauseMenu.DurdurulduMu;
-        if(IsPlaying||IsComplete)Cursor.visible=PauseMenu.DurdurulduMu;
+        if(IsPlaying)Cursor.visible=PauseMenu.DurdurulduMu;
+        else if(IsComplete)Cursor.visible=true;
         // Day 19 belongs to evacuation and normal city play. The arrival starts only
         // inside the existing day-20 disaster coroutine, never as a second tsunami.
     }
@@ -186,6 +192,8 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
                 // The breaking face rolls across the lens, extending the same water surface
                 // beyond every screen edge. No sky triangle, dock edge or letterbox remains.
                 SetWaveFace(Mathf.SmoothStep(0,1,Mathf.InverseLerp(.62f,1,u)));
+                float impactShade=Mathf.SmoothStep(0,1,Mathf.InverseLerp(.76f,1f,u));
+                blackout.color=new Color(0f,0f,0f,impactShade);
             });
             SetWaveFace(1);endingTitle.gameObject.SetActive(true);endingLine.gameObject.SetActive(true);
             yield return Shot("Title",2.2f,u=>
@@ -195,15 +203,23 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
             });
             var music=MusicPlayer.Instance!=null?MusicPlayer.Instance.GetComponent<AudioSource>():null;
             float musicVolume=music!=null?music.volume:0;
+            float fadeStart=blackout.color.a;
             yield return Shot("FadeToBlack",3f,u=>
             {
-                float fade=Mathf.SmoothStep(0,1,u);blackout.color=new Color(0,0,0,fade);
+                float fade=Mathf.Lerp(fadeStart,1f,Mathf.SmoothStep(0,1,u));blackout.color=new Color(0,0,0,fade);
                 endingTitle.alpha=endingLine.alpha=1-Mathf.SmoothStep(0,1,Mathf.InverseLerp(.1f,.85f,u));
                 if(music!=null)music.volume=musicVolume*(1-fade);
             });
             while(!effectsDone)yield return null;
             if(music!=null)music.Stop();
             siren.StopCue();blackout.color=Color.black;endingTitle.alpha=endingLine.alpha=0;
+            if(overlayCanvas!=null){overlayCanvas.overrideSorting=true;overlayCanvas.sortingOrder=-1;}
+            // The report is now on black; stop rendering the obscured city and
+            // animating the close wave while keeping overlay UI and ESC available.
+            view.cullingMask=0;view.clearFlags=CameraClearFlags.SolidColor;view.backgroundColor=Color.black;
+            if(CinematicWave!=null)CinematicWave.gameObject.SetActive(false);
+            if(waveFace!=null)waveFace.SetActive(false);
+            if(sunsetDisc!=null)sunsetDisc.gameObject.SetActive(false);
             IsComplete=true;CurrentStage="Complete";completed=true;
         }
         finally
@@ -211,8 +227,8 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
             if(siren!=null)siren.StopCue();IsPlaying=false;
             if(completed)
             {
-                // Hold the completed black composition. The controller still records the
-                // normal defense/damage/casualty result, then ends without opening a report.
+                // Keep the black scene behind the normal city scorecard. The controller
+                // records the tsunami outcome before AccountingComplete releases the UI.
                 if(visitorsRoot!=null)visitorsRoot.SetActive(false);
             }
             else
@@ -251,6 +267,7 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
     {desiredGap=gap;WaveApproachProgress=Mathf.InverseLerp(105,.70f,gap);PositionWave();}
     void LateUpdate()
     {
+        if(IsComplete&&view!=null)view.backgroundColor=Color.black;
         if(IsPlaying&&CinematicWave!=null&&CinematicWave.gameObject.activeSelf)PositionWave();
         if(waveFace!=null&&curtainAmount>0)FrameWaveFace();
     }
@@ -327,6 +344,7 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
         if(navigation!=null){navigation.StopShake();navigation.enabled=false;}
         oldCameraPosition=view.transform.position;oldCameraRotation=view.transform.rotation;oldOrthographic=view.orthographic;
         oldSize=view.orthographicSize;oldFov=view.fieldOfView;oldNear=view.nearClipPlane;oldFar=view.farClipPlane;savedCamera=true;
+        oldCullingMask=view.cullingMask;oldClearFlags=view.clearFlags;oldBackground=view.backgroundColor;
         savedCursor=Cursor.visible;Cursor.visible=false;
         var ui=FindAnyObjectByType<UIManager>();
         if(ui!=null)foreach(var t in ui.GetComponentsInChildren<RectTransform>(true))
@@ -344,6 +362,7 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
         {
             view.transform.SetPositionAndRotation(oldCameraPosition,oldCameraRotation);view.orthographic=oldOrthographic;
             view.orthographicSize=oldSize;view.fieldOfView=oldFov;view.nearClipPlane=oldNear;view.farClipPlane=oldFar;
+            view.cullingMask=oldCullingMask;view.clearFlags=oldClearFlags;view.backgroundColor=oldBackground;
             if(navigation!=null){navigation.StopShake();navigation.enabled=navigationEnabled;}
             Cursor.visible=savedCursor;savedCamera=false;
         }
@@ -358,10 +377,10 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
         topBand=CivicUI.RawBox("UstSinemaBandi",overlayRoot.transform,Color.black,false);Band(topBand.rectTransform,true);
         bottomBand=CivicUI.RawBox("AltSinemaBandi",overlayRoot.transform,Color.black,false);Band(bottomBand.rectTransform,false);
         blackout=CivicUI.RawBox("DalgaSiyahaSolma",overlayRoot.transform,Color.clear,false);CivicUI.Fill(blackout.rectTransform);
-        endingTitle=CivicUI.Text("OyunSonuBasligi",overlayRoot.transform,"OYUN SONU",64,new Color32(247,236,211,255),TurkishTMPFontSupport.DisplayFont);
+        endingTitle=CivicUI.Text("OyunSonuBasligi",overlayRoot.transform,"OYUN BİTTİ",64,new Color32(247,236,211,255),TurkishTMPFontSupport.DisplayFont);
         endingTitle.alignment=TextAlignmentOptions.Center;endingTitle.enableAutoSizing=true;endingTitle.fontSizeMin=28;endingTitle.fontSizeMax=64;
         var rt=endingTitle.rectTransform;rt.anchorMin=new Vector2(.12f,.46f);rt.anchorMax=new Vector2(.88f,.62f);rt.offsetMin=rt.offsetMax=Vector2.zero;
-        endingLine=CivicUI.Text("FinalMesaji",overlayRoot.transform,"UYARILAR HAYAT KURTARIR",22,new Color32(199,175,130,255),TurkishTMPFontSupport.PreferredFont);
+        endingLine=CivicUI.Text("FinalMesaji",overlayRoot.transform,"Farkındalık Hayat Kurtarır",22,new Color32(199,175,130,255),TurkishTMPFontSupport.PreferredFont);
         endingLine.alignment=TextAlignmentOptions.Center;rt=endingLine.rectTransform;rt.anchorMin=new Vector2(.15f,.36f);rt.anchorMax=new Vector2(.85f,.44f);rt.offsetMin=rt.offsetMax=Vector2.zero;
         endingTitle.alpha=endingLine.alpha=0;endingTitle.gameObject.SetActive(false);endingLine.gameObject.SetActive(false);
     }

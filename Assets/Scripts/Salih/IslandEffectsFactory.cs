@@ -248,13 +248,20 @@ public static class IslandEffectsFactory
         EnsureMaterials();
         float height = Mathf.Clamp(land.size.y+22,24,45);
         GameObject root = Root(parent,"AdaYagmuru",new Vector3(land.center.x,land.min.y+height,land.center.z));
-        var rain = Particles(root.transform,"EgikYagmurTaneleri",rainMaterial,4200);
-        var main = rain.main; main.startLifetime = height/30f; main.startSpeed = 0; main.startSize = new ParticleSystem.MinMaxCurve(.07f,.13f);
-        main.startColor = new Color(.71f,.83f,.88f,.48f);
-        var shape = rain.shape; shape.shapeType = ParticleSystemShapeType.Box; shape.scale = new Vector3(land.size.x+10,.1f,land.size.z+10);
-        var velocity = rain.velocityOverLifetime; velocity.enabled = true; velocity.space = ParticleSystemSimulationSpace.World; velocity.x = -4.5f; velocity.y = -30; velocity.z = 1.5f;
-        var emission = rain.emission; emission.rateOverTime = Mathf.Clamp(land.size.x*land.size.z*.055f,350,1900);
-        var renderer = rain.GetComponent<ParticleSystemRenderer>(); renderer.renderMode = ParticleSystemRenderMode.Stretch; renderer.lengthScale = 5; renderer.velocityScale = .06f; renderer.cameraVelocityScale = 0;
+        ParticleSystem.MainModule main;ParticleSystem.ShapeModule shape;ParticleSystem.EmissionModule emission;
+        float rate=Mathf.Clamp(land.size.x*land.size.z*.055f,350,1900);
+        if(SystemInfo.supportsInstancing)
+            root.AddComponent<IslandRainBatch>().Configure(SoftQuadMesh,rainMaterial,new Vector3(land.size.x+10,0,land.size.z+10),height,rate);
+        else
+        {
+            var rain = Particles(root.transform,"EgikYagmurTaneleri",rainMaterial,4200);
+            main = rain.main; main.startLifetime = height/30f; main.startSpeed = 0; main.startSize = new ParticleSystem.MinMaxCurve(.07f,.13f);
+            main.startColor = new Color(.71f,.83f,.88f,.48f);
+            shape = rain.shape; shape.shapeType = ParticleSystemShapeType.Box; shape.scale = new Vector3(land.size.x+10,.1f,land.size.z+10);
+            var velocity = rain.velocityOverLifetime; velocity.enabled = true; velocity.space = ParticleSystemSimulationSpace.World; velocity.x = -4.5f; velocity.y = -30; velocity.z = 1.5f;
+            emission = rain.emission; emission.rateOverTime = Mathf.Clamp(land.size.x*land.size.z*.055f,350,1900);
+            var renderer = rain.GetComponent<ParticleSystemRenderer>(); renderer.renderMode = ParticleSystemRenderMode.Stretch; renderer.lengthScale = 5; renderer.velocityScale = .06f; renderer.cameraVelocityScale = 0;
+        }
         var splash = Particles(root.transform,"ZeminSicramalari",splashMaterial,250);
         splash.transform.position = new Vector3(land.center.x,land.min.y+.09f,land.center.z);
         main = splash.main; main.startLifetime = new ParticleSystem.MinMaxCurve(.16f,.35f); main.startSpeed = 0; main.startSize = new ParticleSystem.MinMaxCurve(.16f,.38f); main.startColor = new Color(.72f,.85f,.85f,.40f);
@@ -287,6 +294,12 @@ public static class IslandEffectsFactory
         GameObject root=Root(parent,"KaliciDepremMolozu",parent.position);root.transform.localPosition=Vector3.zero;
         Material material=SolidMaterial(ref rubbleMaterial,"Ada Kirik Tas",new Color(.43f,.40f,.33f));
         float width=Mathf.Min(localBounds.size.x,12),depth=Mathf.Min(localBounds.size.z,10);
+        if(SystemInfo.supportsInstancing)
+        {
+            material.enableInstancing=true;
+            root.AddComponent<IslandRubbleBatch>().Initialize(RubbleMesh(),material,localBounds,width,depth);
+            return root;
+        }
         for(int i=0;i<15;i++)
         {
             float a=i*2.399963f,r=.25f+Mathf.Sqrt(i/15f)*width*.18f;

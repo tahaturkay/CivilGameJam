@@ -6,9 +6,11 @@
 
 Yangın güçlü savunmada da rastgele bir mahallede başlar. Güçlü itfaiyede en fazla 3, yetersiz savunmada en fazla 9 yakın bina tutuşur; 32 birimlik yayılma sınırı korunur. Yalnızca yanan binalar yerel hasar alır. Mevcut savunma/farkındalık/AKUT hesabı can kaybını azaltmaya devam eder. Yangın, rapor görünür olduğunda söndürülür; hasar, duman, is ve onarım ihtiyacı rapor kapandıktan sonra da kalır. Bütün bir bina kategorisinin model seviyesi düşürülmez.
 
-Tek bir low-poly itfaiye aracı istasyonda bekler; yangında olay bölgesine gider ve rapor kapatıldıktan sonra geri döner. İki kırmızı tepe lambası, merdiven, ekipman dolapları ve pompa modeli vardır. Ortak mesh 6 materyal ve yaklaşık 1.708 üçgen kullanır. Su püskürtme animasyonu eklenmedi. Araç hareketi oyun hızı ve duraklatma durumunu izler.
+Bir low-poly itfaiye aracı ve üç ekipman varyantlı AKUT aracı istasyonlarında bekler. Yangına itfaiye; depremde gerçek hasar noktalarına itfaiye ve üç AKUT ekibi gider. Yeterli bina seviyelerinde yıkım yoksa yerleşimlerde önlem amaçlı kontrol yapılır. Araçlar kısa aralıklarla çıkar, rapor kapandıktan sonra geri döner. Ortak mesh ve materyal önbelleği kullanılır; yeni fizik gövdeleri veya dış paket eklenmez.
 
-Müdahale aracı mevcut 20 düğümlü yol ağı üzerinde, belediye meydanından geçmeden ilerler. Dolu bir kavşakta diğer bağlantı ucunu kullanabilir; karşı şeridi güvenli olduğunda değerlendirir. Diğer araçların gerçek model boyutlarıyla OBB çakışma denetimi yapar ve yangından 20 birimden uzakta durduğunda “ulaştı” sayılmaz. Normal trafik de dönüşte bu araca yol verir. Engel listesi yalnızca küçük araç hiyerarşisinden alınır; bütün ada her karede taranmaz.
+**Yangında normal trafik sürer.** Müdahale aracının yaklaşma koridoruna girmek üzere olan araçlar kısa süre yol verir; kavşağın içinde olanlar alanı boşaltır. Deprem, sel, tsunami ve tsunami uyarısında normal araç sürüşü durur. Suya kapılma/yer değiştirme mekaniği korunur. Sel/tsunamide müdahale aracı gönderilmez; önceki çağrıdan dönmekte olan müdahale araçları da durur.
+
+Rota, mevcut 20 düğümlü yol ağına bağlıdır ve belediye meydanındaki eksik bağlantıyı kullanmaz. Hareket eden bir araç bütün bir yolu haritadan silmez. Yolun kenarları değerlendirilir; park halindeki müdahale araçları ve ilk bağlantıya uzaklık dikkate alınarak giriş tarafı seçilir. Kısa engellerde yerel kaçınma, hareket adımlarında süpürülmüş OBB kontrolleri kullanılır. Normal ve müdahale araçları aynı boyut hesabını kullanır. Rota dizileri tekrar kullanılır; her yeniden aramada engel hiyerarşisi taraması veya yeni Dijkstra dizileri üretilmez.
 
 ## Farkındalık
 
@@ -29,12 +31,8 @@ Tsunami günü dışarıda NPC kalmaması için mevcut günlük takvim/sığınm
 - En yüksek seviye bina kartı tematik fontla tek bir “TAMAMEN GELİŞTİRİLDİ” mesajı gösterir; yinelenen “hazır” açıklaması kaldırıldı.
 - Güçlü savunma yangın raporu artık şehrin hasarsız kaldığını söylemez.
 
-## Doğrulama
+## Son düzenleme ve doğrulama
 
-**Son gerçek sahne turu: 47 geçti, 0 kaldı** (`Logs/FireResponseTests.txt`). Gerçek klavye girdileri, 60/80 sınırları, tsunami uyarısı, gerçek sel akıntısı, iki savunma düzeyindeki yangın, itfaiye aracının olay bölgesine ulaşması/çakışmaması/dönmesi, duraklatma, raporla söndürme ve onarım doğrulandı. Aynı farkındalık/AKUT değerlerinde savunmasız yangındaki 76 can kaybı, güçlü itfaiyede 15’e düştü. Bu turda derleme hatası, runtime exception ve Graphics Ring Buffer uyarısı görülmedi. Ayarlar, yangın ve en yüksek seviye kartı önizlemeleri `Logs/FireResponse_*.png` dosyalarındadır.
+Son afet/trafik, beyaz bayrak, deprem zemini, popup, gün sayacı ve final raporu değişiklikleri `docs/EmergencyAndUiRevision.md` içinde açıklanır. Önceki 47 kontrollük farkındalık/yangın turu tarihsel doğrulamadır; yeni filo için `Temp/emergency_revision_istegi` içindeki `test` isteği ve `Logs/EmergencyRevisionTests.txt` kullanılır.
 
-Derleme tamamlandıktan sonra Edit Mode’da `Temp/fire_response_istegi` içine `test` yazılması gerçek MainScene üzerinde `FireResponseProbe` çalıştırır; `engine` kısa rota tanılama modudur. Sonuç `Logs/FireResponseTests.txt`, ara ilerleme `Logs/FireResponseProgress.txt` dosyasına yazılır. Önceden kalan ilgili regresyon kontrolleri de yeni farkındalık/hasar kurallarına uyarlandı; bu turda ayrıca çalıştırılmadı.
-
-GameManager.cs değiştirilmedi. Sahne/prefab referansları mevcut kaldı; yeni itfaiye aracı ortak mesh/materyal önbelleğiyle çalışma anında üretilir.
-
-Windows paketi yeniden üretildi: **0 hata, 210.461.214 bayt, 12,70 saniye** (`Logs/JuryWindowsBuild.txt`). Gerçek Windows cihazında oynatılmadı; `Builds/Windows` klasörünün tamamı birlikte taşınmalıdır.
+`GameManager.cs` değiştirilmedi. Sahne/prefab referansları korunur. Gerçek Windows cihazında ayrıca oynanış kontrolü gerekir.

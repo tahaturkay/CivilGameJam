@@ -5,13 +5,13 @@ using UnityEngine;
 
 public static partial class IslandLayoutInstaller
 {
-    // The supplied construction uses equal circles separated by D/5. On the red
-    // field the emblem is white: the left crescent and the right semicircle.
+    // The supplied construction uses equal circles separated by D/5. On the white
+    // field the emblem is red: the left crescent and the right semicircle.
     // Geometry, rather than a bitmap, keeps the small insignia crisp at any zoom.
     static void AddOdtuFlagCloth(Transform parent, Vector3 centre)
     {
         Transform flag = Group(parent, "ODTU_Bayragi", centre);
-        Cube(flag, "ODTU_KirmiziKumas", Vector3.zero, new Vector3(1.5f,.9f,.045f), new Color32(227,6,19,255));
+        Cube(flag, "ODTU_BeyazKumas", Vector3.zero, new Vector3(1.5f,.9f,.045f), Color.white);
         var vertices = new List<Vector3>(); var indices = new List<int>();
         const float radius = .33f, separation = radius * 2f / 5f;
         const int strips = 64;
@@ -24,12 +24,12 @@ public static partial class IslandLayoutInstaller
             for (int face=-1; face<=1; face+=2)
             {
                 float z = face*.026f;
-                // Disjoint strips avoid overlapping coplanar white triangles.
+                // Disjoint strips avoid overlapping coplanar emblem triangles.
                 AddEmblemStrip(vertices,indices,-a,Mathf.Min(0,separation-a),-b,Mathf.Min(0,separation-b),y0,y1,z,face);
                 AddEmblemStrip(vertices,indices,0,a,0,b,y0,y1,z,face);
             }
         }
-        Shape(flag,"ODTU_BeyazAmblem",FinishMesh("ODTU_Amblem_CiftYuz",vertices,indices),Vector3.zero,Vector3.one,Color.white);
+        Shape(flag,"ODTU_KirmiziAmblem",FinishMesh("ODTU_Amblem_CiftYuz",vertices,indices),Vector3.zero,Vector3.one,new Color32(227,6,19,255));
         // Five flags share one two-material mesh; no extra textures or lights.
         CombineVisuals(flag,"ODTU_Bayrak");
     }
@@ -75,6 +75,28 @@ public static partial class IslandLayoutInstaller
             }
         }
         return "ODTÜ identity: 5 flags, 4 signs; removed "+removed+" old flag triangles, civic geometry preserved.";
+    }
+
+    /// <summary>Rebuilds only separate cloth children; no civic mesh, label, pole or interaction is changed.</summary>
+    public static int RefreshOdtuFlagCloth(GameObject island)
+    {
+        if(island==null)throw new ArgumentNullException(nameof(island));
+        var flags=new List<Transform>();
+        foreach(Transform child in island.GetComponentsInChildren<Transform>(true))
+            if(child.name=="ODTU_Bayragi")flags.Add(child);
+        if(flags.Count!=5)throw new InvalidOperationException("Expected five separate ODTÜ flag cloths, found "+flags.Count);
+        foreach(Transform oldFlag in flags)
+        {
+            Transform parent=oldFlag.parent;
+            Vector3 position=oldFlag.localPosition,scale=oldFlag.localScale;
+            Quaternion rotation=oldFlag.localRotation;
+            int index=oldFlag.GetSiblingIndex();
+            UnityEngine.Object.DestroyImmediate(oldFlag.gameObject);
+            AddOdtuFlagCloth(parent,position);
+            Transform replacement=parent.GetChild(parent.childCount-1);
+            replacement.localRotation=rotation;replacement.localScale=scale;replacement.SetSiblingIndex(index);
+        }
+        return flags.Count;
     }
 
     // Combined decorative meshes have no source object names. Only triangles

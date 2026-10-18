@@ -91,7 +91,10 @@ public static partial class IslandLayoutInstaller
     static void RoadLink(Transform root,string name,Vector2 from,Vector2 to,float width=4.8f)
     {
         Vector2 delta=to-from,center=(from+to)*.5f;Quaternion rotation=Quaternion.Euler(0,Mathf.Atan2(delta.x,delta.y)*Mathf.Rad2Deg,0);
-        Transform road=Group(root,name,new Vector3(center.x,0,center.y));road.localRotation=rotation;
+        // Parallel surfaces at junctions need deterministic depth: depress the
+        // north/south bed slightly below the east/west bed, including dirt details.
+        float bedY=Mathf.Abs(delta.y)>Mathf.Abs(delta.x)?-.025f:0;
+        Transform road=Group(root,name,new Vector3(center.x,bedY,center.y));road.localRotation=rotation;
         road.gameObject.AddComponent<BoxCollider>();
         var visual=road.gameObject.AddComponent<BuildingVisuals>();visual.binaTuru=BinaTuru.Altyapi;
         visual.colliderModeleUysun=false;visual.levelModelleri=new GameObject[3];

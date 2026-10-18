@@ -284,6 +284,125 @@ public static class IslandActorArt
         return root;
     }
 
+    /// <summary>
+    /// Three shared-mesh AKUT rescue van variants. Ground origin, +Z front, 2.10 m mirrors,
+    /// 5.14 m bumper-to-bumper. FarSol/FarSag and AlarmSol/AlarmSag use the fire-engine contract.
+    /// Each variant is combined once and then reuses the same mesh and palette for its fleet.
+    /// </summary>
+    public static GameObject CreateAkutVehicle(Transform parent,int variant=0)
+    {
+        int type=Mathf.Abs(variant%3),key=110+type;
+        var root=Root(parent,"AKUT_Araci_"+(type+1));
+        if(!vehicleModels.TryGetValue(key,out Model model))
+        {
+            Transform frame=root.transform;
+            Color32 ivory=new Color32(234,232,215,255),red=new Color32(196,48,39,255);
+            Part(frame,"TasiyiciSasi",new Vector3(0,.53f,0),new Vector3(1.76f,.25f,4.90f),Rubber);
+            Part(frame,"KabinAltGovde",new Vector3(0,.99f,1.43f),new Vector3(1.90f,.78f,1.90f),ivory);
+            Part(frame,"MurettebatKabini",new Vector3(0,1.69f,1.43f),new Vector3(1.80f,.78f,1.66f),Window);
+            Part(frame,"KabinTavani",new Vector3(0,2.12f,1.37f),new Vector3(1.91f,.15f,1.82f),ivory);
+            Part(frame,"OnCamOrtasi",new Vector3(0,1.70f,2.274f),new Vector3(.075f,.77f,.055f),ivory);
+            Part(frame,"OnCamGunesligi",new Vector3(0,2.055f,2.285f),new Vector3(1.88f,.09f,.13f),red);
+            Part(frame,"MotorIzgarasi",new Vector3(0,.98f,2.421f),new Vector3(.88f,.29f,.045f),Rubber);
+            Part(frame,"OnTampon",new Vector3(0,.61f,2.50f),new Vector3(1.98f,.19f,.14f),Chrome);
+            Part(frame,"ArkaTampon",new Vector3(0,.61f,-2.50f),new Vector3(1.98f,.19f,.14f),Chrome);
+            Part(frame,"OnKirmiziSerit",new Vector3(0,1.28f,2.414f),new Vector3(1.88f,.12f,.035f),red);
+            Part(frame,"KurtarmaBolmesi",new Vector3(0,1.39f,-.98f),new Vector3(1.90f,1.48f,2.92f),ivory);
+            Part(frame,"EkipmanTavanKenari",new Vector3(0,2.15f,-.98f),new Vector3(1.96f,.10f,2.98f),Chrome);
+            for(int side=-1;side<=1;side+=2)
+            {
+                for(int end=-1;end<=1;end+=2)
+                    Part(frame,"KabinKoseleri",new Vector3(side*.855f,1.69f,1.43f+end*.79f),new Vector3(.10f,.83f,.105f),ivory);
+                Part(frame,"KabinKapiDiregi",new Vector3(side*.91f,1.66f,1.26f),new Vector3(.065f,.80f,.085f),ivory);
+                Part(frame,"KabinKolu",new Vector3(side*.966f,1.25f,1.07f),new Vector3(.033f,.045f,.20f),Rubber);
+                Part(frame,"DikizAynasiKolu",new Vector3(side*.958f,1.63f,2.05f),new Vector3(.13f,.045f,.055f),Chrome);
+                Part(frame,"DikizAynasi",new Vector3(side*1.015f,1.64f,2.05f),new Vector3(.07f,.23f,.16f),Rubber);
+                Part(frame,"KabinKurtarmaSeridi",new Vector3(side*.957f,1.27f,1.44f),new Vector3(.025f,.13f,1.82f),red);
+                Part(frame,"Basamak",new Vector3(side*.86f,.59f,.67f),new Vector3(.28f,.10f,.64f),Chrome);
+                Part(frame,"KurtarmaSeridi",new Vector3(side*.968f,1.03f,-.98f),new Vector3(.035f,.24f,2.88f),red);
+                Part(frame,"AltYansitici",new Vector3(side*.975f,.83f,-.98f),new Vector3(.035f,.08f,2.88f),Lamp);
+                Part(frame,"OnFar",new Vector3(side*.70f,1.02f,2.431f),new Vector3(.31f,.20f,.055f),Lamp);
+                Part(frame,"ArkaStop",new Vector3(side*.73f,1.07f,-2.458f),new Vector3(.24f,.28f,.05f),red);
+                Part(frame,"ArkaGeriVitesLambasi",new Vector3(side*.73f,.91f,-2.461f),new Vector3(.24f,.07f,.055f),Lamp);
+                for(int end=-1;end<=1;end+=2)
+                {
+                    Vector3 axle=new Vector3(side*.89f,.42f,end>0?1.54f:-1.59f);
+                    Part(frame,"Lastik",axle,new Vector3(.28f,.42f,.42f),Rubber,WheelMesh());
+                    Part(frame,"CelikJant",axle+Vector3.right*side*.151f,new Vector3(.035f,.23f,.23f),Chrome,WheelMesh());
+                    Part(frame,"CamurlukUstu",new Vector3(side*.94f,.91f,axle.z),new Vector3(.12f,.10f,1.04f),Rubber);
+                }
+                // Geometric AKUT lettering stays crisp without a font atlas or a renderer per letter.
+                Transform badge=Root(frame,"AKUT_YanKimlik").transform;
+                badge.localPosition=new Vector3(side*.973f,1.63f,-.96f);
+                badge.localRotation=Quaternion.Euler(0,side*90,0);
+                AddAkutLettering(badge,red);
+                Part(frame,"AlarmTabani",new Vector3(side*.61f,2.255f,1.54f),new Vector3(.30f,.09f,.30f),Rubber);
+                Transform beacon=Part(frame,"KirmiziTepeLambasi",new Vector3(side*.61f,2.375f,1.54f),new Vector3(.15f,.12f,.12f),red,WheelMesh());
+                beacon.localRotation=Quaternion.Euler(0,0,90);
+                Part(frame,"TepeLambasiPariltisi",new Vector3(side*.61f,2.455f,1.54f),new Vector3(.14f,.025f,.14f),Lamp);
+                Part(frame,"PortbagajRayi",new Vector3(side*.78f,2.27f,-1.06f),new Vector3(.06f,.11f,2.58f),Rubber);
+            }
+            for(int rail=0;rail<3;rail++)
+                Part(frame,"PortbagajTravarsi",new Vector3(0,2.23f,-2.14f+rail*1.08f),new Vector3(1.62f,.065f,.07f),Chrome);
+            Part(frame,"ArkaKapiFitili",new Vector3(0,1.43f,-2.462f),new Vector3(.035f,1.32f,.025f),Rubber);
+            for(int side=-1;side<=1;side+=2)
+            {
+                Part(frame,"ArkaKapiCami",new Vector3(side*.43f,1.78f,-2.466f),new Vector3(.62f,.40f,.035f),Window);
+                Part(frame,"ArkaKapiKolu",new Vector3(side*.12f,1.32f,-2.485f),new Vector3(.10f,.035f,.04f),Rubber);
+            }
+            if(type==0)
+            {
+                Part(frame,"KatliSedye",new Vector3(0,2.34f,-.98f),new Vector3(.72f,.12f,2.04f),Lamp);
+                for(int side=-1;side<=1;side+=2)
+                    Part(frame,"SedyeTutamagi",new Vector3(side*.40f,2.34f,-.98f),new Vector3(.045f,.065f,2.25f),Chrome);
+            }
+            else if(type==1)
+            {
+                for(int item=0;item<2;item++)
+                {
+                    Part(frame,"KurtarmaCantasi",new Vector3(-.36f+item*.72f,2.44f,-1.18f),new Vector3(.61f,.34f,1.24f),item==0?red:Rubber);
+                    Part(frame,"CantaKemeri",new Vector3(-.36f+item*.72f,2.625f,-1.18f),new Vector3(.63f,.035f,.14f),Chrome);
+                }
+            }
+            else
+            {
+                Part(frame,"HalatKutusu",new Vector3(-.38f,2.40f,-1.32f),new Vector3(.65f,.24f,1.45f),Lamp);
+                for(int rung=0;rung<7;rung++)
+                    Part(frame,"KatliMerdivenBasamagi",new Vector3(.37f,2.35f,-2.03f+rung*.25f),new Vector3(.47f,.045f,.045f),Chrome);
+                for(int side=-1;side<=1;side+=2)
+                    Part(frame,"KatliMerdivenRayi",new Vector3(.37f+side*.25f,2.35f,-1.28f),new Vector3(.05f,.08f,1.95f),Chrome);
+            }
+            model=Combine(frame,"Ada_AKUT_Araci_"+type);vehicleModels[key]=model;
+        }
+        else Apply(root,model);
+        for(int side=-1;side<=1;side+=2)
+        {
+            Transform headlight=Root(root.transform,side<0?"FarSol":"FarSag").transform;
+            headlight.localPosition=new Vector3(side*.70f,1.02f,2.48f);
+            Transform alarm=Root(root.transform,side<0?"AlarmSol":"AlarmSag").transform;
+            alarm.localPosition=new Vector3(side*.61f,2.46f,1.54f);
+        }
+        return root;
+    }
+
+    static void AddAkutLettering(Transform parent,Color32 red)
+    {
+        // Strokes in the label XY plane; its normal is the vehicle's outside wall.
+        Vector2[][] strokes={
+            new[]{new Vector2(-.65f,-.13f),new Vector2(-.54f,.13f),new Vector2(-.54f,.13f),new Vector2(-.43f,-.13f),new Vector2(-.61f,-.035f),new Vector2(-.47f,-.035f)},
+            new[]{new Vector2(-.28f,-.13f),new Vector2(-.28f,.13f),new Vector2(-.28f,0),new Vector2(-.09f,.13f),new Vector2(-.28f,0),new Vector2(-.09f,-.13f)},
+            new[]{new Vector2(.06f,.13f),new Vector2(.06f,-.13f),new Vector2(.06f,-.13f),new Vector2(.25f,-.13f),new Vector2(.25f,-.13f),new Vector2(.25f,.13f)},
+            new[]{new Vector2(.40f,.13f),new Vector2(.65f,.13f),new Vector2(.525f,.13f),new Vector2(.525f,-.13f)}
+        };
+        foreach(Vector2[] letter in strokes)
+            for(int i=0;i<letter.Length;i+=2)
+            {
+                Vector2 a=letter[i],b=letter[i+1],delta=b-a,mid=(a+b)*.5f;
+                Transform stroke=Part(parent,"AKUT_HarfCizgisi",new Vector3(mid.x,mid.y,.006f),new Vector3(.042f,delta.magnitude+.025f,.025f),red);
+                stroke.localRotation=Quaternion.Euler(0,0,-Mathf.Atan2(delta.x,delta.y)*Mathf.Rad2Deg);
+            }
+    }
+
     static Mesh WheelMesh()
     {
         if(wheel!=null)return wheel;
