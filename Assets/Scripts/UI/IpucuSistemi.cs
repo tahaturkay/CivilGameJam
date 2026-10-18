@@ -35,6 +35,12 @@ public class IpucuSistemi : MonoBehaviour
     }
     void Update()
     {
+        if (IslandTsunamiFinale.BlocksInterface)
+        {
+            if (serit != null && serit.activeSelf) serit.SetActive(false);
+            return;
+        }
+
         var gm=GameManager.Instance;var data=AnlatiVerisi.Aktif;
         if(gm==null||data==null||serit==null||ipucuText==null)return;
         bool blocked=gm.oyunDurduMu||gm.afetSuruyor||gm.afetOlduMu||gm.oyunBittiMi||PauseMenu.DurdurulduMu;

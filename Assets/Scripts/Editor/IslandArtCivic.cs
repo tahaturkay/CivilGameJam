@@ -329,6 +329,15 @@ public static partial class IslandLayoutInstaller
     }
     static void BuildHarbor(Transform root)
     {
+        // Boat stays independent so the ending can animate this original vessel.
+        Transform infrastructure=Group(root,"LimanAltyapisi");
+        BuildHarborInfrastructure(infrastructure);
+        Transform boat=BuildHarborBoat(root);
+        BuildHarborCinematicMarkers(root,boat);
+    }
+
+    static void BuildHarborInfrastructure(Transform root)
+    {
         Vector3 a=new Vector3(66,.2f,-45),b=new Vector3(77,7.0f,-59),c=new Vector3(90,7.0f,-72);
         for(int i=0;i<30;i++)
         {
@@ -351,7 +360,19 @@ public static partial class IslandLayoutInstaller
         }
         Cube(root,"AlcakRıhtım",lower+new Vector3(0,-.08f,-2),new Vector3(11,.30f,5),Timber);
         for(int i=0;i<5;i++)Beam(root,"RıhtımBabası",lower+new Vector3(-4+i*2,-1.2f,-3.6f),lower+new Vector3(-4+i*2,.7f,-3.6f),.30f,Stone);
-        Transform boat=Group(root,"BalikciTeknesi",new Vector3(93,-2.5f,-63));boat.localRotation=Quaternion.Euler(0,-38,0);
+        // Between the two bollards: narrow gangplank is clear of the cabin and crates.
+        Vector3 gangplankStart=new Vector3(99,-2.325f,-87.9f),gangplankEnd=new Vector3(99,-2.48f,-84.4f);
+        Vector3 gangplankDirection=gangplankEnd-gangplankStart;
+        var gangplank=Cube(root,"TekneInisTahtasi",(gangplankStart+gangplankEnd)*.5f-Vector3.up*.08f,
+            new Vector3(.85f,.16f,gangplankDirection.magnitude),Timber);
+        gangplank.transform.localRotation=Quaternion.FromToRotation(Vector3.forward,gangplankDirection.normalized);
+        CombineVisuals(root,"LimanIskeleAltyapisi");
+    }
+
+    static Transform BuildHarborBoat(Transform root)
+    {
+        Transform boat=Group(root,"BalikciTeknesi",new Vector3(96,-2.5f,-90));
+        boat.localRotation=Quaternion.Euler(0,-90,0);
         Shape(boat,"TekneGovdesi",TaperMesh(),new Vector3(0,0,0),new Vector3(5,2.2f,12),new Color32(53,94,107,255)).transform.localRotation=Quaternion.Euler(180,0,0);
         Cube(boat,"TekneGuvertesi",new Vector3(0,.05f,0),new Vector3(4.6f,.25f,10.8f),Timber);
         Cube(boat,"TekneKamarasi",new Vector3(0,1.2f,1.5f),new Vector3(3.0f,2.1f,3.5f),Cream);
@@ -359,6 +380,50 @@ public static partial class IslandLayoutInstaller
         Cube(boat,"KamaraCatisi",new Vector3(0,2.35f,1.5f),new Vector3(3.6f,.2f,4),Roof);
         Beam(boat,"TekneDiregi",new Vector3(0,.1f,-2.4f),new Vector3(0,5.3f,-2.4f),.12f,Timber);
         for(int i=0;i<4;i++)Cube(boat,"BalikKasasi",new Vector3(-1.4f+i*.9f,.45f,-3.7f),new Vector3(.75f,.6f,1.0f),RoofDark);
-        CombineVisuals(root,"LimanTekneVeIskele");
+        CombineVisuals(boat,"LimanBalikciTeknesi");
+        return boat;
+    }
+
+    static Transform HarborMarker(Transform parent,string name,Vector3 point,float yaw=0)
+    {
+        Transform marker=Group(parent,name,point);marker.localRotation=Quaternion.Euler(0,yaw,0);return marker;
+    }
+
+    static void BuildHarborCinematicMarkers(Transform root,Transform boat)
+    {
+        // All these poses are relative to Liman; SabitAlanlar adds GroundY (2.4m).
+        Transform markers=Group(root,"CinematicMarkers");
+        HarborMarker(markers,"BoatMooring",boat.localPosition,-90);
+        HarborMarker(markers,"BoatApproachOrigin",new Vector3(151,-2.5f,-90),-90);
+        HarborMarker(markers,"PierDisembarkA",new Vector3(99,-2.45f,-84.1f));
+        HarborMarker(markers,"PierDisembarkB",new Vector3(98.15f,-2.45f,-83.9f));
+        HarborMarker(markers,"CharacterStandA",new Vector3(97.25f,-2.45f,-83.1f),180);
+        HarborMarker(markers,"CharacterStandB",new Vector3(98.65f,-2.45f,-82.55f),180);
+        HarborMarker(markers,"LookToSea",new Vector3(98,-.8f,-134));
+        HarborMarker(markers,"LandExit",new Vector3(66,.37f,-45),-38);
+        Transform path=Group(markers,"Footpath");
+        HarborMarker(path,"PierStart",new Vector3(96,-2.45f,-81));
+        // Ordered from the lower pier uphill; feet sit on the top of each retained stair.
+        for(int step=0;step<40;step++)
+        {
+            Vector3 p=Vector3.Lerp(new Vector3(96,-2.55f,-81),new Vector3(90,7,-72),step/39f);
+            HarborMarker(path,"Step_"+step.ToString("00"),p+Vector3.up*.13f,-34);
+        }
+        HarborMarker(path,"UpperPier",new Vector3(77,7.23f,-59),-38);
+        HarborMarker(path,"LandExit",new Vector3(66,.37f,-45),-38);
+        Transform deck=Group(boat,"DeckMarkers");
+        HarborMarker(deck,"PassengerA",new Vector3(.7f,.175f,-1.6f),90);
+        HarborMarker(deck,"PassengerB",new Vector3(-.6f,.175f,-1.6f),90);
+        HarborMarker(deck,"DeckExit",new Vector3(2.1f,.175f,-3),90);
+    }
+
+    /// <summary>Refresh only the existing harbor subtree, preserving its root identity and all other city edits.</summary>
+    public static void RefreshHarborForCinema(GameObject island)
+    {
+        if(island==null)throw new System.ArgumentNullException(nameof(island));
+        Transform root=island.transform.Find("SabitAlanlar/Liman");
+        if(root==null)throw new System.InvalidOperationException("SabitAlanlar/Liman is missing; city was not rebuilt.");
+        for(int i=root.childCount-1;i>=0;i--)UnityEngine.Object.DestroyImmediate(root.GetChild(i).gameObject);
+        BuildHarbor(root);
     }
 }

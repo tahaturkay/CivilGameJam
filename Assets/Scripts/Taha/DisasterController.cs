@@ -44,6 +44,11 @@ public class DisasterController : MonoBehaviour
     Vector3 kameraIlk, dalgaOlcek = Vector3.one;
     bool kameraSallaniyor;
 
+    void Start()
+    {
+        if(GetComponent<IslandTsunamiFinale>()==null)gameObject.AddComponent<IslandTsunamiFinale>();
+    }
+
     void Update()
     {
         if(AfetDevamEdiyorMu)IncidentProgress=Mathf.Clamp01((Time.time-incidentStarted)/Mathf.Max(.1f,afetSuresi));
@@ -113,7 +118,10 @@ public class DisasterController : MonoBehaviour
                     else yield return new WaitForSeconds(afetSuresi);
                     break;
                 case AfetTuru.Tsunami:
-                    yield return TsunamiEfekti(SavunmaYeterli);
+                    var finale=GetComponent<IslandTsunamiFinale>();
+                    if(finale!=null&&finale.CanPlay&&!finale.HasPlayed)
+                        yield return finale.Play(TsunamiEfekti(SavunmaYeterli));
+                    else yield return TsunamiEfekti(SavunmaYeterli);
                     break;
             }
             foreach (BinaTuru b in damagedTypes)

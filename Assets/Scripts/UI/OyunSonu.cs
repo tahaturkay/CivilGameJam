@@ -27,6 +27,12 @@ public class OyunSonu : MonoBehaviour
 
     void Update()
     {
+        if (IslandTsunamiFinale.BlocksInterface)
+        {
+            if (panel.activeSelf) panel.SetActive(false);
+            return;
+        }
+
         var gm = GameManager.Instance;
         if (gm != null && gm.oyunBittiMi && !panel.activeSelf) Goster(gm);
         if(panel.activeSelf&&resultCard!=null)CivicUI.FitCard(resultCard,new Vector2(900,740),30,1.8f);

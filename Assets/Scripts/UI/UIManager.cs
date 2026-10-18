@@ -444,7 +444,7 @@ public class UIManager : MonoBehaviour
     public bool TryHandleSpeedHotkeyInput(int mode)
     {
         GameManager gm = GameManager.Instance;
-        if (mode < 1 || mode > 3 || gm == null || SpacePauseIsBlocked(gm)) return false;
+        if (mode < 1 || mode > 3 || gm == null || IslandTsunamiFinale.BlocksInterface || SpacePauseIsBlocked(gm)) return false;
 
         if (EventSystem.current != null)
             EventSystem.current.SetSelectedGameObject(null);
@@ -1038,7 +1038,7 @@ public class UIManager : MonoBehaviour
         if (hoverTooltipRt == null) return;
 
         // Modal açıkken hover etiketi gizlensin
-        if (gm.oyunDurduMu || gm.afetOlduMu || gm.oyunBittiMi)
+        if (gm.oyunDurduMu || gm.afetOlduMu || gm.oyunBittiMi || IslandTsunamiFinale.BlocksInterface)
         {
             if (hoverTooltipRt.gameObject.activeSelf)
                 hoverTooltipRt.gameObject.SetActive(false);

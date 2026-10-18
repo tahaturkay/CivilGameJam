@@ -33,8 +33,9 @@ public static class IslandDisasterCalendar
     // darkness on the authored storm/fire palette. The following morning also stays smooth.
     public static float DaylightOverride(int day,float phase)
     {
-        if(IsDisasterDay(day))return 1;
-        if(IsDisasterDay(day+1))return Mathf.SmoothStep(0,1,Mathf.InverseLerp(.82f,1,phase));
+        // The harbor arrival is shown in daylight on the warning day as well.
+        if(IsDisasterDay(day)||day==TsunamiDay-1)return 1;
+        if(IsDisasterDay(day+1)||day+1==TsunamiDay-1)return Mathf.SmoothStep(0,1,Mathf.InverseLerp(.82f,1,phase));
         if(IsDisasterDay(day-1))return 1-Mathf.SmoothStep(0,1,Mathf.InverseLerp(0,.18f,phase));
         return 0;
     }

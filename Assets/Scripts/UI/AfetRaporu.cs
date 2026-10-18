@@ -30,6 +30,12 @@ public class AfetRaporu : MonoBehaviour
 
     void Update()
     {
+        if (IslandTsunamiFinale.BlocksInterface)
+        {
+            if (panel.activeSelf) panel.SetActive(false);
+            return;
+        }
+
         var gm = GameManager.Instance;
         if (gm == null) return;
 
@@ -264,6 +270,7 @@ public class AfetRaporu : MonoBehaviour
 
     public void Devam()
     {
+        if (IslandTsunamiFinale.BlocksInterface) return;
         panel.SetActive(false);
         if (GameManager.Instance != null) GameManager.Instance.AfetSonrasiDevam();
     }
