@@ -4664,15 +4664,23 @@ MonoBehaviour:
   kamera: {fileID: 0}
   tsunamiSuyu: {fileID: 220132877529427124}
   tsunamiDalgasi: {fileID: 5807868502598220253}
+  tsunamiSetZ: 10
+  tsunamiBaslangicZ: -45
+  tsunamiBitisZ: 102
+  tsunamiDalgaY: 1
+  tsunamiSuYuksekligi: 3.02
+  selSuYuksekligi: 2.7
+  kuruZeminY: 2.4
+  afetSuresi: 8
   yanginEfekti: {fileID: 5891901248801708289, guid: 5a171c17257de4605b485617c2dc57d0, type: 3}
   yagmurEfekti: {fileID: 1398191045040160382}
   yanginPrefab: {fileID: 5891901248801708289, guid: 5a171c17257de4605b485617c2dc57d0, type: 3}
+  tozBulutuPrefab: {fileID: 5891901248801708289, guid: ebf6ed1d22e13416dadf6182d20b64da, type: 3}
   yanacakBinalar:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
-  tozBulutuPrefab: {fileID: 5891901248801708289, guid: ebf6ed1d22e13416dadf6182d20b64da, type: 3}
   temelBinalar:
   - {fileID: 0}
   - {fileID: 0}
@@ -5083,5 +5091,5 @@ MonoBehaviour:
   mod: 1
   dalgaHizi: 2.5
   dalgaYuksekligi: 0.35
-  dalgaFrekansi: 1.0
+  dalgaFrekansi: 1
   normalleriGuncelle: 1

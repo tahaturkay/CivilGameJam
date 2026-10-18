@@ -50,8 +50,8 @@ public class BuildingDamageVisuals : MonoBehaviour
         }
         if(activeModel==null)return;
         var gm=GameManager.Instance;
-        bool damaged=gm.Hasarli(building.binaTuru);
-        AfetTuru type=damaged?gm.HasarTuru(building.binaTuru):default;
+        bool damaged=building.IsDamaged;
+        AfetTuru type=damaged?building.DamageCause:default;
         bool changed=!stateKnown||damaged!=shownDamage||(damaged&&type!=shownType);
         float flash=building.VurguBeyazligi;
         if(changed)
@@ -204,14 +204,24 @@ public class BuildingDamageVisuals : MonoBehaviour
         foreach(MeshFilter f in activeModel.GetComponentsInChildren<MeshFilter>())if(f.name=="KiremitCati"){damagedRoof=f;break;}
         if(damagedRoof==null||damagedRoof.sharedMesh==null||!damagedRoof.sharedMesh.isReadable)return;
         originalRoof=damagedRoof.sharedMesh;brokenRoof=Instantiate(originalRoof);brokenRoof.name="KirilmisKiremitCati";
-        Vector3[] vertices=originalRoof.vertices;int[] triangles=originalRoof.triangles;var remaining=new List<int>();
+        Vector3[] vertices=originalRoof.vertices;int[] triangles=originalRoof.triangles;
+        var fragments=new List<Vector3>();var indices=new List<int>();
+        Bounds bounds=originalRoof.bounds;
         for(int i=0;i<triangles.Length;i+=3)
         {
             Vector3 middle=(vertices[triangles[i]]+vertices[triangles[i+1]]+vertices[triangles[i+2]])/3;
-            if(middle.x>0&&middle.y>.1f)continue;
-            remaining.Add(triangles[i]);remaining.Add(triangles[i+1]);remaining.Add(triangles[i+2]);
+            // Keep every roof face. Broken sections buckle onto the roof rather than disappearing.
+            bool crack=middle.x>bounds.center.x;
+            Vector3 offset=crack?new Vector3(bounds.size.x*.025f,-bounds.size.y*.25f,bounds.size.z*.025f):Vector3.zero;
+            for(int k=0;k<3;k++)
+            {
+                Vector3 v=vertices[triangles[i+k]];
+                if(crack)v=middle+Quaternion.Euler(-9,(i%3)*3,7)*(v-middle)+offset;
+                indices.Add(fragments.Count);fragments.Add(v);
+            }
         }
-        brokenRoof.triangles=remaining.ToArray();brokenRoof.RecalculateBounds();damagedRoof.sharedMesh=brokenRoof;
+        brokenRoof.Clear();brokenRoof.SetVertices(fragments);brokenRoof.SetTriangles(indices,0);
+        brokenRoof.RecalculateNormals();brokenRoof.RecalculateBounds();damagedRoof.sharedMesh=brokenRoof;
         Mesh cube=Resources.GetBuiltinResource<Mesh>("Cube.fbx");var tiles=new CombineInstance[12];
         for(int i=0;i<tiles.Length;i++)
         {

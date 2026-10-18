@@ -27,12 +27,16 @@ Bu değişiklik oyun gününün temel süresini veya ekonomik dengeyi değiştir
 | E / Q | Yakınlaşma / uzaklaşma |
 | Home | Bütün adayı çerçeveleme |
 
-Kamera ada sınırlarında ve zoom limitlerinde kalır. Popup, quiz, oyun sonu ve afet sırasında hareket ivmeleri temizlenir. WASD, imleç HUD üstündeyken de çalışır; metin alanına yazarken çalışmaz. Space ile sürükleme binaları açmaz. Yerel pinch hareketi için ayrı bir platform eklentisi kullanılmadı; touchpad zoom'u Unity'nin kaydırma girdisini kullanır.
+Kamera ada sınırlarında ve zoom limitlerinde kalır. Popup, quiz, oyun sonu ve afet sırasında hareket ivmeleri temizlenir. WASD, imleç HUD üstündeyken de çalışır; metin alanına yazarken çalışmaz. Space ile sürükleme binaları açmaz. Kaydırma girdisi Input System’in normalize edilmiş birimleriyle okunur; küçük trackpad girdilerinde zoom ivmesi korunur. Shift basılı değilken baskın eksen seçilir; dikey zoom sırasında küçük yatay sapmalar haritayı kaydırmaz. Yerel pinch hareketi için ayrı bir platform eklentisi kullanılmadı; touchpad zoom'u Unity'nin kaydırma girdisini kullanır.
 
 ## Seçilen özgün imleç
 
-Kullanıcı üç öneri arasından **C — Fener Oku** tasarımını seçti. Lacivert dış hat, fildişi ve kehribar yüzeyler deniz fenerinin paletinden gelir. 64×64 şeffaf PNG ve SVG kaynakları `Assets/Art/Cursors/` içindedir; tıklama ucu **(6,5)**.
+Kullanıcı üç öneri arasından **C — Fener Oku** tasarımını seçti. Lacivert dış hat, fildişi ve kehribar yüzeyler deniz fenerinin paletinden gelir. 64×64 şeffaf PNG ve SVG kaynakları `Assets/Art/Cursors/` içindedir. Oyun imleci içe aktarımda **32×32** boyutuna küçültülür; tıklama ucu **(3,3)**.
 
 `IslandCursor` iki ada sahnesinin kameralarına bağlanır. Player'ın varsayılan imleci de aynı görseldir. Oyun odağı kaybolunca runtime imleci serbest bırakılır.
 
 [Üç tasarımın karşılaştırması](images/cursors/CursorOptions.png)
+
+## Son kontrol
+
+32×32 imleç, küçük trackpad girdileriyle iki yönde zoom, yatay sapma, zoom limitleri ve gün doğumu/batımı dahil 28 Play Mode kontrolü geçti. Rapor: `Logs/AdaDonguKameraTesti.txt`. Fiziksel trackpad pinch hareketi yerine Unity kaydırma girdisi kullanılır.

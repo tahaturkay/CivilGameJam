@@ -179,17 +179,45 @@ public static class IslandEffectsFactory
         return root;
     }
 
+    public static GameObject CreateSeaImpact(Transform parent,Vector3 worldPosition,float strength)
+    {
+        EnsureMaterials();var root=Root(parent,"TsunamiSetCarpmasi",worldPosition);
+        root.AddComponent<IslandSeaImpactSplash>().Initialize(smokeMaterial,strength);
+        var spray=Particles(root.transform,"SettenYukselenSu",smokeMaterial,180);
+        var main=spray.main;main.loop=false;main.duration=.3f;
+        main.startLifetime=new ParticleSystem.MinMaxCurve(.65f,1.35f);
+        main.startSize=new ParticleSystem.MinMaxCurve(.35f,1.2f);main.startSpeed=0;
+        main.gravityModifier=1.3f;main.startColor=new Color(.80f,.94f,.96f,.85f);
+        var shape=spray.shape;shape.shapeType=ParticleSystemShapeType.Box;shape.scale=new Vector3(90,1,2);
+        var velocity=spray.velocityOverLifetime;velocity.enabled=true;velocity.space=ParticleSystemSimulationSpace.World;
+        velocity.x=new ParticleSystem.MinMaxCurve(-8,8);velocity.y=new ParticleSystem.MinMaxCurve(5*strength,10*strength);velocity.z=new ParticleSystem.MinMaxCurve(-3,4);
+        var emission=spray.emission;emission.SetBursts(new[]{new ParticleSystem.Burst(0,160)});
+        var colors=spray.colorOverLifetime;colors.enabled=true;colors.color=Fade(new Color(.9f,.98f,1,.8f),new Color(.7f,.9f,.94f,.55f),Color.clear,.06f);
+        spray.Play();
+        var source=root.AddComponent<AudioSource>();source.spatialBlend=0;source.volume=.30f*Ayarlar.EfektSesi;
+        const int frequency=16000;var samples=new float[frequency];var random=new System.Random(7391);
+        float low=0;
+        for(int i=0;i<samples.Length;i++)
+        {
+            float t=i/(float)frequency,env=Mathf.Min(1,t*25)*Mathf.Exp(-t*5);
+            low=Mathf.Lerp(low,(float)random.NextDouble()*2-1,.12f);
+            samples[i]=(low*.7f+Mathf.Sin(t*47*Mathf.PI*2)*.22f)*env;
+        }
+        var clip=AudioClip.Create("SeteCarpanDalga",frequency,1,frequency,false);clip.SetData(samples,0);source.clip=clip;source.Play();Object.Destroy(clip,4);
+        return root;
+    }
+
     public static GameObject CreateSmoke(Transform parent, Vector3 worldPosition, float size, bool heavy = false)
     {
         EnsureMaterials(); size = Mathf.Clamp(size,.3f,4);
         GameObject root = Root(parent,heavy?"YanginDumanSutunu":"KaliciHafifHasarDumani",worldPosition);
-        var smoke = Particles(root.transform,"YumusakDuman",smokeMaterial,heavy?90:30);
+        var smoke = Particles(root.transform,"YumusakDuman",smokeMaterial,heavy?90:42);
         var main = smoke.main; main.startLifetime = new ParticleSystem.MinMaxCurve(4,7); main.startSpeed = new ParticleSystem.MinMaxCurve(size*.7f,size*1.2f);
         main.startSize = new ParticleSystem.MinMaxCurve(size*.7f,size*1.25f); main.startRotation = new ParticleSystem.MinMaxCurve(-Mathf.PI,Mathf.PI);
-        main.startColor = Color.white; var emission = smoke.emission; emission.rateOverTime = heavy?9:3.2f;
+        main.startColor = Color.white; var emission = smoke.emission; emission.rateOverTime = heavy?9:5.2f;
         UpwardCone(smoke,size*.32f,17);
         var color = smoke.colorOverLifetime; color.enabled = true;
-        color.color = Fade(new Color(.22f,.22f,.20f,heavy?.42f:.24f),new Color(.37f,.36f,.32f,heavy?.28f:.15f),new Color(.51f,.52f,.51f,0));
+        color.color = Fade(new Color(.22f,.22f,.20f,heavy?.42f:.33f),new Color(.37f,.36f,.32f,heavy?.28f:.21f),new Color(.51f,.52f,.51f,0));
         var scale = smoke.sizeOverLifetime; scale.enabled = true; scale.size = new ParticleSystem.MinMaxCurve(1,new AnimationCurve(new Keyframe(0,.7f),new Keyframe(1,3.7f)));
         var velocity = smoke.velocityOverLifetime; velocity.enabled = true; velocity.space = ParticleSystemSimulationSpace.World;
         velocity.x = size*.27f; velocity.y = .25f; velocity.z = size*.08f;

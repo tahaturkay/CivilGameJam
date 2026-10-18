@@ -32,7 +32,8 @@ public class DengeAyarlari : ScriptableObject
     [Header("Zaman")]
     [Tooltip("1x hızda bir oyun gününün süresi (saniye). 2x'te yarısı, 3x'te üçte biri.")]
     public float birGunSuresi = 12f;
-    public int toplamGun = 28;
+    public int toplamGun = 20;
+    [Range(1,3)] public int baslangicHizi = 2;
 
     [Header("Başlangıç Değerleri")]
     public int baslangicPara = 500;
@@ -46,6 +47,8 @@ public class DengeAyarlari : ScriptableObject
     public int gunlukGoc = 30;
     [Tooltip("Günlük gelir = nüfus × bu değer")]
     public float kisiBasiGunlukGelir = 0.1f;
+    [Tooltip("Konut seviyesinin vergi ve yerel üretim geliri çarpanı")]
+    public float[] konutGelirCarpanlari = { 1f, 1.35f, 1.75f };
 
     [Header("Binalar")]
     public int maxLevel = 3;
@@ -64,25 +67,25 @@ public class DengeAyarlari : ScriptableObject
     {
         new AfetAyari
         {
-            afet = AfetTuru.Yangin, gun = 7, gerekenLevel = 2, bazKayip = 120,
+            afet = AfetTuru.Yangin, gun = 5, gerekenLevel = 2, bazKayip = 120,
             kontrolEdilen = new[] { BinaTuru.Itfaiye },
             hasarAlan = new[] { BinaTuru.TemelBina, BinaTuru.Okul },
         },
         new AfetAyari
         {
-            afet = AfetTuru.Sel, gun = 14, gerekenLevel = 2, bazKayip = 150,
+            afet = AfetTuru.Sel, gun = 10, gerekenLevel = 2, bazKayip = 150,
             kontrolEdilen = new[] { BinaTuru.Altyapi },
             hasarAlan = new[] { BinaTuru.Altyapi, BinaTuru.TemelBina },
         },
         new AfetAyari
         {
-            afet = AfetTuru.Deprem, gun = 21, gerekenLevel = 2, bazKayip = 200,
+            afet = AfetTuru.Deprem, gun = 15, gerekenLevel = 2, bazKayip = 200,
             kontrolEdilen = new[] { BinaTuru.TemelBina, BinaTuru.Okul, BinaTuru.Akut, BinaTuru.Itfaiye },
             hasarAlan = new BinaTuru[0], // depremde sadece seviyesi yetmeyenler hasar alır
         },
         new AfetAyari
         {
-            afet = AfetTuru.Tsunami, gun = 28, gerekenLevel = 3, bazKayip = 250,
+            afet = AfetTuru.Tsunami, gun = 20, gerekenLevel = 3, bazKayip = 250,
             kontrolEdilen = new[] { BinaTuru.DenizSeti },
             hasarAlan = new[] { BinaTuru.DenizSeti, BinaTuru.TemelBina },
         },
@@ -97,7 +100,7 @@ public class DengeAyarlari : ScriptableObject
     public float akutEtkisi = 0.10f;
 
     [Header("Quiz")]
-    public float dogruCevapOdulu = 10f;
+    public float dogruCevapOdulu = 25f;
     [Tooltip("Okul Lv1, Lv2, Lv3 iken ulaşılabilecek en yüksek farkındalık")]
     public float[] okulFarkindalikTavani = { 40f, 70f, 100f };
 
@@ -105,11 +108,13 @@ public class DengeAyarlari : ScriptableObject
     [Tooltip("Nüfus bu sayıya ya da altına düşerse oyun kaybedilir")]
     public int kaybetmeNufusu = 200;
     [Tooltip("Toplam vefat bu sayılara eşit ya da altındaysa: 3 yıldız, 2 yıldız, 1 yıldız")]
-    public int[] yildizEsikleri = { 100, 250, 400 };
+    public int[] yildizEsikleri = { 80, 180, 320 };
 
     // ---------- Erişim ----------
 
     static DengeAyarlari aktif;
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetCache(){aktif=null;}
 
     public static DengeAyarlari Aktif
     {

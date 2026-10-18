@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro;
+using UnityEngine.UI;
 
 // Ana Canvas'a eklenir. Afet bitince (GameManager.afetOlduMu) kısa bir sonuç paneli gösterir.
 // Devam'a basınca oyun sürer; son afet ya da nüfus çok düştüyse oyun sonu ekranına geçilir.
@@ -17,6 +18,8 @@ public class AfetRaporu : MonoBehaviour
     private int gosterilecekVefat;
     private float vefatAnimasyonSuresi;
     private bool vefatAnimasyonuAktif;
+    RectTransform reportCard;
+    void Start(){BuildStoryLayout();}
 
     void Awake()
     {
@@ -30,6 +33,7 @@ public class AfetRaporu : MonoBehaviour
 
         if (gm.afetOlduMu && !panel.activeSelf) Goster(gm);
         VefatSayaciniGuncelle();
+        if(panel.activeSelf&&reportCard!=null)CivicUI.FitCard(reportCard,new Vector2(760,580),32,1.8f);
     }
 
     void Goster(GameManager gm)
@@ -46,10 +50,41 @@ public class AfetRaporu : MonoBehaviour
         if (vefatText != null)
             vefatText.text = "Hayatını kaybeden: 0";
         kurtarilanText.text = "Farkındalık ve AKUT sayesinde kurtarılan: " + gm.sonKurtarilanSayisi;
-        hasarText.text = "Hasar alan yapı: " + gm.sonHasarliBinaSayisi;
-        nufusText.text = "Kalan nüfus: " + gm.nufus;
+        var data=AnlatiVerisi.Aktif;var decision=GetComponent<DereYatagiKarari>();
+        hasarText.text=data!=null?data.HikayeMetni(gm.sonAfetTuru,gm.sonSavunmaYeterli,gm.farkindalikYuzdesi,decision!=null&&decision.KabulEdildi):gm.sonAfetMesaji;
+        if(gm.sonAfetTuru==AfetTuru.Sel&&decision!=null&&decision.KabulEdildi&&data!=null)
+            hasarText.text+="\n<size=85%>"+data.selEkSatiri+"</size>";
+        nufusText.text = "Kalan nüfus: " + gm.nufus+"   ·   Etkilenen yapı: "+gm.sonHasarliBinaSayisi;
 
         panel.SetActive(true);
+    }
+
+    void BuildStoryLayout()
+    {
+        Transform previous=panel.transform.Find("Pencere");if(previous==null)return;
+        var button=previous.Find("DevamButonu");
+        var image=CivicUI.Box("AnlatiliAfetRaporu",panel.transform,CivicUI.Cream,true);reportCard=image.rectTransform;
+        Move(baslikText,28,25,704,48,32,CivicUI.Teal);
+        Move(savunmaText,28,90,704,62,19,CivicUI.Navy);
+        Move(vefatText,28,170,340,42,22,UIManager.RibbonRedDark);
+        Move(kurtarilanText,390,170,342,60,19,UIManager.GreenBtnDark);
+        Move(hasarText,28,245,704,165,20,CivicUI.Navy);
+        Move(nufusText,28,428,704,32,18,CivicUI.Muted);
+        if(button!=null)
+        {
+            button.SetParent(reportCard,false);var le=button.GetComponent<LayoutElement>();if(le!=null)le.ignoreLayout=true;
+            CivicUI.Place((RectTransform)button,28,490,704,60);
+            CivicUI.ReskinButton(button.GetComponent<Button>(),CivicUI.Teal,CivicUI.Cream);
+        }
+        previous.gameObject.SetActive(false);
+    }
+    void Move(TMP_Text text,float x,float y,float w,float h,float size,Color color)
+    {
+        if(text==null)return;text.transform.SetParent(reportCard,false);
+        var le=text.GetComponent<LayoutElement>();if(le!=null)le.ignoreLayout=true;
+        CivicUI.Place(text.rectTransform,x,y,w,h);text.fontSize=size;text.color=color;
+        text.fontStyle=FontStyles.Normal;text.alignment=TextAlignmentOptions.TopLeft;
+        text.textWrappingMode=TextWrappingModes.Normal;text.enableAutoSizing=true;text.fontSizeMin=size-3;text.fontSizeMax=size;
     }
 
     private void VefatSayaciniGuncelle()

@@ -13,6 +13,9 @@ public static class Ekonomi
         if (gm == null) return 0;
 
         float gelir = gm.nufus * DengeAyarlari.Aktif.kisiBasiGunlukGelir;
+        float[] carpanlar=DengeAyarlari.Aktif.konutGelirCarpanlari;
+        if(carpanlar!=null&&carpanlar.Length>0)
+            gelir*=carpanlar[Mathf.Clamp(gm.temelBinaLevel-1,0,carpanlar.Length-1)];
         if (gm.temelBinaHasarli) gelir *= HasarliKonutGelirCarpani;
         return Mathf.RoundToInt(gelir);
     }

@@ -140,7 +140,7 @@ public class IslandCameraController : MonoBehaviour
                 lastPointerPosition = pointerPosition;
             }
 
-            if (!pointerOverUi && scrollDelta.sqrMagnitude > 0.0001f)
+            if (!pointerOverUi && scrollDelta.sqrMagnitude > 0.00000001f)
                 ApplyScrollDelta(scrollDelta, pointerPosition, shiftHeld);
         }
         else dragging = false;
@@ -246,22 +246,25 @@ public class IslandCameraController : MonoBehaviour
             return;
         }
 
-        if (Mathf.Abs(scrollDelta.x) > 0.001f)
+        // Pick the dominant axis for ordinary two-finger scrolls. Small horizontal noise
+        // from a vertical gesture should not move the map while the user is zooming.
+        if (Mathf.Abs(scrollDelta.x) > Mathf.Abs(scrollDelta.y))
         {
+            if (Mathf.Abs(scrollDelta.x) < 0.0001f) return;
             float pixels = Mathf.Clamp(scrollDelta.x * trackpadPanPixelsPerUnit,
                 -maxPointerDeltaPerFrame, maxPointerDeltaPerFrame);
             ApplyPointerPan(screenPosition, screenPosition + new Vector2(pixels, 0f));
+            return;
         }
 
-        if (Mathf.Abs(scrollDelta.y) < 0.001f) return;
+        if (Mathf.Abs(scrollDelta.y) < 0.0001f) return;
         Vector3 anchorBefore;
         if (!TryGetGroundPoint(screenPosition, out anchorBefore)) return;
         zoomAnchorWorld = anchorBefore;
         zoomAnchorScreen = screenPosition;
         targetOrthographicSize = Mathf.Clamp(targetOrthographicSize * Mathf.Exp(-scrollDelta.y * zoomSensitivity),
             minOrthographicSize, maxOrthographicSize);
-        zoomVelocity = 0f;
-        zoomAnchorActive = Mathf.Abs(targetOrthographicSize - cachedCamera.orthographicSize) > 0.001f;
+        zoomAnchorActive = Mathf.Abs(targetOrthographicSize - cachedCamera.orthographicSize) > 0.0001f;
         if (!zoomAnchorActive) zoomAnchorWorld = Vector3.zero;
     }
 
@@ -279,7 +282,7 @@ public class IslandCameraController : MonoBehaviour
         }
 
         ClampCameraCenterToBounds();
-        if (Mathf.Abs(cachedCamera.orthographicSize - targetOrthographicSize) < 0.01f)
+        if (Mathf.Abs(cachedCamera.orthographicSize - targetOrthographicSize) < 0.001f)
         {
             cachedCamera.orthographicSize = targetOrthographicSize;
             zoomVelocity = 0f;
@@ -390,7 +393,12 @@ public class IslandCameraController : MonoBehaviour
         if (mouse != null)
         {
             position = mouse.position.ReadValue();
-            scrollDelta = mouse.scroll.ReadValue() / 120f;
+            scrollDelta = mouse.scroll.ReadValue();
+            // The Input System normalizes scroll to [-1, 1] by default. Preserve support
+            // for projects opting into Windows' native 120-units-per-notch range.
+            if (InputSystem.settings.scrollDeltaBehavior == InputSettings.ScrollDeltaBehavior.KeepPlatformSpecificInputRange &&
+                (Application.platform == RuntimePlatform.WindowsEditor || Application.platform == RuntimePlatform.WindowsPlayer))
+                scrollDelta /= 120f;
             middlePressed = mouse.middleButton.wasPressedThisFrame;
             middleHeld = mouse.middleButton.isPressed;
             rightPressed = mouse.rightButton.wasPressedThisFrame;

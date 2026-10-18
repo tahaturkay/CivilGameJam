@@ -5,7 +5,7 @@ using UnityEngine;
 public sealed class IslandCursor : MonoBehaviour
 {
     public Texture2D pointer;
-    public Vector2 hotspot=new Vector2(6,5);
+    public Vector2 hotspot=new Vector2(3,3);
     bool focused=true;
     public bool Applied {get;private set;}
 

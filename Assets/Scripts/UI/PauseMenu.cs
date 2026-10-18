@@ -1,5 +1,7 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+using TMPro;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -13,6 +15,20 @@ public class PauseMenu : MonoBehaviour
     public string anaMenuSahnesi = "MainMenu";
 
     public static bool DurdurulduMu { get; private set; }
+    RectTransform pauseCard;
+
+    void Start()
+    {
+        foreach(Transform child in pausePanel.transform)child.gameObject.SetActive(false);
+        var overlay=pausePanel.GetComponent<Image>();if(overlay!=null){overlay.sprite=null;overlay.color=new Color(.04f,.08f,.11f,.65f);}
+        pauseCard=CivicUI.Box("CivicPauseCard",pausePanel.transform,CivicUI.Cream,true).rectTransform;
+        var title=CivicUI.Text("Title",pauseCard,"KISA BİR MOLA",32,CivicUI.Navy);title.fontStyle=FontStyles.Bold;CivicUI.Place(title.rectTransform,32,24,500,56);
+        var subtitle=CivicUI.Text("Subtitle",pauseCard,"Şehir seni bekliyor.",21,CivicUI.Muted);CivicUI.Place(subtitle.rectTransform,32,86,500,40);
+        var resume=CivicUI.Button("Resume",pauseCard,"ŞEHRE DÖN",CivicUI.Teal,CivicUI.Cream,null,Devam);CivicUI.Place((RectTransform)resume.transform,32,152,500,62);
+        var settings=CivicUI.Button("Settings",pauseCard,"AYARLAR & KONTROLLER",CivicUI.Amber,CivicUI.Navy,null,AyarlariAc);CivicUI.Place((RectTransform)settings.transform,32,232,500,62);
+        var menu=CivicUI.Button("Menu",pauseCard,"ANA MENÜ",CivicUI.Navy,CivicUI.Cream,null,AnaMenuyeDon);CivicUI.Place((RectTransform)menu.transform,32,312,500,62);
+    }
+    void LateUpdate(){if(pausePanel.activeSelf&&pauseCard!=null)CivicUI.FitCard(pauseCard,new Vector2(564,410),32,1.6f);}
 
     void Awake()
     {
@@ -41,6 +57,7 @@ public class PauseMenu : MonoBehaviour
         DurdurulduMu = true;
         Time.timeScale = 0f;
         pausePanel.SetActive(true);
+        pausePanel.transform.SetAsLastSibling();
     }
 
     public void Devam()

@@ -874,6 +874,7 @@ GameObject:
   - component: {fileID: 330585547}
   - component: {fileID: 330585548}
   - component: {fileID: 330585549}
+  - component: {fileID: 330585550}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -1039,7 +1040,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::IslandCursor
   pointer: {fileID: 2800000, guid: 59fb6007217ac4cd9b46d0722ef974a6, type: 3}
-  hotspot: {x: 6, y: 5}
+  hotspot: {x: 3, y: 3}
+--- !u!114 &330585550
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 330585543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2eb4592c111f426eaaae92c2493eec6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::IslandPerformanceBudget
 --- !u!1001 &336906878
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1114,7 +1127,7 @@ PrefabInstance:
       objectReference: {fileID: 1164771659}
     - target: {fileID: 4981845140783318802, guid: 5c151845c79534c4eab6f8d2d39b1417, type: 3}
       propertyPath: selSuYuksekligi
-      value: 2.8200002
+      value: 2.7
       objectReference: {fileID: 0}
     - target: {fileID: 4981845140783318802, guid: 5c151845c79534c4eab6f8d2d39b1417, type: 3}
       propertyPath: tsunamiBaslangicZ
@@ -1122,7 +1135,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4981845140783318802, guid: 5c151845c79534c4eab6f8d2d39b1417, type: 3}
       propertyPath: tsunamiSuYuksekligi
-      value: 3.25
+      value: 3.02
       objectReference: {fileID: 0}
     - target: {fileID: 4981845140783318802, guid: 5c151845c79534c4eab6f8d2d39b1417, type: 3}
       propertyPath: temelBinalar.Array.size
@@ -3135,8 +3148,28 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 677871453465968151, guid: 1951338a79fbd44d7b6c2e3facf1cb34, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2051258099}
   m_SourcePrefab: {fileID: 100100000, guid: 1951338a79fbd44d7b6c2e3facf1cb34, type: 3}
+--- !u!1 &2051258098 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 677871453465968151, guid: 1951338a79fbd44d7b6c2e3facf1cb34, type: 3}
+  m_PrefabInstance: {fileID: 2051258097}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &2051258099
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2051258098}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8714db96f732e4bb8a8c4e6f57bfe0b1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DereYatagiKarari
 --- !u!1001 &3283489967467981303
 PrefabInstance:
   m_ObjectHideFlags: 0

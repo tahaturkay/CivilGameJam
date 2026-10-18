@@ -1,114 +1,94 @@
-using System;
+using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 
-// Ana Canvas'a eklenir. Ekranın altında, oyun akarken sırayla tek seferlik yönlendirici ipuçları gösterir.
-// Bir ipucu, koşulu sağlanınca görünür; oyuncu istenen şeyi yapınca ya da süre dolunca kaybolur.
-// Popup, quiz, rapor açıkken gizlenir (süre de işlemez).
+/// <summary>One quiet, non-blocking hint at a time. Disaster guidance outranks general teaching.</summary>
 public class IpucuSistemi : MonoBehaviour
 {
     public GameObject serit;
     public TMP_Text ipucuText;
-    [Tooltip("Oyuncu bir şey yapmasa da ipucu en fazla bu kadar gerçek saniye görünür")]
-    public float enFazlaSure = 9f;
-
-    struct Ipucu
+    public float enFazlaSure=6f;
+    readonly HashSet<int> shown=new HashSet<int>();
+    int active=-1,completed;
+    float elapsed,nextAt;
+    public int SiradakiIndex=>completed;
+    public AfetTuru? CurrentDisasterHint {get;private set;}
+    public string VisibleText=>serit!=null&&serit.activeSelf?ipucuText.text:"";
+    void Awake(){if(serit!=null)serit.SetActive(false);}
+    void Start()
     {
-        public string metin;
-        public Func<GameManager, bool> gorunsunMu;  // ne zaman çıkacak
-        public Func<GameManager, bool> tamamMi;     // oyuncu istenen şeyi yaptı mı
+        if(serit==null||ipucuText==null)return;
+        ipucuText.fontSize=20;ipucuText.fontSizeMax=20;ipucuText.fontSizeMin=16;ipucuText.enableAutoSizing=true;
+        ipucuText.textWrappingMode=TextWrappingModes.Normal;ipucuText.fontStyle=FontStyles.Normal;
+        ipucuText.alignment=TextAlignmentOptions.Center;ipucuText.richText=true;
+        CivicUI.Fill(ipucuText.rectTransform,14);
     }
-
-    Ipucu[] ipuclari;
-    int siradaki;
-    float gorunenSure;
-
-    public int SiradakiIndex { get { return siradaki; } } // otomatik test için
-
-    void Awake()
-    {
-        serit.SetActive(false);
-
-        ipuclari = new[]
-        {
-            new Ipucu
-            {
-                metin = "Binalara tıklayarak bilgi alabilir ve onları yükseltebilirsin.",
-                gorunsunMu = gm => true,
-                tamamMi = gm => BinaPopup.Instance != null && BinaPopup.Instance.panel.activeSelf,
-            },
-            new Ipucu
-            {
-                metin = "Okula tıkla ve quiz çöz: halkın farkındalığı arttıkça afetlerde daha az can kaybedilir.",
-                gorunsunMu = gm => gm.yukseltmeSayisi >= 1 || gm.gun >= 2,
-                tamamMi = gm => QuizManager.Instance != null && QuizManager.Instance.quizPanel.activeSelf,
-            },
-            new Ipucu
-            {
-                metin = "Sağ üstteki butonlarla oyunu hızlandırabilir (2x, 3x) ya da durdurabilirsin.",
-                gorunsunMu = gm => gm.gun >= 2,
-                tamamMi = gm => gm.hizCarpani > 1,
-            },
-            new Ipucu
-            {
-                metin = "Her afet şehrin farklı bir yapısını sınar. Parayı dengeli harca!",
-                gorunsunMu = gm => gm.gun >= 4,
-                tamamMi = gm => false,
-            },
-            new Ipucu
-            {
-                metin = "Hasar alan yapılar onarılana kadar görevini yapamaz. Binaya tıklayıp onarabilirsin.",
-                gorunsunMu = gm => gm.toplamVefat > 0 && HasarliVarMi(gm),
-                tamamMi = gm => !HasarliVarMi(gm),
-            },
-        };
-    }
-
     void Update()
     {
-        var gm = GameManager.Instance;
-        if (gm == null || ipuclari == null) return;
-
-        if (siradaki >= ipuclari.Length || gm.oyunBittiMi)
+        var gm=GameManager.Instance;var data=AnlatiVerisi.Aktif;
+        if(gm==null||data==null||serit==null||ipucuText==null)return;
+        bool blocked=gm.oyunDurduMu||gm.afetSuruyor||gm.afetOlduMu||gm.oyunBittiMi||PauseMenu.DurdurulduMu;
+        if(blocked){serit.SetActive(false);return;}
+        var decision=GetComponent<DereYatagiKarari>();
+        if(decision!=null&&Time.unscaledTime<decision.GeriBildirimBitisi)
+        {Show(decision.GeriBildirim);return;}
+        if(active>=0&&active<10)
         {
-            serit.SetActive(false);
-            return;
+            var disasters=DengeAyarlari.Aktif.afetler;
+            for(int i=0;i<disasters.Length;i++)
+            {
+                int gap=disasters[i].gun-gm.gun,key=10+i;
+                if(gap>=1&&gap<=3&&!shown.Contains(key)&&!Completed(gm,key))
+                {active=key;elapsed=0;nextAt=0;break;}
+            }
         }
-
-        Ipucu ipucu = ipuclari[siradaki];
-
-        // Önceden yapıldıysa hiç göstermeden geç
-        if (gorunenSure == 0f && ipucu.tamamMi(gm) && ipucu.gorunsunMu(gm))
+        if(Time.unscaledTime<nextAt){serit.SetActive(false);return;}
+        if(active<0)Select(gm,data);
+        if(active<0){serit.SetActive(false);return;}
+        if(Completed(gm,active)) {Finish();return;}
+        if(active>=10)
         {
-            Sonraki();
-            return;
+            var setting=DengeAyarlari.Aktif.afetler[active-10];
+            if(gm.gun>=setting.gun){Finish();return;}
+            CurrentDisasterHint=setting.afet;Show(data.AfetIpucu(setting.afet));
         }
-
-        bool baskaPanelAcik = gm.oyunDurduMu || gm.afetOlduMu || PauseMenu.DurdurulduMu;
-        bool goster = ipucu.gorunsunMu(gm) && !baskaPanelAcik;
-        serit.SetActive(goster);
-        if (!goster)
-        {
-            // Popup/quiz açılıp istenen yapıldıysa (ör. ilk ipucu) yine de ilerle
-            if (gorunenSure > 0f && ipucu.tamamMi(gm)) Sonraki();
-            return;
-        }
-
-        ipucuText.text = ipucu.metin;
-        gorunenSure += Time.unscaledDeltaTime;
-        if (ipucu.tamamMi(gm) || gorunenSure >= enFazlaSure) Sonraki();
+        else {CurrentDisasterHint=null;Show(active==0?data.ilkIpucu:active==1?data.okulIpucu+"\n<i>"+data.okulDuygu+"</i>":data.onarimIpucu);}
+        elapsed+=Time.unscaledDeltaTime;if(elapsed>=enFazlaSure)Finish();
     }
-
-    void Sonraki()
+    void Select(GameManager gm,AnlatiVerisi data)
     {
-        siradaki++;
-        gorunenSure = 0f;
-        serit.SetActive(false);
+        var disasters=DengeAyarlari.Aktif.afetler;
+        for(int i=0;i<disasters.Length;i++)
+        {
+            int gap=disasters[i].gun-gm.gun,key=10+i;
+            if(gap>=1&&gap<=3&&!shown.Contains(key)&&!Completed(gm,key)){active=key;return;}
+        }
+        if(!shown.Contains(0)&&gm.yukseltmeSayisi==0&&gm.gun<4){active=0;return;}
+        if(!shown.Contains(1)&&gm.dogruCevapSayisi==0&&(gm.gun>=2||gm.yukseltmeSayisi>0)){active=1;return;}
+        if(!shown.Contains(2)&&HasarliVarMi(gm)){active=2;return;}
     }
-
-    static bool HasarliVarMi(GameManager gm)
+    bool Completed(GameManager gm,int key)
     {
-        return gm.temelBinaHasarli || gm.okulHasarli || gm.akutHasarli
-            || gm.itfaiyeHasarli || gm.setHasarli || gm.altyapiHasarli;
+        if(key==0)return gm.yukseltmeSayisi>0;
+        if(key==1)return gm.dogruCevapSayisi>0;
+        if(key==2)return !HasarliVarMi(gm);
+        var a=DengeAyarlari.Aktif.afetler[key-10];
+        foreach(var type in a.kontrolEdilen)if(gm.Level(type)<a.gerekenLevel||gm.Hasarli(type))return false;
+        return true;
     }
+    void Show(string text)
+    {
+        serit.SetActive(true);if(ipucuText.text!=text)ipucuText.text=text;
+        var rt=(RectTransform)serit.transform;var parent=rt.parent as RectTransform;
+        float scale=CivicUI.ReadableScale(this);rt.localScale=Vector3.one*scale;
+        rt.sizeDelta=new Vector2(Mathf.Min(1100,parent!=null?(parent.rect.width-48)/scale:1100),96);
+        rt.anchoredPosition=new Vector2(0,22);
+    }
+    void Finish(){shown.Add(active);completed++;active=-1;elapsed=0;nextAt=Time.unscaledTime+.7f;CurrentDisasterHint=null;serit.SetActive(false);}
+    public static AfetTuru? HintDisasterForDay(int day)
+    {
+        foreach(var a in DengeAyarlari.Aktif.afetler)if(a.gun-day>=1&&a.gun-day<=3)return a.afet;
+        return null;
+    }
+    static bool HasarliVarMi(GameManager gm)=>gm.temelBinaHasarli||gm.okulHasarli||gm.akutHasarli||gm.itfaiyeHasarli||gm.setHasarli||gm.altyapiHasarli;
 }

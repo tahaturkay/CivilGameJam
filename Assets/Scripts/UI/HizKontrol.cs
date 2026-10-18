@@ -11,6 +11,12 @@ public class HizKontrol : MonoBehaviour
     public Color normalRenk = Color.white;
     public Color seciliRenk = new Color(1f, 0.8f, 0.3f);
 
+    void Start()
+    {
+        if(GameManager.Instance!=null)
+            HizAyarla(DengeAyarlari.Aktif.baslangicHizi);
+    }
+
     public void HizAyarla(int hiz)
     {
         var gm = GameManager.Instance;

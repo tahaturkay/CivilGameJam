@@ -494,6 +494,7 @@ GameObject:
   - component: {fileID: 711307018}
   - component: {fileID: 711307017}
   - component: {fileID: 711307016}
+  - component: {fileID: 711307019}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -575,6 +576,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &711307019
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 711307015}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2eb4592c111f426eaaae92c2493eec6, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::IslandPerformanceBudget
 --- !u!1 &941168356
 GameObject:
   m_ObjectHideFlags: 0
@@ -2226,6 +2239,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MainMenu
   oyunSahnesi: MainScene
   ayarlarPaneli: {fileID: 1657517761}
+  oyunBasligi: "D\u0130REN\xC7L\u0130\n\u015EEH\u0130R"
 --- !u!114 &2008031562
 MonoBehaviour:
   m_ObjectHideFlags: 0

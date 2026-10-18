@@ -2,570 +2,242 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using UnityEngine.Serialization;
+using UnityEngine.EventSystems;
 
-// Sahnede tek bir tane vardır. Herhangi bir binaya tıklanınca BinaPopup.Instance.Ac(binaTuru) çağrılır.
-// Zaman (oyunDurduMu) Time.timeScale ile değil, kendi bayrağımızla durur; böylece animasyonlar çalışmaya devam eder.
+// Contextual building card. Its pointer shield consumes dismissal clicks; only the quiz pauses play.
 public class BinaPopup : MonoBehaviour
 {
     public static BinaPopup Instance;
-
-    [Header("Panel ve Yazılar")]
     public GameObject panel;
     public TMP_Text baslikText;
-    [FormerlySerializedAs("levelText")] public TMP_Text seviyeText; // eski adı levelText; prefab bağlantısı korunur
+    [FormerlySerializedAs("levelText")] public TMP_Text seviyeText;
     public TMP_Text aciklamaText;
-
-    [Header("Butonlar")]
     public Button yukseltButonu;
     public TMP_Text yukseltButonText;
-    public Button quizButonu;      // Sadece Okul seçiliyken görünür
+    public Button quizButonu;
     public Button kapatButonu;
+    [Header("Kart ölçeği (en fazla 1)")]
+    [Range(.7f,1f)] public float nominalPopupScale = 1f;
+    BinaTuru aktifBina;
+    Transform worldAnchor;
+    BuildingVisuals selectedVisual;
+    RectTransform card;
+    TMP_Text actionHint, quizLabel;
+    float openedAt, refreshAt;
+    bool styled;
+    bool JustOpened { get { return Time.unscaledTime-openedAt<.2f; } }
+    public bool AcikMi { get { return panel!=null && panel.activeSelf; } }
+    // World click handlers can also check this when their input executes after the UI click.
+    public static bool DunyaTiklamasiniEngelle { get { return blockedFrame == Time.frameCount || (Instance!=null && Instance.AcikMi); } }
+    static int blockedFrame=-1;
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetRuntimeStatics(){Instance=null;blockedFrame=-1;}
 
-    [Header("Pencere ölçeği")]
-    [Min(1f)] public float nominalPopupScale = 2f;
-
-    private BinaTuru aktifBina;
-    private Image[] starFillImages = new Image[3];
-    private bool styleApplied;
-    private RectTransform popupCardRt;
-    private TMP_Text schoolQuizButtonLabel;
-    private Rect popupLastSafeArea;
-    private int popupLastScreenWidth = -1;
-    private int popupLastScreenHeight = -1;
-
-    // Popup bir binaya tıklanınca açılıyor; aynı tıklama alttaki butona (ör. X) denk gelmesin diye kısa koruma
-    private float acilisZamani;
-    private const float TiklamaKorumasi = 0.2f;
-    private static readonly Vector2 StandardCardSize = new Vector2(540f, 430f);
-    private static readonly Vector2 SchoolCardSize = new Vector2(700f, 460f);
-    private bool YeniAcildi { get { return Time.unscaledTime - acilisZamani < TiklamaKorumasi; } }
-
-    private void Awake()
+    void Awake()
     {
-        Instance = this;
-        if (kapatButonu == null && panel != null)
-        {
-            Transform x = FindChild(panel.transform, "KapatButonu");
-            if (x != null) kapatButonu = x.GetComponent<Button>();
-        }
-        ApplyPrototypePopupStyle();
-        panel.SetActive(false);
+        Instance=this;
+        BuildCard();
+        if(panel!=null)panel.SetActive(false);
     }
-
-    private void Update()
+    void Start()
     {
-        if (panel != null && panel.activeSelf)
-            FitPopupToSafeArea(false);
+        Bind(yukseltButonu,YukseltTiklandi); Bind(quizButonu,QuizTiklandi); Bind(kapatButonu,Kapat);
     }
-
-    private void Start()
+    void OnDestroy() { if(Instance==this)Instance=null; }
+    static void Bind(Button button,UnityEngine.Events.UnityAction action)
     {
-        // Prefab'da Inspector'dan bağlı olan butonlara kodla ikinci kez bağlanırsa bir tık iki kez çalışır (çift yükseltme)
-        BagliDegilseBagla(yukseltButonu, YukseltTiklandi);
-        BagliDegilseBagla(quizButonu, QuizTiklandi);
-        BagliDegilseBagla(kapatButonu, Kapat);
+        if(button!=null && button.onClick.GetPersistentEventCount()==0)button.onClick.AddListener(action);
     }
-
-    private void OnDestroy()
+    void Update()
     {
-        if (Instance == this) Instance = null;
+        if(!AcikMi)return;
+        var gm=GameManager.Instance;
+        if(gm==null || gm.afetSuruyor || gm.afetOlduMu || gm.oyunBittiMi || gm.oyunDurduMu || PauseMenu.DurdurulduMu) { CloseImmediately(); return; }
+        if(Time.unscaledTime>=refreshAt) { Guncelle(); refreshAt=Time.unscaledTime+.2f; }
     }
-
-    private static void BagliDegilseBagla(Button btn, UnityEngine.Events.UnityAction fonksiyon)
+    void LateUpdate() { if(AcikMi)PositionCard(); }
+    void BuildCard()
     {
-        if (btn != null && btn.onClick.GetPersistentEventCount() == 0) btn.onClick.AddListener(fonksiyon);
+        if(styled || panel==null)return; styled=true;
+        TMP_FontAsset font=baslikText!=null?baslikText.font:null;
+        var overlay=panel.GetComponent<Image>(); if(overlay==null)overlay=panel.AddComponent<Image>();
+        overlay.sprite=null; overlay.color=Color.clear; overlay.raycastTarget=true;
+        CivicUI.Fill((RectTransform)panel.transform);
+        var surface=panel.GetComponent<BuildingCardDismissSurface>();
+        if(surface==null)surface=panel.AddComponent<BuildingCardDismissSurface>(); surface.owner=this;
+        var box=CivicUI.Box("ContextBuildingCard",panel.transform,CivicUI.Cream,true); card=box.rectTransform;
+        var shadow=box.gameObject.AddComponent<Shadow>(); shadow.effectColor=new Color(0,0,0,.22f); shadow.effectDistance=new Vector2(7,-7);
+        card.sizeDelta=new Vector2(430,400);
+        // Keep all inspector-backed controls and event bindings, replace only their visual layout.
+        if(baslikText!=null)baslikText.transform.SetParent(card,false);
+        if(seviyeText!=null)seviyeText.transform.SetParent(card,false);
+        if(aciklamaText!=null)aciklamaText.transform.SetParent(card,false);
+        if(yukseltButonu!=null)yukseltButonu.transform.SetParent(card,false);
+        if(quizButonu!=null)quizButonu.transform.SetParent(card,false);
+        if(kapatButonu!=null)kapatButonu.transform.SetParent(card,false);
+        foreach(Transform child in panel.transform)if(child!=card)child.gameObject.SetActive(false);
+        var stripe=CivicUI.Box("Accent",card,CivicUI.Teal); CivicUI.Place(stripe.rectTransform,0,0,430,6);
+        if(baslikText==null)baslikText=CivicUI.Text("Title",card,"",26,CivicUI.Navy,font);
+        if(seviyeText==null)seviyeText=CivicUI.Text("Level",card,"",18,CivicUI.Teal,font);
+        if(aciklamaText==null)aciklamaText=CivicUI.Text("Description",card,"",20,CivicUI.Navy,font);
+        StyleText(baslikText,26,CivicUI.Navy,true); CivicUI.Place(baslikText.rectTransform,24,22,330,40);
+        StyleText(seviyeText,18,CivicUI.Teal,true); CivicUI.Place(seviyeText.rectTransform,24,66,382,30);
+        StyleText(aciklamaText,20,CivicUI.Navy,false); aciklamaText.alignment=TextAlignmentOptions.TopLeft;
+        CivicUI.Place(aciklamaText.rectTransform,24,112,382,167);
+        actionHint=CivicUI.Text("ActionHint",card,"",16,CivicUI.Muted,font); CivicUI.Place(actionHint.rectTransform,24,278,382,34);
+        if(yukseltButonu==null)yukseltButonu=CivicUI.Button("Upgrade",card,"",CivicUI.Teal,CivicUI.Cream,font,null);
+        if(yukseltButonText==null)yukseltButonText=yukseltButonu.GetComponentInChildren<TMP_Text>(true);
+        StyleButton(yukseltButonu,yukseltButonText,CivicUI.Teal,CivicUI.Cream,24,322,382,54);
+        if(quizButonu==null)quizButonu=CivicUI.Button("Quiz",card,"BİRLİKTE ÖĞREN · QUIZ",CivicUI.Amber,CivicUI.Navy,font,null);
+        quizLabel=quizButonu.GetComponentInChildren<TMP_Text>(true);
+        StyleButton(quizButonu,quizLabel,CivicUI.Amber,CivicUI.Navy,24,388,382,48);
+        if(quizLabel!=null)quizLabel.text="FARKINDALIK QUIZİ";
+        if(kapatButonu==null)kapatButonu=CivicUI.Button("Close",card,"×",CivicUI.Navy,CivicUI.Cream,font,null);
+        StyleButton(kapatButonu,kapatButonu.GetComponentInChildren<TMP_Text>(true),CivicUI.Navy,CivicUI.Cream,370,20,38,38);
+        var closeLabel=kapatButonu.GetComponentInChildren<TMP_Text>(true); if(closeLabel!=null)closeLabel.text="×";
     }
-
-    private static Transform FindChild(Transform kok, string ad)
+    static void StyleText(TMP_Text t,float size,Color color,bool bold)
     {
-        foreach (Transform t in kok.GetComponentsInChildren<Transform>(true))
-            if (t.name == ad) return t;
-        return null;
+        var le=t.GetComponent<LayoutElement>(); if(le!=null)le.ignoreLayout=true;
+        t.fontSize=size; t.enableAutoSizing=false; t.fontStyle=bold?FontStyles.Bold:FontStyles.Normal;
+        t.color=color; t.textWrappingMode=TextWrappingModes.Normal; t.overflowMode=TextOverflowModes.Overflow;
+        t.alignment=TextAlignmentOptions.MidlineLeft; t.raycastTarget=false;
     }
-
-    private void ApplyPrototypePopupStyle()
+    static void StyleButton(Button button,TMP_Text label,Color fill,Color ink,float x,float y,float w,float h)
     {
-        if (styleApplied || panel == null) return;
-        styleApplied = true;
-
-        TMP_FontAsset font = baslikText != null ? baslikText.font : null;
-
-        // Arka plan karartma örtüsü
-        Image overlayImg = panel.GetComponent<Image>();
-        if (overlayImg != null)
-        {
-            overlayImg.sprite = null;
-            overlayImg.color = new Color32(10, 17, 28, 155);
-        }
-        UIManager.StretchFull(panel.GetComponent<RectTransform>());
-
-        Transform pencereTr = panel.transform.Find("Pencere");
-        if (pencereTr == null) pencereTr = PencereOlustur();
-
-        // Eski otomatik layout ve eski çocukları temizleyip referans görseldeki kurdeleli + yıldızlı piksel-art modal kartı kuralım
-        VerticalLayoutGroup oldVlg = pencereTr.GetComponent<VerticalLayoutGroup>();
-        if (oldVlg != null) Destroy(oldVlg);
-
-        RectTransform cardRt = pencereTr.GetComponent<RectTransform>();
-        popupCardRt = cardRt;
-        cardRt.anchorMin = new Vector2(0.5f, 0.5f);
-        cardRt.anchorMax = new Vector2(0.5f, 0.5f);
-        cardRt.pivot = new Vector2(0.5f, 0.5f);
-        cardRt.anchoredPosition = Vector2.zero;
-        cardRt.sizeDelta = StandardCardSize;
-        cardRt.localScale = Vector3.one * nominalPopupScale;
-
-        Image cardImg = pencereTr.GetComponent<Image>();
-        if (cardImg != null)
-        {
-            cardImg.sprite = UIManager.GetSteppedModalSprite();
-            cardImg.type = Image.Type.Sliced;
-            cardImg.color = Color.white;
-        }
-
-        // Mevcut referans objelerini kendi tasarımımıza dönüştür
-        for (int i = pencereTr.childCount - 1; i >= 0; i--)
-        {
-            Transform ch = pencereTr.GetChild(i);
-            if (ch.name == "AltButonlar") continue;
-            ch.SetParent(pencereTr, false);
-        }
-
-        // 1) Üst Mavi Kurdele (Ribbon Banner)
-        Image rMain, rLeft, rRight;
-        TMP_Text ribbonTmp;
-        RectTransform ribbonRt = UIManager.CreateRibbonBanner(
-            cardRt, font, "BİNA BİLGİSİ",
-            UIManager.RibbonBlue, UIManager.RibbonBlueDark, UIManager.RibbonBlueDark,
-            out rMain, out rLeft, out rRight, out ribbonTmp);
-
-        if (baslikText != null)
-        {
-            Destroy( ribbonTmp.gameObject );
-            baslikText.transform.SetParent(ribbonRt, false);
-            baslikText.fontSize = 26f;
-            baslikText.fontStyle = FontStyles.Bold;
-            baslikText.color = Color.white;
-            baslikText.alignment = TextAlignmentOptions.Center;
-            RectTransform btRt = baslikText.rectTransform;
-            btRt.anchorMin = Vector2.zero;
-            btRt.anchorMax = Vector2.one;
-            btRt.offsetMin = new Vector2(16f, 6f);
-            btRt.offsetMax = new Vector2(-16f, 0f);
-        }
-
-        // Sağ üst Kapat (X) butonu
-        if (kapatButonu != null)
-        {
-            kapatButonu.transform.SetParent(cardRt, false);
-            LayoutElement le = kapatButonu.GetComponent<LayoutElement>();
-            if (le != null) Destroy(le);
-
-            RectTransform closeRt = kapatButonu.GetComponent<RectTransform>();
-            closeRt.anchorMin = new Vector2(1f, 1f);
-            closeRt.anchorMax = new Vector2(1f, 1f);
-            closeRt.pivot = new Vector2(0.5f, 0.5f);
-            closeRt.anchoredPosition = new Vector2(-10f, -14f);
-            closeRt.sizeDelta = new Vector2(44f, 44f);
-
-            Image closeImg = kapatButonu.GetComponent<Image>();
-            closeImg.sprite = UIManager.GetCreamBoxSprite(UIManager.RedClose, UIManager.RedCloseDark);
-            closeImg.type = Image.Type.Sliced;
-            closeImg.color = Color.white;
-
-            TMP_Text closeTxt = kapatButonu.GetComponentInChildren<TMP_Text>();
-            if (closeTxt != null)
-            {
-                closeTxt.text = "X";
-                closeTxt.fontSize = 22f;
-                closeTxt.fontStyle = FontStyles.Bold;
-                closeTxt.color = Color.white;
-                closeTxt.alignment = TextAlignmentOptions.Center;
-                closeTxt.rectTransform.offsetMin = new Vector2(0f, 4f);
-                closeTxt.rectTransform.offsetMax = Vector2.zero;
-            }
-        }
-
-        // 2) 3'lü Yıldız Seviye Yuvası (Image 1 & 2'deki gibi)
-        GameObject starsRow = new GameObject("StarsRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
-        starsRow.transform.SetParent(cardRt, false);
-        RectTransform srRt = starsRow.GetComponent<RectTransform>();
-        srRt.anchorMin = new Vector2(0.5f, 1f);
-        srRt.anchorMax = new Vector2(0.5f, 1f);
-        srRt.pivot = new Vector2(0.5f, 1f);
-        srRt.anchoredPosition = new Vector2(0f, -96f);
-        srRt.sizeDelta = new Vector2(210f, 52f);
-
-        HorizontalLayoutGroup sHlg = starsRow.GetComponent<HorizontalLayoutGroup>();
-        sHlg.spacing = 14f;
-        sHlg.childAlignment = TextAnchor.MiddleCenter;
-        sHlg.childControlWidth = false;
-        sHlg.childControlHeight = false;
-
-        for (int i = 0; i < 3; i++)
-        {
-            GameObject slot = new GameObject("StarSlot_" + (i + 1), typeof(RectTransform), typeof(Image));
-            slot.transform.SetParent(starsRow.transform, false);
-            slot.GetComponent<RectTransform>().sizeDelta = new Vector2(52f, 50f);
-            Image slotBg = slot.GetComponent<Image>();
-            slotBg.sprite = UIManager.GetDarkSlotSprite();
-            slotBg.type = Image.Type.Sliced;
-
-            GameObject starIcon = new GameObject("StarFill", typeof(RectTransform), typeof(Image));
-            starIcon.transform.SetParent(slot.transform, false);
-            RectTransform stRt = starIcon.GetComponent<RectTransform>();
-            stRt.anchorMin = new Vector2(0.5f, 0.5f);
-            stRt.anchorMax = new Vector2(0.5f, 0.5f);
-            stRt.sizeDelta = new Vector2(36f, 36f);
-            stRt.anchoredPosition = new Vector2(0f, 1f);
-
-            Image stImg = starIcon.GetComponent<Image>();
-            stImg.sprite = UIManager.GetColoredIconSprite(UIManager.IconType.Star, UIManager.GoldStar);
-            starFillImages[i] = stImg;
-        }
-
-        // Seviye Etiketi
-        if (seviyeText != null)
-        {
-            LayoutElement le = seviyeText.GetComponent<LayoutElement>();
-            if (le != null) Destroy(le);
-            seviyeText.transform.SetParent(cardRt, false);
-            RectTransform svRt = seviyeText.rectTransform;
-            svRt.anchorMin = new Vector2(0f, 1f);
-            svRt.anchorMax = new Vector2(1f, 1f);
-            svRt.pivot = new Vector2(0.5f, 1f);
-            svRt.anchoredPosition = new Vector2(0f, -152f);
-            svRt.sizeDelta = new Vector2(-60f, 28f);
-            seviyeText.fontSize = 18f;
-            seviyeText.fontStyle = FontStyles.Bold;
-            seviyeText.color = UIManager.MutedText;
-            seviyeText.alignment = TextAlignmentOptions.Center;
-        }
-
-        // 3) Koyu Çerçeveli Açıklama Kutusu
-        GameObject descBox = new GameObject("DescSlotBox", typeof(RectTransform), typeof(Image));
-        descBox.transform.SetParent(cardRt, false);
-        RectTransform dbRt = descBox.GetComponent<RectTransform>();
-        dbRt.anchorMin = new Vector2(0f, 0f);
-        dbRt.anchorMax = new Vector2(1f, 1f);
-        dbRt.offsetMin = new Vector2(32f, 108f);
-        dbRt.offsetMax = new Vector2(-32f, -184f);
-
-        Image dbImg = descBox.GetComponent<Image>();
-        dbImg.sprite = UIManager.GetDarkSlotSprite();
-        dbImg.type = Image.Type.Sliced;
-
-        if (aciklamaText != null)
-        {
-            LayoutElement le = aciklamaText.GetComponent<LayoutElement>();
-            if (le != null) Destroy(le);
-            aciklamaText.transform.SetParent(descBox.transform, false);
-            RectTransform acRt = aciklamaText.rectTransform;
-            acRt.anchorMin = Vector2.zero;
-            acRt.anchorMax = Vector2.one;
-            acRt.offsetMin = new Vector2(18f, 14f);
-            acRt.offsetMax = new Vector2(-18f, -14f);
-            aciklamaText.fontSize = 20f;
-            aciklamaText.fontStyle = FontStyles.Bold;
-            aciklamaText.color = Color.white;
-            aciklamaText.alignment = TextAlignmentOptions.Center;
-        }
-
-        // 4) Alt İki Tonlu (Two-Tone) Butonlar: YÜKSELT ve (Sadece Okulda) QUİZ ÇÖZ
-        Transform altButonlar = pencereTr.Find("AltButonlar");
-        if (altButonlar != null)
-        {
-            LayoutElement le = altButonlar.GetComponent<LayoutElement>();
-            if (le != null) Destroy(le);
-            RectTransform abRt = altButonlar.GetComponent<RectTransform>();
-            abRt.anchorMin = new Vector2(0f, 0f);
-            abRt.anchorMax = new Vector2(1f, 0f);
-            abRt.pivot = new Vector2(0.5f, 0f);
-            abRt.anchoredPosition = new Vector2(0f, 26f);
-            abRt.sizeDelta = new Vector2(-64f, 62f);
-
-            HorizontalLayoutGroup hlg = altButonlar.GetComponent<HorizontalLayoutGroup>();
-            if (hlg != null)
-            {
-                hlg.spacing = 14f;
-                hlg.childControlWidth = true;
-                hlg.childControlHeight = true;
-                hlg.childForceExpandWidth = true;
-                hlg.childForceExpandHeight = true;
-            }
-        }
-
-        StyleExistingButtonAsTwoTone(yukseltButonu, yukseltButonText, UIManager.GreenBtn, UIManager.GreenBtnLeft, UIManager.GreenBtnDark, UIManager.IconType.UpArrow);
-        if (kapatButonu != null) kapatButonu.transform.SetAsLastSibling(); // kurdelenin ve diğer kutuların önünde dursun
-        TMP_Text quizBtnText = quizButonu != null ? quizButonu.GetComponentInChildren<TMP_Text>() : null;
-        schoolQuizButtonLabel = quizBtnText;
-        if (quizBtnText != null) quizBtnText.text = "QUİZ ÇÖZ";
-        StyleExistingButtonAsTwoTone(quizButonu, quizBtnText, UIManager.GoldBtn, UIManager.GoldBtnLeft, UIManager.GoldBtnDark, UIManager.IconType.Book);
+        var le=button.GetComponent<LayoutElement>(); if(le!=null)le.ignoreLayout=true;
+        CivicUI.Place((RectTransform)button.transform,x,y,w,h);
+        var img=button.GetComponent<Image>(); if(img!=null){img.sprite=null;img.color=fill;button.targetGraphic=img;}
+        foreach(Transform child in button.transform)if(label==null || child!=label.transform)child.gameObject.SetActive(false);
+        if(label!=null){StyleText(label,20,ink,true);label.alignment=TextAlignmentOptions.Center;CivicUI.Fill(label.rectTransform,8);}
     }
-
-    // Prefab'da kart (Pencere) yoksa oluştur: panel ekranı kaplayan karartma olur, eski çocuklar kartın içine taşınır
-    private Transform PencereOlustur()
+    public void Ac(BinaTuru bina) { Ac(bina,null); }
+    public void Ac(BinaTuru bina,Transform anchor)
     {
-        RectTransform panelRt = panel.GetComponent<RectTransform>();
-        UIManager.StretchFull(panelRt);
-
-        var eskiCocuklar = new System.Collections.Generic.List<Transform>();
-        foreach (Transform ch in panel.transform) eskiCocuklar.Add(ch);
-
-        GameObject pencere = new GameObject("Pencere", typeof(RectTransform), typeof(Image));
-        pencere.transform.SetParent(panel.transform, false);
-        foreach (Transform ch in eskiCocuklar) ch.SetParent(pencere.transform, false);
-
-        GameObject alt = new GameObject("AltButonlar", typeof(RectTransform), typeof(HorizontalLayoutGroup));
-        alt.transform.SetParent(pencere.transform, false);
-        if (yukseltButonu != null) yukseltButonu.transform.SetParent(alt.transform, false);
-        if (quizButonu != null) quizButonu.transform.SetParent(alt.transform, false);
-
-        return pencere.transform;
+        var gm=GameManager.Instance;
+        if(gm==null || gm.afetSuruyor || gm.afetOlduMu || gm.oyunBittiMi || gm.oyunDurduMu || PauseMenu.DurdurulduMu)return;
+        BuildCard(); if(panel==null)return;
+        aktifBina=bina; worldAnchor=anchor; selectedVisual=anchor!=null?anchor.GetComponentInParent<BuildingVisuals>():null; openedAt=Time.unscaledTime; blockedFrame=Time.frameCount;
+        Guncelle(); panel.SetActive(true); panel.transform.SetAsLastSibling(); PositionCard();
     }
-
-    private void StyleExistingButtonAsTwoTone(
-        Button btn, TMP_Text label,
-        Color32 mainFill, Color32 leftFill, Color32 shadowCol,
-        UIManager.IconType iconType)
+    void PositionCard()
     {
-        if (btn == null) return;
-        Image img = btn.GetComponent<Image>();
-        if (img != null)
+        if(card==null)return;
+        var parent=card.parent as RectTransform; if(parent==null)return;
+        Canvas canvas=panel.GetComponentInParent<Canvas>();
+        Camera uiCamera=canvas!=null && canvas.rootCanvas.renderMode!=RenderMode.ScreenSpaceOverlay?canvas.rootCanvas.worldCamera:null;
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(parent,Screen.safeArea.min,uiCamera,out Vector2 min);
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(parent,Screen.safeArea.max,uiCamera,out Vector2 max);
+        float scale=Mathf.Min(Mathf.Clamp(nominalPopupScale,.7f,1f)*CivicUI.ReadableScale(this),Mathf.Min((max.x-min.x-40)/card.sizeDelta.x,(max.y-min.y-160)/card.sizeDelta.y));
+        scale=Mathf.Max(.1f,scale); card.localScale=Vector3.one*scale;
+        card.anchorMin=card.anchorMax=card.pivot=Vector2.one*.5f;
+        Vector2 half=card.sizeDelta*scale*.5f;
+        Vector2 position=new Vector2(max.x-half.x-24,(min.y+max.y)*.5f);
+        if(worldAnchor!=null && Camera.main!=null)
         {
-            img.sprite = UIManager.GetTwoToneButtonSprite(mainFill, leftFill, shadowCol);
-            img.type = Image.Type.Sliced;
-            img.color = Color.white;
+            Vector3 screen=Camera.main.WorldToScreenPoint(worldAnchor.position);
+            if(screen.z<=0){CloseImmediately();return;}
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(parent,screen,uiCamera,out Vector2 local);
+            // Place beside the structure, leaving the actual upgrade animation unobscured.
+            bool right=local.x+half.x*2+66<max.x;
+            position=local+new Vector2(right?half.x+66:-half.x-66,half.y*.18f);
         }
-
-        Transform oldIcon = btn.transform.Find("LeftIcon");
-        if (oldIcon != null) Destroy(oldIcon.gameObject);
-
-        GameObject iconObj = new GameObject("LeftIcon", typeof(RectTransform), typeof(Image));
-        iconObj.transform.SetParent(btn.transform, false);
-        RectTransform iconRt = iconObj.GetComponent<RectTransform>();
-        iconRt.anchorMin = new Vector2(0f, 0.5f);
-        iconRt.anchorMax = new Vector2(0f, 0.5f);
-        iconRt.pivot = new Vector2(0.5f, 0.5f);
-        iconRt.anchoredPosition = new Vector2(22f, 2f);
-        iconRt.sizeDelta = new Vector2(48f, 48f);
-        Image iconImg = iconObj.GetComponent<Image>();
-        iconImg.sprite = UIManager.GetColoredIconSprite(iconType, Color.white);
-        iconImg.raycastTarget = false;
-
-        if (label != null)
-        {
-            label.fontSize = 20f;
-            label.fontStyle = FontStyles.Bold;
-            label.color = UIManager.DarkInk;
-            label.alignment = TextAlignmentOptions.Center;
-            RectTransform lRt = label.rectTransform;
-            lRt.anchorMin = Vector2.zero;
-            lRt.anchorMax = Vector2.one;
-            lRt.offsetMin = new Vector2(72f, 5f);
-            lRt.offsetMax = new Vector2(-8f, 0f);
-        }
+        position.x=Mathf.Clamp(position.x,min.x+half.x+20,max.x-half.x-20);
+        position.y=Mathf.Clamp(position.y,min.y+half.y+30,max.y-half.y-110);
+        card.anchoredPosition=position;
     }
-
-    public void Ac(BinaTuru bina)
+    public void Kapat() { if(!JustOpened)CloseImmediately(); }
+    public void DisariTiklandi() { if(!JustOpened){blockedFrame=Time.frameCount;CloseImmediately();} }
+    void CloseImmediately()
     {
-        // Afet ya da oyun sonu ekranı açıkken bina popup'ı açılmasın
-        var gm = GameManager.Instance;
-        if (gm != null && (gm.afetOlduMu || gm.oyunBittiMi)) return;
-
-        aktifBina = bina;
-        acilisZamani = Time.unscaledTime;
-        if (gm != null) gm.oyunDurduMu = true;
-
-        Guncelle();
-        panel.SetActive(true);
-        FitPopupToSafeArea(true);
+        if(panel!=null)panel.SetActive(false);
+        worldAnchor=null; selectedVisual=null;
+        // This card does not own the game's pause flag.
     }
-
-    private void FitPopupToSafeArea(bool force)
+    void Guncelle()
     {
-        if (popupCardRt == null) return;
-        Rect safeArea = Screen.safeArea;
-        if (!force && popupLastScreenWidth == Screen.width && popupLastScreenHeight == Screen.height &&
-            popupLastSafeArea == safeArea) return;
-
-        RectTransform parentRect = popupCardRt.parent as RectTransform;
-        if (parentRect == null) return;
-
-        Canvas canvas = panel.GetComponentInParent<Canvas>();
-        Camera uiCamera = canvas != null && canvas.rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay
-            ? canvas.rootCanvas.worldCamera
-            : null;
-        Vector2 safeMin;
-        Vector2 safeMax;
-        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(parentRect, safeArea.min, uiCamera, out safeMin) ||
-            !RectTransformUtility.ScreenPointToLocalPointInRectangle(parentRect, safeArea.max, uiCamera, out safeMax))
-        {
-            safeMin = parentRect.rect.min;
-            safeMax = parentRect.rect.max;
-        }
-
-        // Leave room for the close button and ribbon tails, which extend beyond the card edge.
-        float availableWidth = Mathf.Max(1f, safeMax.x - safeMin.x - 96f);
-        float availableHeight = Mathf.Max(1f, safeMax.y - safeMin.y - 32f);
-        float fitScale = Mathf.Min(nominalPopupScale,
-            Mathf.Min(availableWidth / popupCardRt.sizeDelta.x, availableHeight / popupCardRt.sizeDelta.y));
-        fitScale = Mathf.Max(0.01f, fitScale);
-        popupCardRt.localScale = Vector3.one * fitScale;
-        popupCardRt.anchoredPosition = (safeMin + safeMax) * 0.5f;
-
-        popupLastScreenWidth = Screen.width;
-        popupLastScreenHeight = Screen.height;
-        popupLastSafeArea = safeArea;
+        var gm=GameManager.Instance; if(gm==null)return;
+        var d=DengeAyarlari.Aktif; int level=gm.Level(aktifBina); bool damaged=gm.Hasarli(aktifBina);
+        bool school=aktifBina==BinaTuru.Okul && !damaged;
+        card.sizeDelta=new Vector2(430,school?460:400);
+        bool selectedDamaged=selectedVisual!=null?selectedVisual.IsDamaged:damaged;
+        string condition=selectedDamaged?(selectedVisual!=null?AfetAdi(selectedVisual.DamageCause)+" HASARI":"HASARLI"):"BU YAPI SAĞLAM";
+        seviyeText.text="SEVİYE "+level+" / "+d.maxLevel+"   ·   "+TurkishTMPFontSupport.TurkceBuyukHarf(condition);
+        seviyeText.color=selectedDamaged?new Color32(165,68,48,255):CivicUI.Teal;
+        BinaBilgileriniDoldur(aktifBina,level,damaged);
+        int cost=damaged?Ekonomi.OnarimMaliyeti(aktifBina):Ekonomi.YukseltmeMaliyeti(aktifBina);
+        bool max=!damaged && level>=d.maxLevel;
+        yukseltButonText.text=max?"EN YÜKSEK SEVİYE":(damaged?"ONAR":"YÜKSELT")+"  ·  "+cost+" COIN";
+        yukseltButonu.interactable=damaged?Ekonomi.OnarilabilirMi(aktifBina):Ekonomi.YukseltilebilirMi(aktifBina);
+        actionHint.text=max?"Bu yapı tamamen geliştirildi.":gm.para<cost?(cost-gm.para)+" coin daha gerekli. Günlük geliri bekleyebilirsin.":damaged?"Onar ve yapıyı yeniden göreve döndür.":"Bir sonraki seviye için hazır.";
+        if(damaged && gm.para>=cost)actionHint.text=selectedDamaged?"Onarım, bu gruptaki hasarlı yapıları iyileştirir.":"Bu yapı sağlam. Onarım gruptaki hasarlı yapılar içindir.";
+        if(quizButonu!=null)quizButonu.gameObject.SetActive(school);
     }
-
-    public void Kapat()
+    void BinaBilgileriniDoldur(BinaTuru bina,int level,bool damaged)
     {
-        if (YeniAcildi) return;
-        PaneliKapat();
-    }
-
-    private void PaneliKapat()
-    {
-        panel.SetActive(false);
-        if (GameManager.Instance != null)
-            GameManager.Instance.oyunDurduMu = false;
-    }
-
-    private void Guncelle()
-    {
-        GameManager gm = GameManager.Instance;
-        if (gm == null) return;
-
-        bool okulPopup = aktifBina == BinaTuru.Okul;
-        if (popupCardRt != null)
-            popupCardRt.sizeDelta = okulPopup ? SchoolCardSize : StandardCardSize;
-
-        int level = gm.Level(aktifBina);
-        bool hasarli = gm.Hasarli(aktifBina);
-        int maxLevel = DengeAyarlari.Aktif.maxLevel;
-
-        if (seviyeText != null) seviyeText.text = hasarli
-            ? "Seviye " + level + "  (HASARLI)"
-            : "Seviye " + level + " / " + maxLevel;
-        if (baslikText != null) baslikText.fontSize = okulPopup ? 29f : 26f;
-        if (seviyeText != null) seviyeText.fontSize = okulPopup ? 20f : 18f;
-        if (aciklamaText != null)
-        {
-            aciklamaText.fontSize = okulPopup ? 22f : 20f;
-            aciklamaText.enableAutoSizing = true;
-            aciklamaText.fontSizeMin = okulPopup ? 18f : 16f;
-            aciklamaText.fontSizeMax = okulPopup ? 22f : 20f;
-            aciklamaText.textWrappingMode = TextWrappingModes.Normal;
-        }
-        BinaBilgileriniDoldur(aktifBina, level, hasarli);
-
-        // Yıldızları güncelle
-        for (int i = 0; i < starFillImages.Length; i++)
-        {
-            if (starFillImages[i] != null)
-            {
-                starFillImages[i].color = (i < level) ? Color.white : new Color(1f, 1f, 1f, 0.14f);
-            }
-        }
-
-        if (hasarli)
-        {
-            int maliyet = Ekonomi.OnarimMaliyeti(aktifBina);
-            yukseltButonText.text = "Onar (" + maliyet + " coin)";
-            yukseltButonu.interactable = Ekonomi.OnarilabilirMi(aktifBina);
-        }
-        else if (level >= maxLevel)
-        {
-            yukseltButonText.text = "MAKS SEVİYE";
-            yukseltButonu.interactable = false;
-        }
-        else
-        {
-            int maliyet = Ekonomi.YukseltmeMaliyeti(aktifBina);
-            yukseltButonText.text = "Yükselt (" + maliyet + " coin)";
-            yukseltButonu.interactable = Ekonomi.YukseltilebilirMi(aktifBina);
-        }
-
-        // Quiz Çöz butonu SADECE Okul popup'ında (ve okul hasarsızken) aktif olsun; diğer binalarda tamamen gizlensin
-        bool okulMu = (aktifBina == BinaTuru.Okul) && !hasarli;
-        if (quizButonu != null)
-        {
-            quizButonu.gameObject.SetActive(okulMu);
-        }
-        if (schoolQuizButtonLabel != null)
-            schoolQuizButtonLabel.fontSize = okulPopup ? 22f : 20f;
-        if (yukseltButonText != null)
-            yukseltButonText.fontSize = okulPopup ? 22f : 20f;
-
-        // Eğer Quiz butonu gizliyse Yükselt butonu tek başına ortada şık dursun
-        Transform altButonlar = yukseltButonu != null ? yukseltButonu.transform.parent : null;
-        if (altButonlar != null)
-        {
-            RectTransform abRt = altButonlar.GetComponent<RectTransform>();
-            if (abRt != null)
-            {
-                abRt.sizeDelta = okulMu ? new Vector2(-64f, 62f) : new Vector2(-180f, 62f);
-            }
-        }
-    }
-
-    private void BinaBilgileriniDoldur(BinaTuru bina, int level, bool hasarli)
-    {
-        var d = DengeAyarlari.Aktif;
-        string uyari = hasarli ? "\n\nHASARLI: Onarılana kadar görevini yapamaz!" : "";
-
-        switch (bina)
+        var gm=GameManager.Instance; var d=DengeAyarlari.Aktif; string text;
+        switch(bina)
         {
             case BinaTuru.TemelBina:
-                baslikText.text = "KONUTLAR";
-                aciklamaText.text = "Halkın yaşadığı evler. Seviye arttıkça nüfus kapasitesi büyür ve depreme dayanıklılık artar.\n"
-                                  + "Kapasite: " + d.KonutKapasitesi(level) + " kişi" + uyari;
-                break;
-
+                baslikText.text="KONUTLAR";
+                text="Şehrin evi ve gelir kaynağı.\nNüfus: "+gm.nufus+" / "+Ekonomi.NufusKapasitesi()+" kişi\nGünlük gelir: +"+Ekonomi.GunlukGelir()+" coin\n";
+                text+=level<d.maxLevel?"Sonraki: "+d.KonutKapasitesi(level+1)+" kişi · gelir ×"+HousingMultiplier(level+1).ToString("0.##"):"Kapasite tamamen geliştirildi.";
+                text+=damaged?"\nGruptaki hasar geliri yarıya düşürüyor.":"\n"+Defense(AfetTuru.Deprem,level,damaged); break;
             case BinaTuru.Okul:
-                baslikText.text = "OKUL";
-                aciklamaText.text = "Halkı afetlere karşı eğitir. Quiz çözerek farkındalığı artırabilirsin.\n"
-                                  + "Bu seviyede en yüksek farkındalık: %" + Mathf.RoundToInt(d.FarkindalikTavani(level)) + uyari;
-                break;
-
+                baslikText.text="OKUL";
+                text="Bilgi paylaş, afetlere birlikte hazırlan.\nFarkındalık: %"+Mathf.RoundToInt(gm.farkindalikYuzdesi)+" / %"+Mathf.RoundToInt(d.FarkindalikTavani(level))+"\n";
+                text+=damaged?"Quiz için önce okulu onar.":"Quiz ile farkındalığı artır.\n"+Defense(AfetTuru.Deprem,level,damaged); break;
             case BinaTuru.Akut:
-                baslikText.text = "AKUT MERKEZİ";
-                aciklamaText.text = "Arama-kurtarma ekibi. Her afette can kaybını azaltır.\n"
-                                  + "Kurtarma etkisi: %" + Mathf.RoundToInt(level * d.akutEtkisi * 100f) + uyari;
-                break;
-
+                baslikText.text="AKUT MERKEZİ";
+                text="Arama ve kurtarma ekibini güçlendir.\nCan kaybını azaltma: %"+Mathf.RoundToInt((damaged?0:level)*d.akutEtkisi*100)+"\nTüm afetlerde katkı sağlar.\n"+(damaged?"Ekibi göreve döndürmek için onar.":Defense(AfetTuru.Deprem,level,damaged)); break;
             case BinaTuru.Itfaiye:
-                baslikText.text = "İTFAİYE";
-                aciklamaText.text = "Yangınlara müdahale eder. Yangın afetinde şehri korur (en az Seviye 2 gerekir)." + uyari;
-                break;
-
+                baslikText.text="İTFAİYE"; text="Yangına hazırlık mahallede başlar.\n"+Defense(AfetTuru.Yangin,level,damaged)+"\n"+DefenseBenefit(AfetTuru.Yangin,level,damaged); break;
             case BinaTuru.DenizSeti:
-                baslikText.text = "DENİZ SETİ";
-                aciklamaText.text = "Kıyıyı dev dalgalardan korur. Tsunamiye karşı tek savunmadır (Seviye 3 gerekir)." + uyari;
-                break;
-
-            case BinaTuru.Altyapi:
-                baslikText.text = "ALTYAPI";
-                aciklamaText.text = "Yollar ve yağmur suyu altyapısı. Toprak → çakıl → asfalt. Selden korunmak için en az Seviye 2 gerekir." + uyari;
-                break;
+                baslikText.text="DENİZ SETİ"; text="Kıyıdaki yaşamı dalgalara karşı koru.\n"+Defense(AfetTuru.Tsunami,level,damaged)+"\n"+DefenseBenefit(AfetTuru.Tsunami,level,damaged); break;
+            default:
+                baslikText.text="ALTYAPI"; text="Yağmur suyuna güvenli bir yol aç.\n"+Defense(AfetTuru.Sel,level,damaged)+"\n"+DefenseBenefit(AfetTuru.Sel,level,damaged); break;
+        }
+        aciklamaText.text=text;
+    }
+    static string AfetAdi(AfetTuru type)
+    {
+        switch(type)
+        {
+            case AfetTuru.Yangin:return "Yangın";
+            case AfetTuru.Sel:return "Sel";
+            case AfetTuru.Deprem:return "Deprem";
+            default:return "Tsunami";
         }
     }
-
+    float HousingMultiplier(int level)
+    {
+        var values=DengeAyarlari.Aktif.konutGelirCarpanlari;
+        return values!=null && values.Length>0?values[Mathf.Clamp(level-1,0,values.Length-1)]:1;
+    }
+    int Required(AfetTuru type)
+    {
+        foreach(var a in DengeAyarlari.Aktif.afetler)if(a.afet==type)return a.gerekenLevel;
+        return DengeAyarlari.Aktif.maxLevel;
+    }
+    string Defense(AfetTuru type,int level,bool damaged)
+    {
+        int required=Required(type);
+        return AfetAdi(type)+" eşiği: Seviye "+required+"\nBu yapı: "+(damaged?"onarım bekliyor":level>=required?"hazır":"güçlendirme gerekli");
+    }
+    string DefenseBenefit(AfetTuru type,int level,bool damaged)
+    {
+        if(damaged)return "Savunma için önce hasarı onar.";
+        int reduction=Mathf.RoundToInt((1-DengeAyarlari.Aktif.savunmaYeterliCarpani)*100);
+        return level>=Required(type)?"Savunma hazır: baz can kaybı %"+reduction+" azalır.":"Eşiğe ulaşınca baz can kaybı %"+reduction+" azalır.";
+    }
     public void YukseltTiklandi()
     {
-        var gm = GameManager.Instance;
-        if (gm == null || YeniAcildi) return;
-
-        bool degisti = gm.Hasarli(aktifBina) ? Ekonomi.Onar(aktifBina) : Ekonomi.Yukselt(aktifBina);
-        if (degisti) Guncelle();
+        var gm=GameManager.Instance; if(gm==null || JustOpened)return;
+        if(gm.Hasarli(aktifBina)?Ekonomi.Onar(aktifBina):Ekonomi.Yukselt(aktifBina))Guncelle();
     }
-
     public void QuizTiklandi()
     {
-        if (YeniAcildi) return;
-        PaneliKapat();
-        if (QuizManager.Instance != null)
-            QuizManager.Instance.QuizAc();
+        if(JustOpened)return;
+        CloseImmediately(); if(QuizManager.Instance!=null)QuizManager.Instance.QuizAc();
     }
 }

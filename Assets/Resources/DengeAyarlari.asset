@@ -12,3 +12,77 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1649d8223c9d42d98a253b5b205b8402, type: 3}
   m_Name: DengeAyarlari
   m_EditorClassIdentifier: Assembly-CSharp::DengeAyarlari
+  birGunSuresi: 12
+  toplamGun: 20
+  baslangicHizi: 2
+  baslangicPara: 500
+  baslangicNufus: 1000
+  baslangicFarkindalik: 10
+  konutKapasitesi: e80300001405000040060000i
+  gunlukGoc: 30
+  kisiBasiGunlukGelir: 0.1
+  konutGelirCarpanlari:
+  - 1
+  - 1.35
+  - 1.75
+  maxLevel: 3
+  binaFiyatlari:
+  - bina: 0
+    lv2Fiyat: 200
+    lv3Fiyat: 400
+    onarimFiyat: 100
+  - bina: 1
+    lv2Fiyat: 200
+    lv3Fiyat: 400
+    onarimFiyat: 100
+  - bina: 2
+    lv2Fiyat: 250
+    lv3Fiyat: 500
+    onarimFiyat: 125
+  - bina: 3
+    lv2Fiyat: 250
+    lv3Fiyat: 500
+    onarimFiyat: 125
+  - bina: 5
+    lv2Fiyat: 300
+    lv3Fiyat: 550
+    onarimFiyat: 150
+  - bina: 4
+    lv2Fiyat: 350
+    lv3Fiyat: 650
+    onarimFiyat: 175
+  afetler:
+  - afet: 0
+    gun: 5
+    kontrolEdilen: 03000000i
+    gerekenLevel: 2
+    hasarAlan: 0000000001000000i
+    bazKayip: 120
+  - afet: 1
+    gun: 10
+    kontrolEdilen: 05000000i
+    gerekenLevel: 2
+    hasarAlan: 0500000000000000i
+    bazKayip: 150
+  - afet: 2
+    gun: 15
+    kontrolEdilen: 00000000010000000200000003000000i
+    gerekenLevel: 2
+    hasarAlan:
+    bazKayip: 200
+  - afet: 3
+    gun: 20
+    kontrolEdilen: 04000000i
+    gerekenLevel: 3
+    hasarAlan: 0400000000000000i
+    bazKayip: 250
+  savunmaYeterliCarpani: 0.2
+  farkindalikEtkisi: 0.006
+  akutEtkisi: 0.1
+  dogruCevapOdulu: 25
+  okulFarkindalikTavani:
+  - 40
+  - 70
+  - 100
+  kaybetmeNufusu: 200
+  yildizEsikleri: 50000000b400000040010000i

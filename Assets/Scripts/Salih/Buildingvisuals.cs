@@ -45,6 +45,15 @@ public class BuildingVisuals : MonoBehaviour
     private Transform vurguModeli;
     private Vector3 vurguBaslangicOlcek;
     public float VurguBeyazligi { get; private set; }
+    public bool LocalDamageManaged {get;private set;}
+    bool localDamage;
+    AfetTuru localCause;
+    public bool IsDamaged=>GameManager.Instance!=null && (LocalDamageManaged
+        ? localDamage&&(GameManager.Instance.Hasarli(binaTuru)||GameManager.Instance.afetSuruyor)
+        : GameManager.Instance.Hasarli(binaTuru));
+    public AfetTuru DamageCause=>LocalDamageManaged?localCause:GameManager.Instance.HasarTuru(binaTuru);
+    public void EnableLocalDamage(){LocalDamageManaged=true;}
+    public void MarkLocalDamage(AfetTuru cause){LocalDamageManaged=true;localDamage=true;localCause=cause;}
 
     private void Start()
     {
@@ -53,6 +62,7 @@ public class BuildingVisuals : MonoBehaviour
         if (levelYazisi != null) levelYazisi.gameObject.SetActive(false);
         Guncelle();
         ManagerDinle();
+        if(LocalDamageManaged&&localDamage&&!GameManager.Instance.Hasarli(binaTuru)&&!GameManager.Instance.afetSuruyor)localDamage=false;
     }
 
     private void OnMouseEnter()
@@ -91,6 +101,7 @@ public class BuildingVisuals : MonoBehaviour
     private void YapiIslemi(BinaTuru tur)
     {
         if (tur != binaTuru) return;
+        if(!GameManager.Instance.Hasarli(tur))localDamage=false;
         VurguyuBitir();
         Guncelle();
         vurguModeli = levelModelleri != null && levelModelleri.Length > 0
@@ -180,7 +191,7 @@ public class BuildingVisuals : MonoBehaviour
 
     void OnMouseDown()
     {
-        if(IslandCameraController.SuppressWorldClick)return;
+        if(IslandCameraController.SuppressWorldClick||BinaPopup.DunyaTiklamasiniEngelle)return;
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
         var gm = GameManager.Instance;
         if (PauseMenu.DurdurulduMu || (gm != null && (gm.afetSuruyor || gm.afetOlduMu || gm.oyunBittiMi))) return;
@@ -188,6 +199,6 @@ public class BuildingVisuals : MonoBehaviour
         BinaTiklandi?.Invoke(binaTuru);
         if (BinaPopup.Instance == null) { Debug.LogError("3) BinaPopup sahnede yok!"); return; }
 
-        BinaPopup.Instance.Ac(binaTuru);
+        BinaPopup.Instance.Ac(binaTuru,transform);
     }
 }

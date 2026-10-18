@@ -14,7 +14,7 @@ static class IslandNavigationValidation
         EditorApplication.update+=()=>
         {
             const string request="Temp/ada_kontrol_istegi";
-            if(EditorApplication.isPlayingOrWillChangePlaymode||EditorApplication.isCompiling||EditorApplication.isUpdating||!File.Exists(request))return;
+            if(Application.isPlaying||EditorApplication.isPlaying||EditorApplication.isPlayingOrWillChangePlaymode||EditorApplication.isCompiling||EditorApplication.isUpdating||!File.Exists(request))return;
             string mode=File.ReadAllText(request).Trim();File.Delete(request);
             if(mode=="setup"){InstallCursor();return;}
             EditorSceneManager.SaveOpenScenes();EditorSceneManager.OpenScene(IslandSceneSetup.MainScenePath);
@@ -34,16 +34,18 @@ static class IslandNavigationValidation
         const string path="Assets/Art/Cursors/FenerOku.png";
         var importer=(TextureImporter)AssetImporter.GetAtPath(path);
         importer.textureType=TextureImporterType.Cursor;importer.mipmapEnabled=false;importer.isReadable=true;
+        // Keep the 64px vector export as the source, but display a normal 32px game pointer.
+        importer.maxTextureSize=32;
         importer.alphaIsTransparency=true;importer.textureCompression=TextureImporterCompression.Uncompressed;
         importer.filterMode=FilterMode.Bilinear;importer.wrapMode=TextureWrapMode.Clamp;importer.SaveAndReimport();
         Texture2D texture=AssetDatabase.LoadAssetAtPath<Texture2D>(path);
-        PlayerSettings.defaultCursor=texture;PlayerSettings.cursorHotspot=new Vector2(6,5);
+        PlayerSettings.defaultCursor=texture;PlayerSettings.cursorHotspot=new Vector2(3,3);
         foreach(string scenePath in new[]{IslandSceneSetup.MapScenePath,IslandSceneSetup.MainScenePath})
         {
             var scene=EditorSceneManager.OpenScene(scenePath);
             Camera camera=IslandSceneSetup.Components<Camera>(scene).First(c=>c.CompareTag("MainCamera"));
             IslandCursor cursor=camera.GetComponent<IslandCursor>();if(cursor==null)cursor=camera.gameObject.AddComponent<IslandCursor>();
-            cursor.pointer=texture;cursor.hotspot=new Vector2(6,5);EditorUtility.SetDirty(cursor);
+            cursor.pointer=texture;cursor.hotspot=new Vector2(3,3);EditorUtility.SetDirty(cursor);
             EditorSceneManager.MarkSceneDirty(scene);EditorSceneManager.SaveScene(scene);
         }
         AssetDatabase.SaveAssets();File.WriteAllText("Logs/AdaKontrolKurulumu.txt","PASS: Fener Oku cursor installed in both island scenes and player defaults.");

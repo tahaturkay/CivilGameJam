@@ -63,7 +63,9 @@ Shader "CivilIsland/Stylized Ocean"
                 float2 uv = input.world.xz * _WaveScale;
                 float swell = Noise(uv + float2(time * .45, -time * .22));
                 float detail = Noise(uv * 3.2 + float2(-time * .8, time * .5));
-                float waveLine = sin(uv.x * 3.1 + uv.y * 6.5 + swell * 5.0 - time * 2.2);
+                // Positive phase travels down the radial coordinate: open sea toward the island.
+                float coastDistance=length(input.world.xz*float2(1,.85));
+                float waveLine = sin(coastDistance*.52 + swell * 2.0 + time * 3.0);
                 float width = max(fwidth(waveLine) * .8, .025);
                 float ripple = smoothstep(.88 - width, .97 + width, waveLine) * smoothstep(.32, .80, detail);
                 half3 color = lerp(_DeepColor.rgb, _ShallowColor.rgb, saturate(swell * .8 + detail * .18));
@@ -72,7 +74,7 @@ Shader "CivilIsland/Stylized Ocean"
                 color += sparkle * half3(.025, .045, .04);
                 Light sun = GetMainLight(TransformWorldToShadowCoord(input.world));
                 color *= lerp(.68h, 1.0h, sun.shadowAttenuation);
-                color *= lerp(1,.25,saturate(_IslandNight));
+                color *= lerp(1,.27,saturate(_IslandNight));
                 color=lerp(color,color*_IslandTwilightColor.rgb*1.35,saturate(_IslandTwilight)*.28);
                 color+=_IslandTwilightColor.rgb*ripple*saturate(_IslandTwilight)*.035;
                 return half4(MixFog(color, input.fog), 1);

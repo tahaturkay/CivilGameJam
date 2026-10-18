@@ -31,8 +31,8 @@ public static class IslandPresentation
         RenderSettings.fog = false;
 
         // The overview camera is hundreds of metres away; a 40–50 m default cuts all city shadows.
-        ConfigurePipeline("Assets/Settings/PC_RPAsset.asset", 450, 4096);
-        ConfigurePipeline("Assets/Settings/Mobile_RPAsset.asset", 420, 2048);
+        ConfigurePipeline("Assets/Settings/PC_RPAsset.asset", 280, 2048);
+        ConfigurePipeline("Assets/Settings/Mobile_RPAsset.asset", 260, 2048);
         ConfigureAO();
         UniversalAdditionalCameraData cameraData = camera.GetUniversalAdditionalCameraData();
         cameraData.renderPostProcessing = true;
@@ -99,7 +99,9 @@ public static class IslandPresentation
         var data = new SerializedObject(pipeline);
         data.FindProperty("m_ShadowDistance").floatValue = distance;
         data.FindProperty("m_MainLightShadowmapResolution").intValue = resolution;
-        data.FindProperty("m_ShadowCascadeCount").intValue = 4;
+        data.FindProperty("m_ShadowCascadeCount").intValue = 2;
+        data.FindProperty("m_RequireOpaqueTexture").boolValue = false;
+        data.FindProperty("m_AdditionalLightShadowsSupported").boolValue = false;
         data.FindProperty("m_Cascade4Split").vector3Value = new Vector3(.15f, .36f, .63f);
         data.FindProperty("m_ShadowNormalBias").floatValue = .20f;
         data.ApplyModifiedPropertiesWithoutUndo();
@@ -116,6 +118,7 @@ public static class IslandPresentation
             data.FindProperty("m_Settings.Intensity").floatValue = .55f;
             data.FindProperty("m_Settings.Radius").floatValue = .9f;
             data.FindProperty("m_Settings.Falloff").floatValue = 420;
+            data.FindProperty("m_Settings.Downsample").boolValue = true;
             data.ApplyModifiedPropertiesWithoutUndo();
         }
     }

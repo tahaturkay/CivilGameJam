@@ -37,6 +37,7 @@ public static partial class IslandLayoutInstaller
         BuildStaticPlaces(Group(island.transform, "SabitAlanlar", Vector3.up * GroundY));
         BuildWall(Group(island.transform, "DenizSeti", Vector3.up * GroundY));
         BuildLighthouse(island.transform,new Vector3(-70,GroundY,46));
+        island.AddComponent<IslandCoastWaves>();
         foreach (BuildingVisuals b in island.GetComponentsInChildren<BuildingVisuals>(true)) b.gameObject.AddComponent<BuildingDamageVisuals>();
         return island;
     }

@@ -1,0 +1,83 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f06662ecbfa844f8fa5ec62405169345, type: 3}
+  m_Name: AnlatiVerisi
+  m_EditorClassIdentifier: Assembly-CSharp::AnlatiVerisi
+  hikayeler:
+  - afet: 0
+    karakter: "F\u0131r\u0131nc\u0131 Hasan Usta"
+    iyi: "\u0130tfaiye ekibi dakikalar i\xE7inde geldi. Hasan Usta'n\u0131n d\xFCkk\xE2n\u0131nda sadece iki \xE7uval un yand\u0131; ertesi sabah f\u0131r\u0131n yine a\xE7\u0131kt\u0131."
+    kotu: "\u0130tfaiye ge\xE7 kald\u0131. F\u0131r\u0131nc\u0131 Hasan Usta'n\u0131n k\u0131rk y\u0131ll\u0131k d\xFCkk\xE2n\u0131 k\xFCl oldu; \xE7\u0131ra\u011F\u0131n\u0131 duman\u0131n i\xE7inden son anda kendisi \xE7\u0131kard\u0131."
+    yuksekFarkindalik: 
+    dereYatagi: 
+  - afet: 1
+    karakter: "Zemin kattaki \xF6\u011Frenci Mert"
+    iyi: "G\xFC\xE7lendirilmi\u015F altyap\u0131 ya\u011Fmuru yuttu. Mert camdan f\u0131rt\u0131nay\u0131 izleyip kahvesini yudumlad\u0131 ve s\u0131nav\u0131na \xE7al\u0131\u015Fmaya devam etti."
+    kotu: "T\u0131kanan r\xF6garlar sokaklar\u0131 g\xF6le \xE7evirdi. Zemin katta oturan Mert'in bilgisayar\u0131 ve aylard\u0131r haz\u0131rlad\u0131\u011F\u0131 bitirme projesi \xE7amurlu suya g\xF6m\xFCld\xFC."
+    yuksekFarkindalik: 
+    dereYatagi: "Dere yata\u011F\u0131na dikilen binalar suyun yolunu kesti. Sel bu kez Mert'in soka\u011F\u0131n\u0131 de\u011Fil, b\xFCt\xFCn mahalleyi yuttu."
+  - afet: 2
+    karakter: "Ay\u015Fe \xD6\u011Fretmen ve 3-A s\u0131n\u0131f\u0131"
+    iyi: "Okul ayakta kald\u0131 ama ne yapaca\u011F\u0131n\u0131 bilmeyen \xF6\u011Frenciler panikle merdivenlere ko\u015Ftu; birka\xE7 \xE7ocuk iti\u015Fmede yaraland\u0131."
+    kotu: "Zay\u0131f binalar sars\u0131nt\u0131ya dayanamad\u0131. Ay\u015Fe \xD6\u011Fretmen'in 3-A s\u0131n\u0131f\u0131 haftalarca okula d\xF6nemedi; baz\u0131 s\u0131ralar h\xE2l\xE2 bo\u015F."
+    yuksekFarkindalik: "Sars\u0131nt\u0131 ba\u015Flar ba\u015Flamaz Ay\u015Fe \xD6\u011Fretmen ve \xF6\u011Frencileri \xC7\xF6k-Kapan-Tutun yapt\u0131. G\xFC\xE7lendirilmi\u015F okul ayakta kald\u0131, kimse yaralanmad\u0131."
+    dereYatagi: 
+  - afet: 3
+    karakter: "Bal\u0131k\xE7\u0131 Mehmet Amca"
+    iyi: "Dev dalgalar Seviye 3 deniz setine \xE7arp\u0131p da\u011F\u0131ld\u0131. Mehmet Amca k\u0131y\u0131dan seslendi: 'Bizi sen kurtard\u0131n Ba\u015Fkan.'"
+    kotu: "Sen b\xFCt\xE7eyi denkle\u015Ftirmeye \xE7al\u0131\u015F\u0131rken Mehmet Amca'n\u0131n k\u0131y\u0131daki tek g\xF6z odal\u0131 evi ilk dalgada y\u0131k\u0131ld\u0131."
+    yuksekFarkindalik: 
+    dereYatagi: 
+  kartlar:
+  - baslik: Kefenin Cebi Yok
+    metin: "Kasay\u0131 doldurdun ama o sokaklarda art\u0131k sadece hayaletler y\xFCr\xFCyor."
+  - baslik: Beton Tabutlar
+    metin: "Binalar ayakta kald\u0131 ama e\u011Fitimsiz halk panikle ezildi."
+  - baslik: "\xC7ad\u0131rkent \u015Eampiyonu"
+    metin: "\u015Eehir harabeye d\xF6nd\xFC ama insanlar tatbikatlarda \xF6\u011Frendikleriyle birbirini kurtard\u0131."
+  - baslik: "Ger\xE7ek Lider"
+    metin: "Sen sadece bir ba\u015Fkan de\u011Fil, nesiller boyu anlat\u0131lacak bir kahraman oldun."
+  - baslik: "Yorgun Ba\u015Fkan"
+    metin: "\u015Eehir ayakta, ama bir sonraki afete h\xE2l\xE2 haz\u0131r de\u011Fil."
+  yuksekFarkindalik: 60
+  dusukFarkindalik: 40
+  zenginKasa: 900
+  yuksekKayip: 240
+  cadirEnFazlaKayip: 320
+  afetIpuclari:
+  - afet: 0
+    yonlendirme: "Kuru otlar tutu\u015Fmaya haz\u0131r: \u0130tfaiye'yi g\xFC\xE7lendir."
+    duygu: "...\xE7\xFCnk\xFC ilk k\u0131v\u0131lc\u0131m en yak\u0131n \xE7at\u0131ya s\u0131\xE7rar."
+  - afet: 1
+    yonlendirme: "Yakla\u015Fan ya\u011Fmurlar i\xE7in Altyap\u0131'y\u0131 g\xFC\xE7lendir."
+    duygu: "...\xE7\xFCnk\xFC \xF6nce zemin kattaki be\u015Fikler suya g\xF6m\xFCl\xFCr."
+  - afet: 2
+    yonlendirme: "Konut, Okul, AKUT ve \u0130tfaiye en az Seviye 2 olmal\u0131."
+    duygu: "...\xE7\xFCnk\xFC deprem haber vermez; bina ya haz\u0131rd\u0131r ya de\u011Fildir."
+  - afet: 3
+    yonlendirme: "K\u0131y\u0131y\u0131 korumak i\xE7in Deniz Seti'ni Seviye 3'e \xE7\u0131kar."
+    duygu: "...\xE7\xFCnk\xFC deniz \xE7ekildi\u011Finde ka\xE7mak i\xE7in \xE7ok ge\xE7 olur."
+  ilkIpucu: "Bir binaya t\u0131kla; yap\u0131n\u0131n g\xF6revini ve bir sonraki seviyeyi ayn\u0131 kartta g\xF6rebilirsin."
+  okulIpucu: "Okulda k\u0131sa bir quiz \xE7\xF6z; do\u011Fru bilgi, afet an\u0131nda hayat kurtar\u0131r."
+  okulDuygu: "...\xE7\xFCnk\xFC Ay\u015Fe \xD6\u011Fretmen'in s\u0131n\u0131f\u0131 deprem \xE7antas\u0131 nedir bilmiyor."
+  onarimIpucu: "Hasarl\u0131 yap\u0131ya t\u0131kla ve onar; yollar a\xE7\u0131l\u0131nca \u015Fehir yeniden hareket eder."
+  kararGunu: 7
+  kararKazanci: 150
+  kararFarkindalikOdulu: 5
+  selKayipCarpani: 1.5
+  kararBasligi: "DERE YATA\u011EI"
+  kararMetni: "M\xFCteahhit R\u0131za: \u201CDere yata\u011F\u0131n\u0131 imara a\xE7, kasaya an\u0131nda 150 coin gireyim.\u201D"
+  kabulMetni: "\u0130mara a\xE7 \xB7 +150 coin"
+  retMetni: "Dereyi koru \xB7 +5 fark\u0131ndal\u0131k"
+  retGeriBildirimi: "Halk, karar\u0131n\u0131 duydu. G\xFCvenleri tazelendi."
+  kabulGeriBildirimi: "Kasaya 150 coin girdi. Selin ge\xE7ece\u011Fi alan darald\u0131."
+  selEkSatiri: "Dere yata\u011F\u0131ndaki ka\xE7ak binalar felaketi katlad\u0131."

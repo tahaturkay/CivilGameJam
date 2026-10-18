@@ -14,7 +14,8 @@ public class IslandWeather : MonoBehaviour
     public float NightAmount {get;private set;}
     public float DawnAmount {get;private set;}
     public float DuskAmount {get;private set;}
-    public bool IsNight => dayClock!=null&&dayClock.DayProgress>=.6f;
+    public bool IsNight => NightAmount>=.5f;
+    public bool DisasterDaylightActive {get;private set;}
     EconomyAndTime dayClock;
 
     Light sun;
@@ -129,8 +130,14 @@ public class IslandWeather : MonoBehaviour
         lightningRemaining=flood?Mathf.Max(0,lightningRemaining-Time.deltaTime):0;
         float phase=dayClock!=null?dayClock.DayProgress:0;
         solar=IslandSolarCycle.Evaluate(phase);
+        var gm=GameManager.Instance;
+        float daylight=active.HasValue?1:gm!=null?IslandDisasterCalendar.DaylightOverride(gm.gun,phase):0;
+        DisasterDaylightActive=daylight>=.999f;
+        solar=new IslandSolarCycle.Sample(solar.night*(1-daylight),solar.dawn*(1-daylight),solar.dusk*(1-daylight),
+            Mathf.Lerp(solar.elevation,55,daylight),Mathf.LerpAngle(solar.azimuth,-25,daylight));
         NightAmount=solar.night;DawnAmount=solar.dawn;DuskAmount=solar.dusk;
         Shader.SetGlobalFloat("_IslandNight",NightAmount);
+        Shader.SetGlobalFloat("_IslandStorm",storm);
         Shader.SetGlobalFloat("_IslandTwilight",solar.Twilight);
         Shader.SetGlobalColor("_IslandTwilightColor",Color.Lerp(new Color(1,.70f,.42f),new Color(.98f,.40f,.30f),DuskAmount));
         float flash=lightningRemaining>0?Mathf.Abs(Mathf.Sin(lightningRemaining*44))*.7f:0;
@@ -149,7 +156,7 @@ public class IslandWeather : MonoBehaviour
         {
             sun.transform.rotation=Quaternion.Euler(solar.elevation,solar.azimuth,0);
             sun.color=Color.Lerp(Color.Lerp(sunTint,cool,storm*.55f),warm,warmth*.48f);
-            sun.intensity=sunIntensity*Mathf.Lerp(1,.28f,NightAmount)*Mathf.Lerp(1,.78f,twilight)*(1-storm*.55f-warmth*.08f)+flash*.8f;
+            sun.intensity=sunIntensity*Mathf.Lerp(1,.30f,NightAmount)*Mathf.Lerp(1,.78f,twilight)*(1-storm*.55f-warmth*.08f)+flash*.8f;
         }
         RenderSettings.ambientSkyColor=Color.Lerp(sky,sky*new Color(.65f,.73f,.83f),storm*.8f)+Color.white*(flash*.12f);
         RenderSettings.ambientEquatorColor=Color.Lerp(equator,equator*new Color(.70f,.76f,.80f),storm*.8f);
@@ -199,6 +206,7 @@ public class IslandWeather : MonoBehaviour
     void OnDisable()
     {
         Shader.SetGlobalFloat("_IslandNight",0);
+        Shader.SetGlobalFloat("_IslandStorm",0);
         Shader.SetGlobalFloat("_IslandTwilight",0);
         NightAmount=0;
         if(viewCamera!=null)viewCamera.backgroundColor=originalCameraBackground;

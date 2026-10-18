@@ -58,6 +58,8 @@ public static class IslandSceneSetup
         Material emission=AssetDatabase.LoadAssetAtPath<Material>(emissionPath);
         if(emission==null){emission=new Material(Shader.Find("Universal Render Pipeline/Lit")){enableInstancing=true};AssetDatabase.CreateAsset(emission,emissionPath);}
         emission.EnableKeyword("_EMISSION");emission.SetColor("_EmissionColor",new Color(1,.61f,.22f));EditorUtility.SetDirty(emission);
+        const string foamPath="Assets/Resources/IslandEffects/CoastFoam.mat";
+        if(AssetDatabase.LoadAssetAtPath<Material>(foamPath)==null)AssetDatabase.CreateAsset(new Material(Shader.Find("CivilIsland/Coastal Foam")),foamPath);
     }
 
     static void InstallScene(string path)
@@ -74,7 +76,8 @@ public static class IslandSceneSetup
         GameObject island = InstantiatePrefab(IslandPrefabPath, scene);
         GameManager gm = Ensure<GameManager>(scene, "Assets/Prefabs/GameManager.prefab");
         Ensure<EconomyAndTime>(scene, "Assets/Prefabs/Nisa/EconomyAndTime.prefab");
-        Ensure<UIManager>(scene, "Assets/Prefabs/UI/Ana Canvas.prefab");
+        var ui=Ensure<UIManager>(scene, "Assets/Prefabs/UI/Ana Canvas.prefab");
+        if(ui.GetComponent<DereYatagiKarari>()==null)ui.gameObject.AddComponent<DereYatagiKarari>();
         DisasterController disaster = Ensure<DisasterController>(scene, "Assets/Prefabs/Taha/DisasterController.prefab");
         foreach (BinaTuru type in Enum.GetValues(typeof(BinaTuru)))
         {
@@ -92,6 +95,7 @@ public static class IslandSceneSetup
             camera = go.GetComponent<Camera>();
         }
         IslandLayoutInstaller.FrameIsland(camera);
+        if(camera.GetComponent<IslandPerformanceBudget>()==null)camera.gameObject.AddComponent<IslandPerformanceBudget>();
         IslandPresentation.Configure(scene, island, camera);
         BindDisasters(disaster, island, camera);
         Bounds land = LandBounds(island);
@@ -107,11 +111,12 @@ public static class IslandSceneSetup
         navigation.FrameCity();
         IslandNightLighting night=island.GetComponent<IslandNightLighting>();
         if(night==null)night=island.AddComponent<IslandNightLighting>();
+        if(island.GetComponent<IslandSirenController>()==null)island.AddComponent<IslandSirenController>();
         Texture2D chosenCursor=AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Cursors/FenerOku.png");
         if(chosenCursor!=null)
         {
             IslandCursor cursor=camera.GetComponent<IslandCursor>();if(cursor==null)cursor=camera.gameObject.AddComponent<IslandCursor>();
-            cursor.pointer=chosenCursor;cursor.hotspot=new Vector2(6,5);
+            cursor.pointer=chosenCursor;cursor.hotspot=new Vector2(3,3);
         }
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
@@ -152,9 +157,9 @@ public static class IslandSceneSetup
         disaster.tsunamiBitisZ = land.max.z + 30;
         disaster.tsunamiDalgaY = groundY - .6f;
         disaster.kuruZeminY = groundY;
-        disaster.afetSuresi = 15;
-        disaster.tsunamiSuYuksekligi = groundY + .85f;
-        disaster.selSuYuksekligi = groundY + .42f;
+        disaster.afetSuresi = 8;
+        disaster.tsunamiSuYuksekligi = groundY + .62f;
+        disaster.selSuYuksekligi = groundY + .30f;
 
         // Önceki haritanın ölçeğindeki su/dalga modellerini kapat; efekt mantığını aynen kullan.
         if (disaster.tsunamiSuyu != null) disaster.tsunamiSuyu.gameObject.SetActive(false);

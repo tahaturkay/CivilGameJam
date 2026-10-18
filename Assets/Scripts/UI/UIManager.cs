@@ -85,6 +85,38 @@ public class UIManager : MonoBehaviour
     private const float EkGenislik = YaziSolBosluk - 64f;
     private const float HudKenarBoslugu = 20f;
     private const float HudGruplarArasiBosluk = 32f;
+    private const string UstPanelOlcegiKey = "ui_ust_panel_olcegi";
+    private const string UstPanelDikeyBoslukKey = "ui_ust_panel_dikey_bosluk";
+    private static System.Action ustPanelAyarDegisti;
+
+    public static float UstPanelOlcegi
+    {
+        get { return Mathf.Clamp(PlayerPrefs.GetFloat(UstPanelOlcegiKey, 1f), 0.75f, 1.25f); }
+    }
+
+    public static float UstPanelDikeyBosluk
+    {
+        get { return Mathf.Clamp(PlayerPrefs.GetFloat(UstPanelDikeyBoslukKey, 0f), 0f, 80f); }
+    }
+
+    public static void UstPanelAyarlariniUygula(float olcek, float dikeyBosluk)
+    {
+        PlayerPrefs.SetFloat(UstPanelOlcegiKey, Mathf.Clamp(olcek, 0.75f, 1.25f));
+        PlayerPrefs.SetFloat(UstPanelDikeyBoslukKey, Mathf.Clamp(dikeyBosluk, 0f, 80f));
+        if (ustPanelAyarDegisti != null) ustPanelAyarDegisti();
+    }
+
+    public static void UstPanelVarsayilanaSifirla()
+    {
+        UstPanelAyarlariniUygula(1f, 0f);
+        PlayerPrefs.Save();
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void SifirlaStatikDurum()
+    {
+        ustPanelAyarDegisti = null;
+    }
 
     // Update'te her karede yazı/sprite üretmemek için son gösterilen değerler
     private int sonGun = -1, sonPara = int.MinValue, sonGelir = -1, sonNufus = -1, sonKapasite = -1, sonFark = -1, sonKalan = int.MinValue, sonTavan = -1, sonHizModu = -1;
@@ -124,41 +156,26 @@ public class UIManager : MonoBehaviour
 
     private void OnEnable()
     {
+        ustPanelAyarDegisti -= UstPanelAyarDegisti;
+        ustPanelAyarDegisti += UstPanelAyarDegisti;
         GelirEtkinligineBaglan(GameManager.Instance);
+        if (initialized) UpdateHudLayout(true);
     }
 
     private void OnDisable()
     {
+        ustPanelAyarDegisti -= UstPanelAyarDegisti;
         GelirEtkinligindenAyril();
+    }
+
+    private void UstPanelAyarDegisti()
+    {
+        UpdateHudLayout(true);
     }
 
     public static void EnsureTurkishFontSupport(TMP_FontAsset fontAsset)
     {
-        if (fontAsset == null) fontAsset = TMP_Settings.defaultFontAsset;
-        if (fontAsset == null) return;
-
-        const string requiredChars = "İıŞşĞğÜüÖöÇç•";
-
-        if (fontAsset.fallbackFontAssetTable == null)
-            fontAsset.fallbackFontAssetTable = new List<TMP_FontAsset>();
-
-        fontAsset.fallbackFontAssetTable.RemoveAll(f => f == null);
-
-        TMP_FontAsset resFallback = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF - Fallback");
-        if (resFallback != null && !fontAsset.fallbackFontAssetTable.Contains(resFallback))
-        {
-            fontAsset.fallbackFontAssetTable.Add(resFallback);
-        }
-
-        foreach (TMP_FontAsset fb in fontAsset.fallbackFontAssetTable)
-        {
-            if (fb != null && fb.atlasPopulationMode == AtlasPopulationMode.Dynamic)
-            {
-                fb.TryAddCharacters(requiredChars, out _);
-            }
-        }
-
-        // Para birimi yazıyla gösterilir; fontta özel simge aramaya gerek kalmaz.
+        TurkishTMPFontSupport.EnsureFont(fontAsset != null ? fontAsset : TMP_Settings.defaultFontAsset);
     }
 
     private void ApplyPrototypeHudAndModals()
@@ -813,17 +830,32 @@ public class UIManager : MonoBehaviour
 
         float leftMargin = Mathf.Max(HudKenarBoslugu, safeMin.x - hudBarRt.rect.xMin + HudKenarBoslugu);
         float rightMargin = Mathf.Max(HudKenarBoslugu, hudBarRt.rect.xMax - safeMax.x + HudKenarBoslugu);
-        float topOffset = Mathf.Max(18f, -safeMax.y + 18f);
         float availableWidth = Mathf.Max(1f, safeMax.x - safeMin.x - HudKenarBoslugu * 2f);
-        float leftScale = Mathf.Min(1f, availableWidth / leftHudGroupRt.sizeDelta.x);
-        float rightScale = Mathf.Min(1f, availableWidth / rightHudColumnRt.sizeDelta.x);
+        float userScale = UstPanelOlcegi;
+        float leftScale = Mathf.Min(1f, availableWidth / (leftHudGroupRt.sizeDelta.x * userScale)) * userScale;
+        float rightScale = Mathf.Min(1f, availableWidth / (rightHudColumnRt.sizeDelta.x * userScale)) * userScale;
+        bool placeControlsBelow = leftHudGroupRt.sizeDelta.x * leftScale +
+                                  rightHudColumnRt.sizeDelta.x * rightScale + HudGruplarArasiBosluk > availableWidth;
+
+        float requiredHeight = placeControlsBelow
+            ? leftHudGroupRt.sizeDelta.y * leftScale + 12f + rightHudColumnRt.sizeDelta.y * rightScale
+            : Mathf.Max(leftHudGroupRt.sizeDelta.y * leftScale, rightHudColumnRt.sizeDelta.y * rightScale);
+        float safeHeight = Mathf.Max(1f, safeMax.y - safeMin.y);
+        float safeTopInset = Mathf.Max(18f, -safeMax.y + 18f);
+        float verticalRoom = Mathf.Max(1f, safeHeight - safeTopInset - 18f);
+        float verticalFit = Mathf.Min(1f, verticalRoom / Mathf.Max(1f, requiredHeight));
+        leftScale *= verticalFit;
+        rightScale *= verticalFit;
         leftHudGroupRt.localScale = Vector3.one * leftScale;
         rightHudColumnRt.localScale = Vector3.one * rightScale;
 
-        leftHudGroupRt.anchoredPosition = new Vector2(leftMargin, -topOffset);
+        requiredHeight = placeControlsBelow
+            ? leftHudGroupRt.sizeDelta.y * leftScale + 12f + rightHudColumnRt.sizeDelta.y * rightScale
+            : Mathf.Max(leftHudGroupRt.sizeDelta.y * leftScale, rightHudColumnRt.sizeDelta.y * rightScale);
+        float maxExtraInset = Mathf.Max(0f, safeHeight - safeTopInset - requiredHeight - 18f);
+        float topOffset = safeTopInset + Mathf.Min(UstPanelDikeyBosluk, maxExtraInset);
 
-        bool placeControlsBelow = leftHudGroupRt.sizeDelta.x * leftScale +
-                                  rightHudColumnRt.sizeDelta.x * rightScale + HudGruplarArasiBosluk > availableWidth;
+        leftHudGroupRt.anchoredPosition = new Vector2(leftMargin, -topOffset);
         rightHudColumnRt.anchoredPosition = placeControlsBelow
             ? new Vector2(-rightMargin, -(topOffset + leftHudGroupRt.sizeDelta.y * leftScale + 12f))
             : new Vector2(-rightMargin, -topOffset);
@@ -1366,7 +1398,7 @@ public class UIManager : MonoBehaviour
         GameObject go = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
         go.transform.SetParent(parent, false);
         TextMeshProUGUI tmp = go.GetComponent<TextMeshProUGUI>();
-        if (font != null) tmp.font = font;
+        tmp.font = TurkishTMPFontSupport.EnsureFont(font != null ? font : TMP_Settings.defaultFontAsset);
         tmp.text = content;
         tmp.fontSize = fontSize;
         tmp.fontStyle = style;

@@ -10,15 +10,29 @@ public class DisasterController : MonoBehaviour
     [Header("Ada ve dalga")]
     public Transform tsunamiDalgasi;
     public float tsunamiSetZ = 10f, tsunamiBaslangicZ = -45f, tsunamiBitisZ = 102f;
-    public float tsunamiDalgaY = 1f, tsunamiSuYuksekligi = 3.2f, selSuYuksekligi = 2.82f;
+    public float tsunamiDalgaY = 1f, tsunamiSuYuksekligi = 3.02f, selSuYuksekligi = 2.70f;
     public float kuruZeminY = 2.4f;
-    [Min(1)] public float afetSuresi = 15f;
+    [Min(1)] public float afetSuresi = 8f;
+    [Tooltip("Yalnız editörde Ctrl+Shift+1..4 ile elle afet denemesi. Normal oynanışta kapalı.")]
+    public bool editorDebugAfetleri;
     public GameObject yanginEfekti, yagmurEfekti, yanginPrefab, tozBulutuPrefab;
     public Transform[] yanacakBinalar, temelBinalar;
     public Transform okulObj, akutObj, itfaiyeObj;
     public bool AfetDevamEdiyorMu { get; private set; }
     public AfetTuru AktifAfetTuru { get; private set; }
     public bool SavunmaYeterli { get; private set; }
+    public float IncidentProgress {get;private set;}
+    public int DefendedIncidentCount {get;private set;}
+    public int DamagedInstanceCount=>incidentDamage.Count;
+    public bool TsunamiImpactTriggered {get;private set;}
+    public float FloodSurfaceY=>tsunamiSuyu!=null&&tsunamiSuyu.gameObject.activeSelf?tsunamiSuyu.position.y:float.NegativeInfinity;
+    float incidentStarted,revealLimit=10000;
+    BuildingVisuals[] islandBuildings;
+    readonly HashSet<BuildingVisuals> incidentDamage=new HashSet<BuildingVisuals>();
+    readonly HashSet<BinaTuru> damagedTypes=new HashSet<BinaTuru>();
+    Vector3[] waterVertices;
+    int[] waterTriangles;
+    DereYatagiKarari decision;
 
     int sonKontrolEdilenGun;
     readonly HashSet<int> gerceklesenAfetler = new HashSet<int>();
@@ -30,6 +44,7 @@ public class DisasterController : MonoBehaviour
 
     void Update()
     {
+        if(AfetDevamEdiyorMu)IncidentProgress=Mathf.Clamp01((Time.time-incidentStarted)/Mathf.Max(.1f,afetSuresi));
         var gm = GameManager.Instance;
         if (AfetDevamEdiyorMu || gm == null || gm.afetOlduMu || gm.oyunBittiMi || gm.oyunDurduMu || gm.kullaniciDurdurdu) return;
         if (gm.gun != sonKontrolEdilenGun)
@@ -39,10 +54,13 @@ public class DisasterController : MonoBehaviour
             if (index >= 0 && !gerceklesenAfetler.Contains(index)) AfetBaslat(index);
         }
 #if UNITY_EDITOR
-        if (Input.GetKeyDown(KeyCode.Alpha1)) AfetBaslat(0);
-        if (Input.GetKeyDown(KeyCode.Alpha2)) AfetBaslat(1);
-        if (Input.GetKeyDown(KeyCode.Alpha3)) AfetBaslat(2);
-        if (Input.GetKeyDown(KeyCode.Alpha4)) AfetBaslat(3);
+        if(editorDebugAfetleri&&Input.GetKey(KeyCode.LeftControl)&&Input.GetKey(KeyCode.LeftShift))
+        {
+            if (Input.GetKeyDown(KeyCode.Alpha1)) AfetBaslat(0);
+            if (Input.GetKeyDown(KeyCode.Alpha2)) AfetBaslat(1);
+            if (Input.GetKeyDown(KeyCode.Alpha3)) AfetBaslat(2);
+            if (Input.GetKeyDown(KeyCode.Alpha4)) AfetBaslat(3);
+        }
 #endif
     }
 
@@ -60,6 +78,11 @@ public class DisasterController : MonoBehaviour
         var gm = GameManager.Instance;
         var d = DengeAyarlari.Aktif;
         AfetDevamEdiyorMu = gm.afetSuruyor = true;
+        incidentStarted=Time.time;IncidentProgress=0;TsunamiImpactTriggered=false;
+        incidentDamage.Clear();damagedTypes.Clear();
+        if(islandBuildings==null)islandBuildings=FindObjectsByType<BuildingVisuals>(FindObjectsSortMode.None);
+        foreach(var b in islandBuildings)if(b!=null)b.EnableLocalDamage();
+        if(decision==null)decision=FindAnyObjectByType<DereYatagiKarari>();
         AktifAfetTuru = afet.afet;
         var yetersizler = new List<BinaTuru>();
         foreach (BinaTuru b in afet.kontrolEdilen)
@@ -73,11 +96,7 @@ public class DisasterController : MonoBehaviour
                 case AfetTuru.Deprem:
                     StartCoroutine(KameraSalla(afetSuresi, .4f));
                     yield return new WaitForSeconds(afetSuresi / 3);
-                    if (yetersizler.Contains(BinaTuru.TemelBina) && temelBinalar != null)
-                        foreach (Transform b in temelBinalar) TozEfekti(b);
-                    if (yetersizler.Contains(BinaTuru.Okul)) TozEfekti(okulObj);
-                    if (yetersizler.Contains(BinaTuru.Akut)) TozEfekti(akutObj);
-                    if (yetersizler.Contains(BinaTuru.Itfaiye)) TozEfekti(itfaiyeObj);
+                    SelectEarthquakeDamage(yetersizler,afet.gerekenLevel);
                     yield return new WaitForSeconds(afetSuresi * 2 / 3);
                     break;
                 case AfetTuru.Yangin:
@@ -92,10 +111,16 @@ public class DisasterController : MonoBehaviour
                     yield return TsunamiEfekti(SavunmaYeterli);
                     break;
             }
-            var hasarAlanlar = afet.afet == AfetTuru.Deprem ? yetersizler :
-                (SavunmaYeterli ? new List<BinaTuru>() : new List<BinaTuru>(afet.hasarAlan));
-            foreach (BinaTuru b in hasarAlanlar) gm.HasarVer(b, afet.afet);
+            foreach (BinaTuru b in damagedTypes)
+            {
+                int purchasedLevel=gm.Level(b);
+                gm.HasarVer(b,afet.afet);
+                // Damage is local. Reducing the shared category level would also shrink every untouched building.
+                gm.LevelAyarla(b,purchasedLevel);
+            }
             float baz = afet.bazKayip * (SavunmaYeterli ? d.savunmaYeterliCarpani : 1f);
+            if(afet.afet==AfetTuru.Sel&&decision!=null&&decision.KabulEdildi&&AnlatiVerisi.Aktif!=null)
+                baz*=AnlatiVerisi.Aktif.selKayipCarpani;
             int akutEtkiLevel = gm.akutHasarli ? 0 : gm.akutLevel;
             float koruma = (1f - gm.farkindalikYuzdesi * d.farkindalikEtkisi) * (1f - akutEtkiLevel * d.akutEtkisi);
             int vefat = Mathf.Min(gm.nufus, Mathf.RoundToInt(baz * Mathf.Clamp01(koruma)));
@@ -103,7 +128,8 @@ public class DisasterController : MonoBehaviour
             gm.nufus -= vefat;
             gm.sonAfetTuru = afet.afet;
             gm.sonSavunmaYeterli = SavunmaYeterli;
-            gm.sonHasarliBinaSayisi = hasarAlanlar.Count;
+            gm.sonHasarliBinaSayisi = incidentDamage.Count;
+            if(SavunmaYeterli)DefendedIncidentCount++;
             gm.sonVefatSayisi = vefat;
             gm.sonKurtarilanSayisi = kurtarilan;
             gm.toplamVefat += vefat;
@@ -126,6 +152,73 @@ public class DisasterController : MonoBehaviour
         geciciEfektler.Add(IslandEffectsFactory.CreateDust(transform, bina.position + Vector3.up * .4f, 1.5f));
     }
 
+    void Damage(BuildingVisuals building,AfetTuru cause)
+    {
+        if(building==null||!incidentDamage.Add(building))return;
+        building.MarkLocalDamage(cause);damagedTypes.Add(building.binaTuru);
+    }
+
+    void SelectEarthquakeDamage(List<BinaTuru> vulnerable,int requiredLevel)
+    {
+        if(SavunmaYeterli)return;
+        BuildingVisuals fallback=null;
+        foreach(var b in islandBuildings)
+        {
+            if(b==null||!vulnerable.Contains(b.binaTuru))continue;
+            if(GameManager.Instance.Level(b.binaTuru)>=requiredLevel&&!b.IsDamaged)continue;
+            fallback=b;
+            // Weak homes fail in scattered clusters; strong, undamaged categories do not collapse.
+            if(Random.value>(b.binaTuru==BinaTuru.TemelBina?.48f:.65f))continue;
+            Damage(b,AfetTuru.Deprem);TozEfekti(b.transform);
+        }
+        if(incidentDamage.Count==0&&fallback!=null){Damage(fallback,AfetTuru.Deprem);TozEfekti(fallback.transform);}
+    }
+
+    void SelectWaterDamage(AfetTuru cause)
+    {
+        if(SavunmaYeterli)return;
+        foreach(var b in islandBuildings)
+        {
+            if(b==null||incidentDamage.Contains(b))continue;
+            if(b.binaTuru!=BinaTuru.TemelBina&&b.binaTuru!=BinaTuru.Altyapi&&
+                !(cause==AfetTuru.Tsunami&&b.binaTuru==BinaTuru.DenizSeti))continue;
+            if(!WaterReaches(b.transform.position))continue;
+            // Selection is stable within an incident. Flood damage stays patchy rather than erasing every road.
+            float sample=Mathf.Repeat(Mathf.Sin(b.transform.position.x*12.9898f+b.transform.position.z*78.233f+sonKontrolEdilenGun)*43758.5453f,1);
+            float chance=b.binaTuru==BinaTuru.Altyapi?.42f:b.binaTuru==BinaTuru.DenizSeti?.30f:.22f;
+            if(sample<chance)Damage(b,cause);
+        }
+    }
+
+    public bool WaterReaches(Vector3 position)
+    {
+        if(!AfetDevamEdiyorMu||SavunmaYeterli||FloodSurfaceY<kuruZeminY+.10f||
+            position.z>revealLimit||position.y>FloodSurfaceY+.65f)return false;
+        if(waterVertices==null&&tsunamiSuyu!=null)
+        {
+            var f=tsunamiSuyu.GetComponent<MeshFilter>();
+            if(f!=null&&f.sharedMesh!=null&&f.sharedMesh.isReadable){waterVertices=f.sharedMesh.vertices;waterTriangles=f.sharedMesh.triangles;}
+        }
+        if(waterVertices==null)return false;
+        Vector3 p=tsunamiSuyu.InverseTransformPoint(position);
+        for(int i=0;i<waterTriangles.Length;i+=3)
+        {
+            Vector3 a=waterVertices[waterTriangles[i]],b=waterVertices[waterTriangles[i+1]],c=waterVertices[waterTriangles[i+2]];
+            if(Mathf.Abs((b.x-a.x)*(c.z-a.z)-(b.z-a.z)*(c.x-a.x))<.00001f)continue;
+            float x=(p.x-b.x)*(a.z-b.z)-(a.x-b.x)*(p.z-b.z);
+            float y=(p.x-c.x)*(b.z-c.z)-(b.x-c.x)*(p.z-c.z);
+            float z=(p.x-a.x)*(c.z-a.z)-(c.x-a.x)*(p.z-a.z);
+            if(!((x<0||y<0||z<0)&&(x>0||y>0||z>0)))return true;
+        }
+        return false;
+    }
+    public Vector3 WaterCurrentAt(Vector3 position)
+    {
+        if(!WaterReaches(position))return Vector3.zero;
+        return AktifAfetTuru==AfetTuru.Tsunami?new Vector3(Mathf.Sin(position.x*.08f)*1.2f,0,19f)
+            :new Vector3(1.4f+Mathf.Sin(position.z*.07f)*.4f,0,2.0f);
+    }
+
     IEnumerator KameraSalla(float sure, float siddet)
     {
         if (kamera == null) yield break;
@@ -140,37 +233,37 @@ public class DisasterController : MonoBehaviour
 
     IEnumerator YanginEfektiOynat(bool hasar)
     {
-        int count = yanacakBinalar == null ? 0 : yanacakBinalar.Length;
-        float elapsed = 0;
-        for (int i = 0; i < count; i++)
+        var candidates=new List<Transform>();
+        if(yanacakBinalar!=null)foreach(var b in yanacakBinalar)if(b!=null&&b!=itfaiyeObj)candidates.Add(b);
+        if(candidates.Count==0){yield return new WaitForSeconds(afetSuresi);yield break;}
+        Vector3 origin=candidates[Random.Range(0,candidates.Count)].position;
+        candidates.Sort((a,b)=>(a.position-origin).sqrMagnitude.CompareTo((b.position-origin).sqrMagnitude));
+        int count=Mathf.Min(candidates.Count,hasar?9:2),next=0;
+        for(float t=0;t<afetSuresi;t+=Time.deltaTime)
         {
-            Transform bina = yanacakBinalar[i];
-            if (bina != null && bina != itfaiyeObj)
+            if(next<count&&t>=next*afetSuresi*.60f/Mathf.Max(1,count-1))
             {
+                Transform bina=candidates[next++];
+                if((bina.position-origin).sqrMagnitude>32*32){count=next;continue;}
                 Collider col = bina.GetComponent<Collider>();
                 Vector3 p = bina.position; float size = 1;
                 if (col != null) { p.y = col.bounds.max.y - .15f; size = Mathf.Clamp(col.bounds.size.x * .16f, .7f, 1.8f); }
                 geciciEfektler.Add(IslandEffectsFactory.CreateFire(transform, p, size));
+                if(hasar)Damage(bina.GetComponent<BuildingVisuals>(),AfetTuru.Yangin);
             }
-            float interval = afetSuresi / 3 / Mathf.Max(1, count);
-            yield return new WaitForSeconds(interval); elapsed += interval;
-        }
-        yield return new WaitForSeconds(Mathf.Max(0, afetSuresi * 2 / 3 - elapsed));
-        if (!hasar && geciciEfektler.Count > 0)
-        {
-            float interval = afetSuresi / 3 / geciciEfektler.Count;
-            for (int i = 0; i < geciciEfektler.Count; i++)
+            if(!hasar&&t>afetSuresi*.70f)
             {
-                if (geciciEfektler[i] != null) geciciEfektler[i].SetActive(false);
-                yield return new WaitForSeconds(interval);
+                foreach(var effect in geciciEfektler)if(effect!=null)
+                    foreach(var ps in effect.GetComponentsInChildren<ParticleSystem>())ps.Stop(false,ParticleSystemStopBehavior.StopEmitting);
             }
+            yield return null;
         }
-        else yield return new WaitForSeconds(afetSuresi / 3);
     }
 
     void SuAyarla(float y, float revealZ = 10000)
     {
         if (tsunamiSuyu == null) return;
+        revealLimit=revealZ;
         tsunamiSuyu.gameObject.SetActive(true);
         Vector3 p = tsunamiSuyu.position; p.y = y; tsunamiSuyu.position = p;
         if (suRenderer == null) suRenderer = tsunamiSuyu.GetComponent<Renderer>();
@@ -185,6 +278,7 @@ public class DisasterController : MonoBehaviour
             float height = u < .32f ? Mathf.SmoothStep(kuruZeminY - .3f, target, u / .32f) :
                 u > .78f ? Mathf.SmoothStep(target, kuruZeminY - .3f, (u - .78f) / .22f) : target;
             SuAyarla(height);
+            if(u>.35f&&u<.72f)SelectWaterDamage(AfetTuru.Sel);
             yield return null;
         }
     }
@@ -198,18 +292,28 @@ public class DisasterController : MonoBehaviour
         {
             float z = Mathf.Lerp(tsunamiBaslangicZ, tsunamiBitisZ, t / travelTime);
             float waveHeight = 1, y = tsunamiDalgaY;
+            if(!TsunamiImpactTriggered&&t>=impactTime)
+            {
+                TsunamiImpactTriggered=true;
+                if(!korundu)foreach(var b in islandBuildings)
+                    if(b!=null&&b.binaTuru==BinaTuru.DenizSeti&&b.transform.position.z<tsunamiSetZ+15&&Random.value<.6f)Damage(b,AfetTuru.Tsunami);
+                float impactY=kuruZeminY+(korundu?5.0f:1.8f);
+                geciciEfektler.Add(IslandEffectsFactory.CreateSeaImpact(transform,new Vector3(0,impactY,tsunamiSetZ-.8f),korundu?1.2f:.85f));
+                StartCoroutine(KameraSalla(afetSuresi*.14f,korundu?.25f:.38f));
+            }
             if (korundu && t >= impactTime)
             {
-                float melt = Mathf.SmoothStep(0, 1, (t - impactTime) / 2.5f);
+                float melt = Mathf.SmoothStep(0, 1, (t - impactTime) / (afetSuresi*.28f));
                 z = tsunamiSetZ - melt * 9; y -= melt * 3;
                 waveHeight = 1 - melt;
             }
             else if (!korundu)
             {
-                // An advancing, transparent water sheet follows the wave inside the seawall polygon.
-                float rise = Mathf.SmoothStep(0, 1, (t - impactTime) / 1.8f);
+                // Dirty blue water advances behind the crest, clipped to the island's interior mesh.
+                float rise = Mathf.SmoothStep(0, 1, (t - impactTime) / (afetSuresi*.12f));
                 float recede = Mathf.SmoothStep(0, 1, (t - travelTime) / Mathf.Max(.1f, afetSuresi - travelTime));
                 SuAyarla(Mathf.Lerp(kuruZeminY - .3f, tsunamiSuYuksekligi, rise * (1 - recede)), z - 3);
+                SelectWaterDamage(AfetTuru.Tsunami);
             }
             if (tsunamiDalgasi != null)
             {

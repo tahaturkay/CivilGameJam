@@ -147,9 +147,9 @@ public sealed class IslandNavigationTestRobotu : MonoBehaviour
         yield return TestBlockedInput();
 
         IslandCursor cursor = Camera.main != null ? Camera.main.GetComponent<IslandCursor>() : null;
-        Check(cursor != null && cursor.pointer != null && cursor.pointer.width == 64 && cursor.pointer.height == 64 &&
-              cursor.hotspot == new Vector2(6, 5) && cursor.Applied,
-            "The 64×64 lighthouse cursor is applied with hotspot (6, 5)");
+        Check(cursor != null && cursor.pointer != null && cursor.pointer.width == 32 && cursor.pointer.height == 32 &&
+              cursor.hotspot == new Vector2(3, 3) && cursor.Applied,
+            "The compact 32×32 lighthouse cursor is applied with hotspot (3, 3)");
     }
 
     IEnumerator TestCameraNavigation()
@@ -211,6 +211,28 @@ public sealed class IslandNavigationTestRobotu : MonoBehaviour
         }
         Check(camera.orthographicSize <= cameraRig.maxOrthographicSize + .001f,
             "Extreme negative scroll remains clamped at maximum zoom");
+
+        cameraRig.FrameCity();
+        float beforeFineScroll = camera.orthographicSize;
+        for (int i = 0; i < 24; i++)
+        {
+            cameraRig.ApplyScrollDelta(new Vector2(.0001f, .002f), screenCenter, false);
+            yield return null;
+        }
+        for (int i = 0; i < 40; i++) yield return null;
+        float afterFineScroll = camera.orthographicSize;
+        Check(afterFineScroll < beforeFineScroll - .1f &&
+              Vector3.Distance(CameraFocus(camera, cameraRig.boundsCenter.y),
+                  cameraRig.boundsCenter + new Vector3(0f, 0f, -7f)) < .05f,
+            "Fine vertical trackpad scroll zooms without sideways drift");
+        for (int i = 0; i < 24; i++)
+        {
+            cameraRig.ApplyScrollDelta(new Vector2(0f, -.002f), screenCenter, false);
+            yield return null;
+        }
+        for (int i = 0; i < 40; i++) yield return null;
+        Check(camera.orthographicSize > afterFineScroll + .1f,
+            "Fine reverse trackpad scroll smoothly zooms back out");
 
         Vector3 beforeTrackpad = camera.transform.position;
         cameraRig.ApplyScrollDelta(new Vector2(1f, 1f), screenCenter, true);

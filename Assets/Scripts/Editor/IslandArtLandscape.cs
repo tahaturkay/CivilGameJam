@@ -165,12 +165,29 @@ public static partial class IslandLayoutInstaller
         Transform markings=Group(root,"AsfaltYayaGecitleri");
         foreach(float x in new[]{-60f,-30f,0f,30f,60f})foreach(float z in new[]{-42f,-14f,14f,40f})
         {
-            Crosswalk(markings,x-4.7f,z,true);Crosswalk(markings,x+4.7f,z,true);Crosswalk(markings,x,z-4.7f,false);Crosswalk(markings,x,z+4.7f,false);
+            AddJunctionMarkings(markings,x,z);
         }
         CombineVisuals(markings,"AsfaltGecitIsaretleri");markings.gameObject.SetActive(false);
         root.gameObject.AddComponent<RoadNetworkState>().asphaltMarkings=markings.gameObject;
         for(int i=0;i<4;i++)Cube(decoration,"KuzeyMahalleGiris",new Vector3(new[]{-58f,-44f,44f,58f}[i],.10f,45.3f),new Vector3(1.4f,.1f,7.0f),Sand);
         CombineVisuals(decoration,"YolFenerleriVeAgaclar");
+    }
+    static void AddJunctionMarkings(Transform markings,float x,float z)
+    {
+        Crosswalk(markings,x-4.7f,z,true);Crosswalk(markings,x+4.7f,z,true);
+        bool south=z>-42&&!(x==0&&z==14)||(x==0&&z==-42);
+        bool north=z<40&&!(x==0&&z==-14);
+        if(south)Crosswalk(markings,x,z-4.7f,false);
+        else Cube(markings,"T_Kavsak_GuneySiniri",new Vector3(x,.324f,z-3.1f),new Vector3(5.8f,.02f,.22f),Cream);
+        if(north)Crosswalk(markings,x,z+4.7f,false);
+        else Cube(markings,"T_Kavsak_KuzeySiniri",new Vector3(x,.324f,z+3.1f),new Vector3(5.8f,.02f,.22f),Cream);
+    }
+    public static void RefreshJunctionMarkings(GameObject island)
+    {
+        Transform roads=island.transform.Find("Yollar"),markings=roads.Find("AsfaltYayaGecitleri");
+        for(int i=markings.childCount-1;i>=0;i--)Object.DestroyImmediate(markings.GetChild(i).gameObject);
+        foreach(float x in new[]{-60f,-30f,0f,30f,60f})foreach(float z in new[]{-42f,-14f,14f,40f})AddJunctionMarkings(markings,x,z);
+        CombineVisuals(markings,"AsfaltGecitIsaretleri");
     }
     static void Mountain(Transform parent,string name,Vector3 center,float rx,float rz,float height,int seed)
     {

@@ -38,6 +38,11 @@ public sealed class IslandCityLife : MonoBehaviour
     private const float LaneOffset = 1.1f;
     private const int CitizensPerVehicleRoute = 3;
     private const float RoadSurfaceClearance = .34f;
+    private const float VehicleHalfLength = 1.75f;
+    private const float VehicleHalfWidth = .9f;
+    private const float VehicleSafetyMargin = .18f;
+    private const float VehicleRouteHeadway = 4.1f;
+    private const float IntersectionReservationRadius = 6.5f;
 
     private static readonly float[] RoadX = { -60f, -30f, 0f, 30f, 60f };
     private static readonly float[] RoadZ = { -42f, -14f, 14f, 40f };
@@ -80,6 +85,8 @@ public sealed class IslandCityLife : MonoBehaviour
         public bool isAnimal, panicAtAssembly, unsafeResponse;
         public Vector3 assemblyAnchor;
         public float panicTimer;
+        public float waterDriftBlend;
+        public Vector3 lastWaterCurrent,sweptOrigin;
         public int id;
     }
 
@@ -94,8 +101,20 @@ public sealed class IslandCityLife : MonoBehaviour
     {
         public Transform root;
         public VehicleRoute route;
+        public int routeIndex;
         public float distance;
         public float speed;
+        public float returnDistance;
+        public bool displaced;
+        public bool returningToRoute;
+        public Vector3 curbTarget;
+        public float tiltAngle;
+    }
+
+    private sealed class RoofShelter
+    {
+        public Bounds bounds;
+        public float roofY;
     }
 
     private sealed class CitizenMaterialBatch
@@ -120,6 +139,9 @@ public sealed class IslandCityLife : MonoBehaviour
     private int[] bfsQueue;
     private int[] reversePath;
     private VehicleRoute[] vehicleRoutes;
+    private bool[,] vehicleRouteConflicts;
+    private Vector3[,] vehicleRouteConflictPoints;
+    private RoofShelter[] roofShelters;
     private Transform cityLifeRoot;
     private GameManager gameManager;
     private bool runtimeBuilt;
@@ -129,6 +151,8 @@ public sealed class IslandCityLife : MonoBehaviour
     private AfetTuru incidentType;
     private int shelteredCount;
     private int gatheredCount;
+    private bool tsunamiShelterOrdered;
+    private float simulationElapsed;
 
     public int CitizenCount { get { return citizens.Count-AnimalCount; } }
     public int AnimalCount { get; private set; }
@@ -136,10 +160,14 @@ public sealed class IslandCityLife : MonoBehaviour
     public int AwarenessBandAtIncident { get; private set; }
     public int WrongResponseCount { get; private set; }
     public int PanickedAssemblyCount { get; private set; }
+    public int SweptCitizenCount {get{int n=0;foreach(var a in citizens)if(a.waterDriftBlend>0)n++;return n;}}
+    public int DisplacedVehicleCount {get{int n=0;foreach(var a in vehicles)if(a.displaced)n++;return n;}}
     public bool TrafficBlocked => incidentActive || (gameManager != null && gameManager.altyapiHasarli);
     public int VehicleCount { get { return vehicles.Count; } }
     public int ShelteredCount { get { return shelteredCount; } }
     public int GatheredCount { get { return gatheredCount; } }
+    public bool TsunamiShelterOrdered => tsunamiShelterOrdered;
+    public float MovementSpeedMultiplier => gameManager!=null?Mathf.Clamp(gameManager.hizCarpani,1,3):1;
     public int InstancedPartCount { get; private set; }
     public int InstancedBatchCount { get; private set; }
     public CityLifeMode CurrentMode { get; private set; } = CityLifeMode.Normal;
@@ -178,13 +206,15 @@ public sealed class IslandCityLife : MonoBehaviour
         if (!Application.isPlaying || runtimeBuilt) return;
         ClearRuntimeActors();
         BuildRoadGraph();
+        CacheRoofShelters();
 
         GameObject rootObject = new GameObject("SehirYasami");
         cityLifeRoot = rootObject.transform;
         cityLifeRoot.SetParent(transform, false);
+        BuildVehicleRoutes();
+        BuildVehicleRouteConflicts();
         SpawnCitizens();
         BuildCitizenMaterialBatches();
-        BuildVehicleRoutes();
         SpawnVehicles();
         runtimeBuilt = true;
     }
@@ -202,6 +232,8 @@ public sealed class IslandCityLife : MonoBehaviour
         citizens.Clear();
         AnimalCount=0;
         vehicles.Clear();
+        tsunamiShelterOrdered=incidentActive=false;
+        simulationElapsed=0;shelteredCount=gatheredCount=0;
         if (cityLifeRoot != null)
         {
             cityLifeRoot.gameObject.SetActive(false);
@@ -398,8 +430,8 @@ public sealed class IslandCityLife : MonoBehaviour
 
     private void SpawnCitizens()
     {
-        int people = Mathf.Max(1, citizenCount);
         AnimalCount=Mathf.Clamp(animalCount,0,5);
+        int people = Mathf.Clamp(citizenCount, 1, Mathf.Max(1, 100-AnimalCount));
         int count = people+AnimalCount;
         for (int i = 0; i < count; i++)
         {
@@ -455,6 +487,69 @@ public sealed class IslandCityLife : MonoBehaviour
             CreateVehicleRoute(inner, LaneOffset),
             CreateVehicleRoute(ReverseCorners(inner), LaneOffset)
         };
+    }
+
+    private void BuildVehicleRouteConflicts()
+    {
+        int segmentCount = vehicleRoutes.Length * 4;
+        vehicleRouteConflicts = new bool[segmentCount, segmentCount];
+        vehicleRouteConflictPoints = new Vector3[segmentCount, segmentCount];
+        for (int routeA = 0; routeA < vehicleRoutes.Length; routeA++)
+        for (int segmentA = 0; segmentA < 4; segmentA++)
+        for (int routeB = routeA; routeB < vehicleRoutes.Length; routeB++)
+        for (int segmentB = routeB == routeA ? segmentA + 1 : 0; segmentB < 4; segmentB++)
+        {
+            Vector3 a0 = vehicleRoutes[routeA].points[segmentA];
+            Vector3 a1 = vehicleRoutes[routeA].points[(segmentA + 1) % 4];
+            Vector3 b0 = vehicleRoutes[routeB].points[segmentB];
+            Vector3 b1 = vehicleRoutes[routeB].points[(segmentB + 1) % 4];
+            Vector3 closestA, closestB;
+            float distance = SegmentDistance(a0, a1, b0, b1, out closestA, out closestB);
+            if (distance > VehicleHalfWidth * 2f + VehicleSafetyMargin) continue;
+            int indexA = routeA * 4 + segmentA;
+            int indexB = routeB * 4 + segmentB;
+            Vector3 point = (closestA + closestB) * .5f;
+            vehicleRouteConflicts[indexA, indexB] = true;
+            vehicleRouteConflicts[indexB, indexA] = true;
+            vehicleRouteConflictPoints[indexA, indexB] = point;
+            vehicleRouteConflictPoints[indexB, indexA] = point;
+        }
+    }
+
+    private void CacheRoofShelters()
+    {
+        if (houses == null)
+        {
+            roofShelters = new RoofShelter[0];
+            return;
+        }
+
+        List<RoofShelter> cached = new List<RoofShelter>(houses.Length);
+        for (int i = 0; i < houses.Length; i++)
+        {
+            BuildingVisuals house = houses[i];
+            if (house == null || house.binaTuru != BinaTuru.TemelBina) continue;
+            Renderer[] renderers = house.GetComponentsInChildren<Renderer>(true);
+            Bounds bounds = default;
+            bool found = false;
+            for (int r = 0; r < renderers.Length; r++)
+            {
+                if (!found)
+                {
+                    bounds = renderers[r].bounds;
+                    found = true;
+                }
+                else bounds.Encapsulate(renderers[r].bounds);
+            }
+            if (!found)
+            {
+                Collider collider = house.GetComponent<Collider>();
+                if (collider == null) continue;
+                bounds = collider.bounds;
+            }
+            cached.Add(new RoofShelter { bounds = bounds, roofY = bounds.max.y });
+        }
+        roofShelters = cached.ToArray();
     }
 
     private Vector3 RoadPoint(float x, float z)
@@ -514,9 +609,10 @@ public sealed class IslandCityLife : MonoBehaviour
             int routeIndex = i % vehicleRoutes.Length;
             int onRoute = i / vehicleRoutes.Length;
             VehicleRoute route = vehicleRoutes[routeIndex];
-            float distance = route.totalLength * onRoute / CitizensPerVehicleRoute;
+            float desiredDistance = route.totalLength * onRoute / CitizensPerVehicleRoute;
+            float distance;
             Vector3 position, direction;
-            EvaluateRoute(route, distance, out position, out direction);
+            if (!FindSafeSpawnDistance(route, desiredDistance, out distance, out position, out direction)) continue;
 
             GameObject car = IslandActorArt.CreateVehicle(cityLifeRoot,i%6);
             car.name = "AdaAraci_" + (i + 1).ToString("00");
@@ -525,14 +621,49 @@ public sealed class IslandCityLife : MonoBehaviour
             RemoveVehicleColliders(car);
             PlaceVehicleOnGround(car.transform);
 
-            vehicles.Add(new VehicleActor
+            VehicleActor actor = new VehicleActor
             {
                 root = car.transform,
                 route = route,
+                routeIndex = routeIndex,
                 distance = distance,
                 speed = Random.Range(4.2f, 5.6f)
-            });
+            };
+            vehicles.Add(actor);
         }
+    }
+
+    private bool FindSafeSpawnDistance(VehicleRoute route, float desiredDistance, out float safeDistance,
+        out Vector3 safePosition, out Vector3 safeDirection)
+    {
+        const float searchStep = 2f;
+        int steps = Mathf.CeilToInt(route.totalLength / searchStep);
+        for (int i = 0; i < steps; i++)
+        {
+            float distance = Mathf.Repeat(desiredDistance + i * searchStep, route.totalLength);
+            Vector3 position, direction;
+            EvaluateRoute(route, distance, out position, out direction);
+            bool clear = true;
+            for (int other = 0; other < vehicles.Count; other++)
+            {
+                VehicleActor existing = vehicles[other];
+                if (existing.root != null && VehicleOverlaps(position, direction, existing.root.position, existing.root.forward))
+                {
+                    clear = false;
+                    break;
+                }
+            }
+            if (!clear) continue;
+            safeDistance = distance;
+            safePosition = position;
+            safeDirection = direction;
+            return true;
+        }
+
+        safeDistance = 0f;
+        safePosition = Vector3.zero;
+        safeDirection = Vector3.forward;
+        return false;
     }
 
     private static void RemoveVehicleColliders(GameObject vehicle)
@@ -598,12 +729,13 @@ public sealed class IslandCityLife : MonoBehaviour
         bool paused = PauseMenu.DurdurulduMu ||
                       (gameManager != null &&
                        (gameManager.oyunDurduMu || gameManager.afetOlduMu || gameManager.oyunBittiMi ||
-                        (gameManager.kullaniciDurdurdu && !activeHazard)));
+                        gameManager.kullaniciDurdurdu));
         if (paused) return;
 
-        float deltaTime = Time.deltaTime;
+        float deltaTime = Time.deltaTime*MovementSpeedMultiplier;
+        simulationElapsed+=deltaTime;
         bool stopVehicles = TrafficBlocked;
-        if (!stopVehicles) UpdateVehicles(deltaTime);
+        UpdateVehicles(deltaTime, !stopVehicles, activeHazard);
         UpdateCitizens(deltaTime);
     }
 
@@ -612,6 +744,31 @@ public sealed class IslandCityLife : MonoBehaviour
         bool disasterRunning = disasterController != null && disasterController.AfetDevamEdiyorMu;
         bool reportOpen = gameManager != null && gameManager.afetOlduMu;
         bool hasIncident = disasterRunning || reportOpen;
+        bool shelterRequired=IslandDisasterCalendar.TsunamiShelterRequired(gameManager);
+        if(shelterRequired&&!tsunamiShelterOrdered)
+        {
+            if(incidentActive)EndIncident();
+            tsunamiShelterOrdered=true;
+            OrderTsunamiShelter();
+        }
+        if(tsunamiShelterOrdered)
+        {
+            if(shelterRequired)
+            {
+                incidentActive=hasIncident;
+                incidentType=AfetTuru.Tsunami;
+                CurrentMode=CityLifeMode.Shelter;
+                // Normally everyone arrives during the full warning day. Also handle a saved
+                // scene/debug day jump into the tsunami day before the first water frame.
+                if(gameManager.gun==IslandDisasterCalendar.TsunamiDay)
+                    foreach(var actor in citizens)
+                        if(actor.mode==CityLifeMode.Shelter&&!actor.reachedGoal&&actor.shelterHouse!=null)
+                        {actor.root.position=actor.worldGoal;CompleteWorldGoal(actor);}
+                return;
+            }
+            tsunamiShelterOrdered=false;
+            EndIncident();
+        }
         if (hasIncident)
         {
             AfetTuru type = disasterRunning ? disasterController.AktifAfetTuru : gameManager.sonAfetTuru;
@@ -620,6 +777,21 @@ public sealed class IslandCityLife : MonoBehaviour
         else if (incidentActive)
         {
             EndIncident();
+        }
+    }
+
+    private void OrderTsunamiShelter()
+    {
+        CurrentMode=CityLifeMode.Shelter;
+        WrongResponseCount=PanickedAssemblyCount=gatheredCount=shelteredCount=0;
+        foreach(var actor in citizens)
+        {
+            actor.mode=CityLifeMode.Shelter;
+            actor.panicAtAssembly=actor.unsafeResponse=false;
+            actor.reachedGoal=false;actor.waitRemaining=0;
+            actor.shelterHouse=NearestHouse(actor.root.position);
+            if(actor.shelterHouse!=null)
+                PlanRouteToWorldPoint(actor,actor.shelterHouse.transform.position+new Vector3(0,0,-3));
         }
     }
 
@@ -638,9 +810,10 @@ public sealed class IslandCityLife : MonoBehaviour
         {
             CitizenActor actor = citizens[i];
             actor.unsafeResponse=!actor.isAnimal&&AwarenessBandAtIncident==0&&i%10<7;
-            actor.panicAtAssembly=!actor.isAnimal&&AwarenessBandAtIncident==1;
             bool fireOrQuake=type==AfetTuru.Yangin||type==AfetTuru.Deprem;
             actor.mode = actor.unsafeResponse ? (fireOrQuake?CityLifeMode.Shelter:CityLifeMode.Panic) : CityLifeMode.Assembly;
+            actor.panicAtAssembly = !actor.isAnimal && actor.mode == CityLifeMode.Assembly &&
+                (AwarenessBandAtIncident == 1 || (AwarenessBandAtIncident == 0 && fireOrQuake));
             if(actor.unsafeResponse)WrongResponseCount++;
             if(actor.panicAtAssembly)PanickedAssemblyCount++;
             actor.reachedGoal = false;
@@ -676,6 +849,12 @@ public sealed class IslandCityLife : MonoBehaviour
         {
             CitizenActor actor = citizens[i];
             actor.panicAtAssembly=actor.unsafeResponse=false;
+            if(actor.waterDriftBlend>0)
+            {
+                actor.gameObject.SetActive(true);actor.root.position=actor.sweptOrigin;
+                actor.root.rotation=Quaternion.Euler(0,actor.root.eulerAngles.y,0);
+                actor.waterDriftBlend=0;actor.lastWaterCurrent=Vector3.zero;
+            }
             if (actor.mode == CityLifeMode.Assembly)
             {
                 if (actor.reachedGoal) gatheredCount = Mathf.Max(0, gatheredCount - 1);
@@ -840,6 +1019,11 @@ public sealed class IslandCityLife : MonoBehaviour
         {
             CitizenActor actor = citizens[i];
             if (actor.gameObject == null || !actor.gameObject.activeSelf) continue;
+            if (ApplyWaterCurrent(actor, deltaTime))
+            {
+                if(!actor.isAnimal)AnimateCitizen(actor,true,deltaTime);
+                continue;
+            }
             if(actor.mode==CityLifeMode.Assembly && actor.reachedGoal)
             {
                 if(actor.panicAtAssembly)
@@ -863,6 +1047,66 @@ public sealed class IslandCityLife : MonoBehaviour
             bool moving = AdvanceCitizen(actor, deltaTime);
             AnimateCitizen(actor, moving, deltaTime);
         }
+    }
+
+    private bool ApplyWaterCurrent(CitizenActor actor, float deltaTime)
+    {
+        if (disasterController == null || !disasterController.AfetDevamEdiyorMu ||
+            (incidentType != AfetTuru.Sel && incidentType != AfetTuru.Tsunami) ||
+            (actor.waterDriftBlend<=0&&IsUnderRoof(actor.root.position)))
+        {
+            actor.waterDriftBlend = Mathf.MoveTowards(actor.waterDriftBlend, 0f, deltaTime * .8f);
+            return false;
+        }
+
+        Vector3 currentPosition = actor.root.position;
+        bool reached=disasterController.WaterReaches(currentPosition);
+        if(!reached&&actor.waterDriftBlend<=0)return false;
+        Vector3 current = reached?disasterController.WaterCurrentAt(currentPosition):actor.lastWaterCurrent;
+        current.y = 0f;
+        if (current.sqrMagnitude < .0001f) return false;
+
+        if(actor.waterDriftBlend<=0)actor.sweptOrigin=currentPosition;
+        actor.lastWaterCurrent=current;
+        actor.waterDriftBlend = Mathf.MoveTowards(actor.waterDriftBlend, 1f, deltaTime * 1.8f);
+        float incidentForce = Mathf.Lerp(.45f, 1.15f, Mathf.Clamp01(disasterController.IncidentProgress));
+        Vector3 drift = current * (deltaTime * actor.waterDriftBlend * incidentForce);
+        Vector3 next = currentPosition+drift;
+        if(incidentType==AfetTuru.Sel)next=ClampToLand(next,.75f);
+        next.y = Mathf.Max(RoadSurfaceY,disasterController.FloodSurfaceY+.04f)+Mathf.Sin(simulationElapsed*5+actor.id)*.04f;
+        actor.root.position = next;
+        Vector3 direction = Vector3.ProjectOnPlane(current, Vector3.up);
+        if (direction.sqrMagnitude > .001f)
+        {
+            Quaternion facing = Quaternion.LookRotation(direction.normalized, Vector3.up)*Quaternion.Euler(58,0,Mathf.Sin(actor.id)*12);
+            actor.root.rotation = Quaternion.Slerp(actor.root.rotation, facing, Mathf.Min(1f, deltaTime * 3f));
+        }
+        if(incidentType==AfetTuru.Tsunami&&next.z>landBounds.max.z+10)actor.gameObject.SetActive(false);
+        return true;
+    }
+
+    private bool IsUnderRoof(Vector3 position)
+    {
+        if (disasterController == null || roofShelters == null) return false;
+        float waterY = disasterController.FloodSurfaceY;
+        for (int i = 0; i < roofShelters.Length; i++)
+        {
+            RoofShelter roof = roofShelters[i];
+            if (waterY >= roof.roofY) continue;
+            Bounds bounds = roof.bounds;
+            if (position.x >= bounds.min.x - .65f && position.x <= bounds.max.x + .65f &&
+                position.z >= bounds.min.z - .65f && position.z <= bounds.max.z + .65f)
+                return true;
+        }
+        return false;
+    }
+
+    private Vector3 ClampToLand(Vector3 position, float inset)
+    {
+        if (landBounds.size.sqrMagnitude < .001f) return position;
+        position.x = Mathf.Clamp(position.x, landBounds.min.x + inset, landBounds.max.x - inset);
+        position.z = Mathf.Clamp(position.z, landBounds.min.z + inset, landBounds.max.z - inset);
+        return position;
     }
 
     private bool AdvanceCitizen(CitizenActor actor, float deltaTime)
@@ -976,23 +1220,263 @@ public sealed class IslandCityLife : MonoBehaviour
         if (limb != null) limb.localRotation = Quaternion.Slerp(limb.localRotation, target, blend);
     }
 
-    private void UpdateVehicles(float deltaTime)
+    private void UpdateVehicles(float deltaTime, bool canDrive, bool activeHazard)
     {
         for (int i = 0; i < vehicles.Count; i++)
         {
             VehicleActor actor = vehicles[i];
             if (actor.root == null) continue;
-            actor.distance = Mathf.Repeat(actor.distance + actor.speed * deltaTime, actor.route.totalLength);
+            if (activeHazard && disasterController != null &&
+                (incidentType == AfetTuru.Sel || incidentType == AfetTuru.Tsunami) &&
+                !actor.displaced && disasterController.WaterReaches(actor.root.position))
+            {
+                BeginVehicleDisplacement(actor);
+            }
+
+            if (actor.displaced)
+            {
+                if (activeHazard && disasterController != null && disasterController.WaterReaches(actor.root.position))
+                    PushVehicleToCurb(actor, deltaTime);
+                if (canDrive && !activeHazard && !actor.returningToRoute)
+                {
+                    actor.returnDistance = FindNearestRouteDistance(actor.route, actor.root.position);
+                    actor.returningToRoute = true;
+                }
+                if (actor.returningToRoute) ReturnVehicleToRoute(actor, deltaTime);
+                continue;
+            }
+            if (!canDrive) continue;
+
+            float proposedDistance = Mathf.Repeat(actor.distance + actor.speed * deltaTime, actor.route.totalLength);
             Vector3 position, direction;
-            EvaluateRoute(actor.route, actor.distance, out position, out direction);
+            EvaluateRoute(actor.route, proposedDistance, out position, out direction);
             position.y = actor.root.position.y;
+            Quaternion proposedRotation=direction.sqrMagnitude>.001f?Quaternion.RotateTowards(actor.root.rotation,Quaternion.LookRotation(direction,Vector3.up),150f*deltaTime):actor.root.rotation;
+            if (!HasRouteHeadway(actor, proposedDistance) || HasIntersectionReservation(actor, i, proposedDistance) ||
+                !IsVehicleMovementSafe(actor, actor.root.position, position, proposedRotation*Vector3.forward)) continue;
+
+            actor.distance = proposedDistance;
             actor.root.position = position;
             if (direction.sqrMagnitude > .001f)
             {
-                Quaternion rotation = Quaternion.LookRotation(direction, Vector3.up);
-                actor.root.rotation = Quaternion.RotateTowards(actor.root.rotation, rotation, 150f * deltaTime);
+                actor.root.rotation = proposedRotation;
             }
         }
+    }
+
+    private void BeginVehicleDisplacement(VehicleActor actor)
+    {
+        actor.displaced = true;
+        actor.returningToRoute = false;
+        Vector3 direction = Vector3.ProjectOnPlane(actor.root.forward, Vector3.up).normalized;
+        if (direction.sqrMagnitude < .001f) direction = Vector3.forward;
+        Vector3 curb = Vector3.Cross(Vector3.up, direction).normalized;
+        Vector3 current = disasterController.WaterCurrentAt(actor.root.position);
+        current.y = 0f;
+        if (current.sqrMagnitude > .001f) curb = (curb + current.normalized * .45f).normalized;
+        actor.tiltAngle = -15f;
+        actor.curbTarget = ClampToLand(actor.root.position + curb * 2.35f + current * .25f, 1.25f);
+        actor.curbTarget.y = RoadSurfaceY;
+    }
+
+    private void PushVehicleToCurb(VehicleActor actor, float deltaTime)
+    {
+        Vector3 current = disasterController.WaterCurrentAt(actor.root.position);
+        current.y = 0f;
+        Vector3 next = Vector3.MoveTowards(actor.root.position, actor.curbTarget,
+            (.85f + current.magnitude * .45f + Mathf.Clamp01(disasterController.IncidentProgress) * .45f) * deltaTime);
+        next.y = actor.root.position.y;
+        if (IsVehicleMovementSafe(actor, actor.root.position, next, actor.root.forward)) actor.root.position = next;
+        Quaternion tilted = Quaternion.LookRotation(actor.root.forward, Vector3.up) *
+            Quaternion.Euler(0f, 0f, actor.tiltAngle);
+        actor.root.rotation = Quaternion.Slerp(actor.root.rotation, tilted, Mathf.Min(1f, deltaTime * 2f));
+    }
+
+    private void ReturnVehicleToRoute(VehicleActor actor, float deltaTime)
+    {
+        if (TrafficBlocked) return;
+        Vector3 target, direction;
+        EvaluateRoute(actor.route, actor.returnDistance, out target, out direction);
+        target.y = actor.root.position.y;
+        Vector3 next = Vector3.MoveTowards(actor.root.position, target, 2.5f * deltaTime);
+        Quaternion proposedRotation=Quaternion.RotateTowards(actor.root.rotation,Quaternion.LookRotation(direction,Vector3.up),80f*deltaTime);
+        if (!IsVehicleMovementSafe(actor, actor.root.position, next, proposedRotation*Vector3.forward)) return;
+        actor.root.position = next;
+        Quaternion rotation = Quaternion.LookRotation(direction, Vector3.up);
+        actor.root.rotation = proposedRotation;
+        if (HorizontalDistanceSquared(actor.root.position, target) <= .04f)
+        {
+            if(!IsVehiclePositionSafe(actor,target,direction))return;
+            actor.distance = actor.returnDistance;
+            actor.displaced = false;
+            actor.returningToRoute = false;
+            actor.root.position = target;
+            actor.root.rotation = rotation;
+        }
+    }
+
+    private float FindNearestRouteDistance(VehicleRoute route, Vector3 position)
+    {
+        float bestDistance = 0f;
+        float bestSqr = float.PositiveInfinity;
+        float traversed = 0f;
+        for (int segment = 0; segment < route.points.Length; segment++)
+        {
+            Vector3 from = route.points[segment];
+            Vector3 to = route.points[(segment + 1) % route.points.Length];
+            Vector3 closest = ClosestPointOnSegment(position, from, to);
+            float sqr = HorizontalDistanceSquared(position, closest);
+            if (sqr < bestSqr)
+            {
+                bestSqr = sqr;
+                bestDistance = traversed + Vector3.Distance(from, closest);
+            }
+            traversed += route.segmentLengths[segment];
+        }
+        return Mathf.Repeat(bestDistance, route.totalLength);
+    }
+
+    private bool HasRouteHeadway(VehicleActor actor, float proposedDistance)
+    {
+        for (int i = 0; i < vehicles.Count; i++)
+        {
+            VehicleActor other = vehicles[i];
+            if (other == actor || other.root == null || other.displaced || other.route != actor.route) continue;
+            float gap = Mathf.Repeat(other.distance - proposedDistance, actor.route.totalLength);
+            if (gap < VehicleRouteHeadway) return false;
+        }
+        return true;
+    }
+
+    private bool HasIntersectionReservation(VehicleActor actor, int actorIndex, float proposedDistance)
+    {
+        int segment = RouteSegmentAtDistance(actor.route, proposedDistance);
+        int segmentIndex = actor.routeIndex * 4 + segment;
+        if (segmentIndex < 0) return true;
+        for (int i = 0; i < vehicles.Count; i++)
+        {
+            VehicleActor other = vehicles[i];
+            if (other == actor || other.root == null || other.displaced || other.route == actor.route) continue;
+            int otherSegment = RouteSegmentAtDistance(other.route, other.distance);
+            int otherSegmentIndex = other.routeIndex * 4 + otherSegment;
+            if (!vehicleRouteConflicts[segmentIndex, otherSegmentIndex]) continue;
+            Vector3 conflict = vehicleRouteConflictPoints[segmentIndex, otherSegmentIndex];
+            bool otherOwnsZone = HorizontalDistanceSquared(other.root.position, conflict) <= IntersectionReservationRadius * IntersectionReservationRadius;
+            bool actorInZone = HorizontalDistanceSquared(actor.root.position, conflict) <= IntersectionReservationRadius * IntersectionReservationRadius;
+            bool otherApproachingFirst = i < actorIndex &&
+                HorizontalDistanceSquared(other.root.position, conflict) <= (IntersectionReservationRadius + 3f) * (IntersectionReservationRadius + 3f);
+            if ((otherOwnsZone && !actorInZone) || (!actorInZone && otherApproachingFirst)) return true;
+        }
+        return false;
+    }
+
+    private bool IsVehicleMovementSafe(VehicleActor actor, Vector3 from, Vector3 to, Vector3 direction)
+    {
+        float distance = HorizontalDistance(from, to);
+        int steps = Mathf.Max(1, Mathf.CeilToInt(distance / .4f));
+        for (int step = 1; step <= steps; step++)
+        {
+            Vector3 proposedPosition = Vector3.Lerp(from, to, step / (float)steps);
+            if (!IsVehiclePositionSafe(actor, proposedPosition, direction)) return false;
+        }
+        return true;
+    }
+
+    private bool IsVehiclePositionSafe(VehicleActor actor, Vector3 proposedPosition, Vector3 proposedDirection)
+    {
+        for (int i = 0; i < vehicles.Count; i++)
+        {
+            VehicleActor other = vehicles[i];
+            if (other == actor || other.root == null) continue;
+            if (VehicleOverlaps(proposedPosition, proposedDirection, other.root.position, other.root.forward)) return false;
+        }
+        return true;
+    }
+
+    private static bool VehicleOverlaps(Vector3 positionA, Vector3 directionA, Vector3 positionB, Vector3 directionB)
+    {
+        Vector3 forwardA = Vector3.ProjectOnPlane(directionA, Vector3.up).normalized;
+        Vector3 forwardB = Vector3.ProjectOnPlane(directionB, Vector3.up).normalized;
+        if (forwardA.sqrMagnitude < .001f) forwardA = Vector3.forward;
+        if (forwardB.sqrMagnitude < .001f) forwardB = Vector3.forward;
+        Vector3 rightA = Vector3.Cross(Vector3.up, forwardA).normalized;
+        Vector3 rightB = Vector3.Cross(Vector3.up, forwardB).normalized;
+        Vector3 delta = positionB - positionA;
+        return !(SeparatesOnVehicleAxis(delta, forwardA, forwardA, rightA, forwardB, rightB) ||
+               SeparatesOnVehicleAxis(delta, rightA, forwardA, rightA, forwardB, rightB) ||
+               SeparatesOnVehicleAxis(delta, forwardB, forwardA, rightA, forwardB, rightB) ||
+               SeparatesOnVehicleAxis(delta, rightB, forwardA, rightA, forwardB, rightB));
+    }
+
+    private static bool SeparatesOnVehicleAxis(Vector3 delta, Vector3 axis, Vector3 forwardA, Vector3 rightA,
+        Vector3 forwardB, Vector3 rightB)
+    {
+        float distance = Mathf.Abs(Vector3.Dot(delta, axis));
+        float radiusA = Mathf.Abs(Vector3.Dot(forwardA, axis)) * (VehicleHalfLength + VehicleSafetyMargin) +
+            Mathf.Abs(Vector3.Dot(rightA, axis)) * (VehicleHalfWidth + VehicleSafetyMargin);
+        float radiusB = Mathf.Abs(Vector3.Dot(forwardB, axis)) * (VehicleHalfLength + VehicleSafetyMargin) +
+            Mathf.Abs(Vector3.Dot(rightB, axis)) * (VehicleHalfWidth + VehicleSafetyMargin);
+        return distance >= radiusA + radiusB;
+    }
+
+    private static int RouteSegmentAtDistance(VehicleRoute route, float distance)
+    {
+        float remaining = Mathf.Repeat(distance, route.totalLength);
+        int segment = 0;
+        while (segment < route.segmentLengths.Length - 1 && remaining >= route.segmentLengths[segment])
+        {
+            remaining -= route.segmentLengths[segment];
+            segment++;
+        }
+        return segment;
+    }
+
+    private static float SegmentDistance(Vector3 a0, Vector3 a1, Vector3 b0, Vector3 b1,
+        out Vector3 closestA, out Vector3 closestB)
+    {
+        if (SegmentsIntersectXZ(a0, a1, b0, b1))
+        {
+            float denominator = (a1.x - a0.x) * (b1.z - b0.z) - (a1.z - a0.z) * (b1.x - b0.x);
+            float alongA = ((b0.x - a0.x) * (b1.z - b0.z) - (b0.z - a0.z) * (b1.x - b0.x)) / denominator;
+            closestA = closestB = Vector3.Lerp(a0, a1, alongA);
+            return 0f;
+        }
+
+        Vector3[] candidatesA = { a0, a1 };
+        Vector3[] candidatesB = { b0, b1 };
+        float best = float.PositiveInfinity;
+        closestA = a0;
+        closestB = b0;
+        for (int i = 0; i < 2; i++)
+        {
+            Vector3 pointB = ClosestPointOnSegment(candidatesA[i], b0, b1);
+            float d = HorizontalDistanceSquared(candidatesA[i], pointB);
+            if (d < best) { best = d; closestA = candidatesA[i]; closestB = pointB; }
+            Vector3 pointA = ClosestPointOnSegment(candidatesB[i], a0, a1);
+            d = HorizontalDistanceSquared(pointA, candidatesB[i]);
+            if (d < best) { best = d; closestA = pointA; closestB = candidatesB[i]; }
+        }
+        return Mathf.Sqrt(best);
+    }
+
+    private static bool SegmentsIntersectXZ(Vector3 a0, Vector3 a1, Vector3 b0, Vector3 b1)
+    {
+        float denominator = (a1.x - a0.x) * (b1.z - b0.z) - (a1.z - a0.z) * (b1.x - b0.x);
+        if (Mathf.Abs(denominator) < .0001f) return false;
+        float u = ((b0.x - a0.x) * (b1.z - b0.z) - (b0.z - a0.z) * (b1.x - b0.x)) / denominator;
+        float v = ((b0.x - a0.x) * (a1.z - a0.z) - (b0.z - a0.z) * (a1.x - a0.x)) / denominator;
+        return u >= 0f && u <= 1f && v >= 0f && v <= 1f;
+    }
+
+    private static Vector3 ClosestPointOnSegment(Vector3 point, Vector3 from, Vector3 to)
+    {
+        Vector3 delta = to - from;
+        delta.y = 0f;
+        float denominator = delta.sqrMagnitude;
+        if (denominator < .0001f) return from;
+        Vector3 offset = point - from;
+        offset.y = 0f;
+        return from + delta * Mathf.Clamp01(Vector3.Dot(offset, delta) / denominator);
     }
 
     private static void EvaluateRoute(VehicleRoute route, float distance, out Vector3 position, out Vector3 direction)

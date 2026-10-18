@@ -8,6 +8,7 @@ public class RoadNetworkState : MonoBehaviour
     public GameObject asphaltMarkings;
     Transform markers;
     bool shown;
+    readonly Dictionary<BuildingVisuals,GameObject> roadMarkers=new Dictionary<BuildingVisuals,GameObject>();
     public bool ConstructionVisible => markers != null && markers.gameObject.activeSelf;
     void Start()
     {
@@ -17,10 +18,11 @@ public class RoadNetworkState : MonoBehaviour
         {
             var col = road.GetComponent<BoxCollider>();
             if (col == null) continue;
+            var group=new GameObject(road.name+"_Onarim");group.transform.SetParent(markers,false);roadMarkers[road]=group;
             for (int i = 0; i < 3; i++)
             {
                 Vector3 p = road.transform.TransformPoint(new Vector3(0,.34f,(i-1)*col.size.z*.26f));
-                var mark = IslandEffectsFactory.CreateConstructionMarkers(markers, p, col.size.x,i);
+                var mark = IslandRoadBarrierArt.Create(group.transform, p, col.size.x * Mathf.Abs(road.transform.lossyScale.x),i);
                 mark.transform.rotation = road.transform.rotation;
             }
         }
@@ -30,10 +32,13 @@ public class RoadNetworkState : MonoBehaviour
     {
         var gm = GameManager.Instance;
         if (gm == null) return;
-        if (asphaltMarkings != null) asphaltMarkings.SetActive(gm.altyapiLevel == 3 && !gm.altyapiHasarli);
-        if (markers != null && shown != gm.altyapiHasarli)
+        if (asphaltMarkings != null) asphaltMarkings.SetActive(gm.altyapiLevel == 3);
+        bool any=false;
+        foreach(var pair in roadMarkers)
         {
-            shown = gm.altyapiHasarli; markers.gameObject.SetActive(shown);
+            bool damaged=pair.Key!=null&&pair.Key.IsDamaged;
+            if(pair.Value.activeSelf!=damaged)pair.Value.SetActive(damaged);any|=damaged;
         }
+        if(markers!=null&&shown!=any){shown=any;markers.gameObject.SetActive(shown);}
     }
 }

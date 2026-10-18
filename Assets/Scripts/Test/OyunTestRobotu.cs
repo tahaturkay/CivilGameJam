@@ -70,6 +70,9 @@ public class OyunTestRobotu : MonoBehaviour
         Kontrol(gm != null, "GameManager sahnede var");
         Kontrol(gm.gun == 1 && gm.para == d.baslangicPara && gm.nufus == d.baslangicNufus, "gun=1 para=" + gm.para + " nufus=" + gm.nufus);
         Kontrol(Mathf.Approximately(gm.farkindalikYuzdesi, d.baslangicFarkindalik), "farkındalık=%" + gm.farkindalikYuzdesi);
+        Kontrol(d.toplamGun == 20 && d.BuGunkuAfetIndex(5) == 0 && d.BuGunkuAfetIndex(10) == 1 &&
+                d.BuGunkuAfetIndex(15) == 2 && d.BuGunkuAfetIndex(20) == 3,
+            "20 günlük takvim: yangın 5, sel 10, deprem 15, tsunami 20");
         var hud = FindAnyObjectByType<UIManager>();
         Kontrol(hud != null, "UIManager (üst bar) var");
         yield return null;
@@ -83,7 +86,7 @@ public class OyunTestRobotu : MonoBehaviour
         Kontrol(ipucu != null, "IpucuSistemi var");
         if (ipucu != null)
         {
-            Kontrol(ipucu.serit.activeSelf && ipucu.ipucuText.text.Contains("Binalara"), "İlk ipucu görünüyor: " + ipucu.ipucuText.text);
+            Kontrol(ipucu.serit.activeSelf && !string.IsNullOrWhiteSpace(ipucu.VisibleText), "İlk ipucu görünüyor: " + ipucu.ipucuText.text);
         }
 
         // ---------- 2. Hız ve duraklatma ----------
@@ -107,22 +110,25 @@ public class OyunTestRobotu : MonoBehaviour
         hiz.DuraklatDegistir();
         Kontrol(!gm.kullaniciDurdurdu, "Duraklat tekrar basınca devam");
 
-        // Testin geri kalanı hızlı geçsin
-        d.birGunSuresi = 0.6f;
+        // The contextual card keeps time running; keep the real day length until that check is complete.
 
         // ---------- 3. Bina popup'ı ve yükseltme ----------
         Yaz("\n[3] Bina popup'ı ve yükseltme");
         var popup = BinaPopup.Instance;
+        var clock = FindAnyObjectByType<EconomyAndTime>();
         Kontrol(popup != null, "BinaPopup var");
+        Kontrol(clock != null, "Gün saati var");
         gm.para = 1000;
         popup.Ac(BinaTuru.TemelBina);
         g0 = gm.gun;
+        float popupProgress = clock != null ? clock.DayProgress : 0f;
         yield return new WaitForSecondsRealtime(1.5f);
         Kontrol(popup.panel.activeSelf, "Popup açıldı");
-        var kart = popup.panel.transform.Find("Pencere");
+        var kart = popup.panel.transform.Find("ContextBuildingCard");
         var kartImg = kart != null ? kart.GetComponent<UnityEngine.UI.Image>() : null;
-        Kontrol(kartImg != null && kartImg.sprite != null && kartImg.enabled, "Bina popup'ının kart arka planı var");
-        Kontrol(gm.oyunDurduMu && gm.gun == g0, "Popup açıkken zaman durdu");
+        Kontrol(kartImg != null && kartImg.enabled && kartImg.gameObject.activeInHierarchy && kartImg.color.a>.9f, "Bina popup'ının görünür kart arka planı var");
+        Kontrol(!gm.oyunDurduMu && (gm.gun > g0 || (clock != null && clock.DayProgress > popupProgress + .001f)),
+            "Bağlamsal bina kartı açıkken oyun zamanı akıyor");
         Yaz("   Buton yazısı: " + popup.yukseltButonText.text);
         Kontrol(popup.yukseltButonText.text.Contains("200"), "Konut Lv1→2 fiyatı 200₺");
         int paraOnce = gm.para;
@@ -135,12 +141,15 @@ public class OyunTestRobotu : MonoBehaviour
         Kontrol(gm.temelBinaLevel == 3, "Konut Lv3 oldu");
         yield return null;
         Yaz("   Buton yazısı: " + popup.yukseltButonText.text);
-        Kontrol(popup.yukseltButonText.text.Contains("MAKS") && !popup.yukseltButonu.interactable, "Lv3'te MAKS ve buton kapalı");
+        Kontrol(popup.yukseltButonText.text.Contains("SEVİYE") && !popup.yukseltButonu.interactable, "En yüksek seviyede yükseltme butonu kapalı");
         Kontrol(!Ekonomi.Yukselt(BinaTuru.TemelBina) && gm.temelBinaLevel == 3, "Lv3'ün üstüne çıkmıyor");
         popup.Kapat();
         Kontrol(!popup.panel.activeSelf && !gm.oyunDurduMu, "Popup kapandı, zaman devam");
         yield return null;
-        if (ipucu != null) Kontrol(ipucu.SiradakiIndex >= 1, "Popup açılınca ilk ipucu geçildi (sıradaki: " + ipucu.SiradakiIndex + ", görünen: " + (ipucu.serit.activeSelf ? ipucu.ipucuText.text : "-") + ")");
+        if (ipucu != null) Kontrol(ipucu.SiradakiIndex >= 1 || ipucu.CurrentDisasterHint.HasValue, "Öğretici veya öncelikli afet ipucu akışı devam ediyor");
+
+        d.birGunSuresi=.6f;
+        typeof(EconomyAndTime).GetField("gunSayaci",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).SetValue(clock,0f);
 
         int nufusOnce = gm.nufus;
         int paraOnce2 = gm.para;
@@ -167,7 +176,7 @@ public class OyunTestRobotu : MonoBehaviour
         Kontrol(qImg != null && qImg.sprite != null, "Quiz kartının arka planı var");
         int dogru = quiz.AktifSoru.dogruSikIndex;
         quiz.sikButonlari[dogru].onClick.Invoke();
-        Kontrol(Mathf.Approximately(gm.farkindalikYuzdesi, 20f), "Doğru cevap: farkındalık %10 → %" + gm.farkindalikYuzdesi);
+        Kontrol(Mathf.Approximately(gm.farkindalikYuzdesi, 35f), "Doğru cevap +%25: farkındalık %10 → %" + gm.farkindalikYuzdesi);
         yield return new WaitForSecondsRealtime(2.5f);
         Kontrol(quiz.quizPanel.activeSelf, "Cevaptan sonra quiz açık kalıyor (açıklama okunabilir)");
         quiz.QuizKapat();
@@ -177,7 +186,7 @@ public class OyunTestRobotu : MonoBehaviour
         yield return null;
         int yanlis = (quiz.AktifSoru.dogruSikIndex + 1) % quiz.AktifSoru.siklar.Length;
         quiz.sikButonlari[yanlis].onClick.Invoke();
-        Kontrol(Mathf.Approximately(gm.farkindalikYuzdesi, 20f), "Yanlış cevap: farkındalık değişmedi");
+        Kontrol(Mathf.Approximately(gm.farkindalikYuzdesi, 35f), "Yanlış cevap: farkındalık değişmedi");
         Yaz("   Yanlış cevap mesajı: " + quiz.soruText.text);
         quiz.QuizKapat();
 
@@ -223,7 +232,13 @@ public class OyunTestRobotu : MonoBehaviour
         Kontrol(!gm.sonSavunmaYeterli && gm.sonAfetTuru == AfetTuru.Yangin, "Rapor: Yangın, savunma yetersiz");
         Kontrol(gm.sonVefatSayisi == beklenenVefat, "Vefat " + gm.sonVefatSayisi + " (beklenen " + beklenenVefat + "), kurtarılan " + gm.sonKurtarilanSayisi);
         Kontrol(gm.nufus == nufus0 - gm.sonVefatSayisi, "Nüfus düştü");
-        Kontrol(gm.temelBinaLevel == 1 && gm.okulHasarli, "Konut 2→1, okul (Lv1) hasarlı oldu");
+        BuildingVisuals[] fireBuildings = FindObjectsByType<BuildingVisuals>(FindObjectsSortMode.None);
+        int locallyDamaged = 0;
+        for (int i = 0; i < fireBuildings.Length; i++)
+            if (fireBuildings[i] != null && fireBuildings[i].LocalDamageManaged && fireBuildings[i].IsDamaged) locallyDamaged++;
+        Kontrol(afet.DamagedInstanceCount > 0 && afet.DamagedInstanceCount < fireBuildings.Length &&
+                gm.sonHasarliBinaSayisi == afet.DamagedInstanceCount && locallyDamaged == afet.DamagedInstanceCount,
+            "Yangın yalnızca yakın binaları seçici biçimde etkiledi: " + locallyDamaged + "/" + fireBuildings.Length);
         Yaz("   Rapor: " + rapor.baslikText.text + " | " + rapor.savunmaText.text + " | " + rapor.vefatText.text);
         g0 = gm.gun;
         yield return new WaitForSecondsRealtime(1f);
@@ -234,15 +249,24 @@ public class OyunTestRobotu : MonoBehaviour
 
         // ---------- 6. Hasarlı bina ve onarım ----------
         Yaz("\n[6] Hasarlı bina ve onarım");
+        BinaTuru repairType = BinaTuru.TemelBina;
+        bool repairTypeFound = false;
+        foreach (BinaTuru type in Enum.GetValues(typeof(BinaTuru)))
+            if (gm.Hasarli(type)) { repairType = type; repairTypeFound = true; break; }
+        Kontrol(repairTypeFound, "Seçici yangın hasarı için onarılabilir yapı türü bulundu");
         gm.para = 1000;
-        popup.Ac(BinaTuru.Okul);
+        if (!repairTypeFound) repairType = BinaTuru.Okul;
+        popup.Ac(repairType);
         yield return new WaitForSecondsRealtime(0.3f);
         Yaz("   Buton yazısı: " + popup.yukseltButonText.text);
-        Kontrol(popup.yukseltButonText.text.Contains("Onar") && !popup.quizButonu.gameObject.activeSelf, "Hasarlı okulda Onar butonu, quiz kapalı");
-        Kontrol(!Ekonomi.Yukselt(BinaTuru.Okul), "Hasarlıyken yükseltilemiyor");
+        Kontrol(popup.yukseltButonText.text.ToUpperInvariant().Contains("ONAR") &&
+                (repairType != BinaTuru.Okul || !popup.quizButonu.gameObject.activeSelf),
+            "Hasarlı yapıda Onar butonu görünür");
+        Kontrol(!Ekonomi.Yukselt(repairType), "Hasarlıyken yükseltilemiyor");
         paraOnce = gm.para;
         popup.YukseltTiklandi();
-        Kontrol(!gm.okulHasarli && gm.para == paraOnce - d.OnarimMaliyeti(BinaTuru.Okul), "Onarıldı, " + d.OnarimMaliyeti(BinaTuru.Okul) + "₺ düştü");
+        Kontrol(!gm.Hasarli(repairType) && gm.para == paraOnce - d.OnarimMaliyeti(repairType),
+            "Onarıldı, " + d.OnarimMaliyeti(repairType) + "₺ düştü");
         popup.Kapat();
 
         // ---------- 7. Savunma yeterliyken ----------
@@ -260,16 +284,23 @@ public class OyunTestRobotu : MonoBehaviour
         rapor.Devam();
 
         // ---------- 8. Son gün ve oyun sonu ----------
-        Yaz("\n[8] 28. gün: tsunami ve oyun sonu");
+        Yaz("\n[8] 20. gün: tsunami ve oyun sonu");
         var son = FindAnyObjectByType<OyunSonu>();
         Kontrol(son != null, "OyunSonu var");
+        var karar=FindAnyObjectByType<DereYatagiKarari>();
+        if(karar!=null&&!karar.Cozuldu)
+        {
+            gm.gun=AnlatiVerisi.Aktif.kararGunu;gm.kullaniciDurdurdu=false;gm.oyunDurduMu=false;
+            yield return null;yield return null;
+            if(karar.Acik)karar.KararVer(false);
+        }
         gm.gun = d.toplamGun - 1;
         gm.kullaniciDurdurdu = false;
         Time.timeScale = 6f;
         sinir = Time.realtimeSinceStartup + 40f;
         while (!gm.afetOlduMu && Time.realtimeSinceStartup < sinir) yield return null;
         Time.timeScale = 1f;
-        Kontrol(gm.gun == d.toplamGun && gm.sonAfetTuru == AfetTuru.Tsunami, "28. gün tsunami kendiliğinden geldi");
+        Kontrol(gm.gun == d.toplamGun && gm.sonAfetTuru == AfetTuru.Tsunami, "20. gün tsunami kendiliğinden geldi");
         yield return null;
         rapor.Devam();
         yield return null;
