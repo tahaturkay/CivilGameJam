@@ -127,9 +127,17 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 2187461595337819826, guid: 6875fc36f1dc14716a026b029157d0dc, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0.7
+      objectReference: {fileID: 0}
     - target: {fileID: 5045317732242924139, guid: 6875fc36f1dc14716a026b029157d0dc, type: 3}
       propertyPath: m_Name
       value: LowPolyAda
+      objectReference: {fileID: 0}
+    - target: {fileID: 6103061110361987933, guid: 6875fc36f1dc14716a026b029157d0dc, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8959101152226389431, guid: 6875fc36f1dc14716a026b029157d0dc, type: 3}
       propertyPath: m_LocalPosition.x
@@ -172,7 +180,8 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 3057777868688231948, guid: 6875fc36f1dc14716a026b029157d0dc, type: 3}
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: 8423950439223779556, guid: 6875fc36f1dc14716a026b029157d0dc, type: 3}
       insertIndex: -1
@@ -274,11 +283,6 @@ Transform:
 --- !u!4 &309500077 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4356358455506698352, guid: 6875fc36f1dc14716a026b029157d0dc, type: 3}
-  m_PrefabInstance: {fileID: 309500060}
-  m_PrefabAsset: {fileID: 0}
---- !u!4 &309500078 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 1710086454227560966, guid: 6875fc36f1dc14716a026b029157d0dc, type: 3}
   m_PrefabInstance: {fileID: 309500060}
   m_PrefabAsset: {fileID: 0}
 --- !u!4 &309500079 stripped
@@ -511,17 +515,6 @@ MonoBehaviour:
 --- !u!114 &309500116 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 5451402565391310916, guid: 6875fc36f1dc14716a026b029157d0dc, type: 3}
-  m_PrefabInstance: {fileID: 309500060}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a9609483a60b56747888386ce548791a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BuildingVisuals
---- !u!114 &309500117 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 3407246144868718437, guid: 6875fc36f1dc14716a026b029157d0dc, type: 3}
   m_PrefabInstance: {fileID: 309500060}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
@@ -1268,7 +1261,7 @@ PrefabInstance:
     - target: {fileID: 4981845140783318802, guid: 5c151845c79534c4eab6f8d2d39b1417, type: 3}
       propertyPath: 'temelBinalar.Array.data[30]'
       value: 
-      objectReference: {fileID: 309500078}
+      objectReference: {fileID: 0}
     - target: {fileID: 4981845140783318802, guid: 5c151845c79534c4eab6f8d2d39b1417, type: 3}
       propertyPath: 'temelBinalar.Array.data[31]'
       value: 
@@ -1428,7 +1421,7 @@ PrefabInstance:
     - target: {fileID: 4981845140783318802, guid: 5c151845c79534c4eab6f8d2d39b1417, type: 3}
       propertyPath: 'yanacakBinalar.Array.data[30]'
       value: 
-      objectReference: {fileID: 309500078}
+      objectReference: {fileID: 0}
     - target: {fileID: 4981845140783318802, guid: 5c151845c79534c4eab6f8d2d39b1417, type: 3}
       propertyPath: 'yanacakBinalar.Array.data[31]'
       value: 
@@ -1916,7 +1909,7 @@ MonoBehaviour:
   - {fileID: 309500120}
   - {fileID: 309500119}
   - {fileID: 309500118}
-  - {fileID: 309500117}
+  - {fileID: 0}
   - {fileID: 309500116}
   - {fileID: 309500115}
   - {fileID: 309500114}
@@ -2216,6 +2209,10 @@ PrefabInstance:
     - target: {fileID: 180988548961594310, guid: 1951338a79fbd44d7b6c2e3facf1cb34, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 181604331531138036, guid: 1951338a79fbd44d7b6c2e3facf1cb34, type: 3}
+      propertyPath: nominalPopupScale
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 196798700627727736, guid: 1951338a79fbd44d7b6c2e3facf1cb34, type: 3}
       propertyPath: m_AnchorMax.y
