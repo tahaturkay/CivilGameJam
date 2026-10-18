@@ -136,6 +136,7 @@ public class IslandWeather : MonoBehaviour
         if(flood&&Time.time>=nextLightning)
         {
             lightningRemaining=.21f;nextLightning=Time.time+7+Mathf.PerlinNoise(Time.time*.17f,9.1f)*7;
+            SoundManager.Instance?.SimsekCal();
         }
         lightningRemaining=flood?Mathf.Max(0,lightningRemaining-Time.deltaTime):0;
         float phase=dayClock!=null?dayClock.DayProgress:0;

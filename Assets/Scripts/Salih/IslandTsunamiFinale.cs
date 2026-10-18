@@ -42,6 +42,7 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
     IslandWeather weather;
     IslandFinaleSunDisc sunsetDisc;
     IslandSirenAudio siren;
+    AudioSource finaleMusicSource;
     GameObject visitorsRoot,overlayRoot,waveFace;
     Mesh waveFaceMesh;
     Material waveFaceMaterial;
@@ -112,6 +113,22 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
         VisitorA.SetPositionAndRotation(deckA.position,deckA.rotation);
         VisitorB.SetPositionAndRotation(deckB.position,deckB.rotation);
     }
+    void StartFinalMusic()
+    {
+        var clip=Resources.Load<AudioClip>("Audio/Music/oyunsonumuzik");
+        if(clip==null)return;
+        if(finaleMusicSource==null)
+        {
+            finaleMusicSource=gameObject.AddComponent<AudioSource>();
+            finaleMusicSource.loop=true;finaleMusicSource.spatialBlend=0f;finaleMusicSource.playOnAwake=false;
+            if(Ayarlar.Mixer!=null){var g=Ayarlar.Mixer.FindMatchingGroups(Ayarlar.MuzikGrubu);if(g.Length>0)finaleMusicSource.outputAudioMixerGroup=g[0];}
+        }
+        finaleMusicSource.clip=clip;finaleMusicSource.volume=0f;finaleMusicSource.Play();
+    }
+    void StopFinalMusic()
+    {
+        if(finaleMusicSource!=null){finaleMusicSource.Stop();finaleMusicSource.volume=0f;}
+    }
 
     public IEnumerator Play(IEnumerator physicalTsunami)
     {
@@ -135,6 +152,8 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
             Quaternion openingLook=Quaternion.LookRotation(Vector3.Lerp(Boat.position,standA.position,.28f)+Vector3.up*2-opening);
             Vector3 dockCamera=standA.position+new Vector3(12,8,-14);
             Quaternion dockLook=Quaternion.LookRotation((standA.position+mooring.position)*.5f+Vector3.up-dockCamera);
+            StartFinalMusic();
+            SoundManager.Instance?.SirenCal(false, 1.5f);
             yield return Shot("BoatApproach",6f,u=>
             {
                 float t=Mathf.SmoothStep(0,1,u);BoatApproachProgress=t;
@@ -147,6 +166,7 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
                 Vector3 position=Vector3.Lerp(opening,dockCamera,orbit);
                 Quaternion rotation=Quaternion.Slerp(openingLook,dockLook,orbit);
                 view.transform.SetPositionAndRotation(Vector3.Lerp(oldCameraPosition,position,enter),Quaternion.Slerp(oldCameraRotation,rotation,enter));
+                if(finaleMusicSource!=null)finaleMusicSource.volume=Mathf.SmoothStep(0f,1f,Mathf.Clamp01(u/.35f));
             });
             Boat.SetPositionAndRotation(mooring.position,mooring.rotation);PlaceOnDeck();
             Vector3 startA=VisitorA.position,startB=VisitorB.position,boatExit=deckExit.position;
@@ -161,7 +181,7 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
             });
             VisitorA.SetPositionAndRotation(standA.position,standA.rotation);VisitorB.SetPositionAndRotation(standB.position,standB.rotation);
             SetGait(VisitorA,0);SetGait(VisitorB,0);AddFaceFill();
-            siren.PlayCue();effectsDone=false;StartCoroutine(PhysicalEffects(physicalTsunami));
+            effectsDone=false;StartCoroutine(PhysicalEffects(physicalTsunami));
             Vector3 eye=standA.position+Vector3.up*1.39f;
             Quaternion seaLook=Quaternion.LookRotation(new Vector3(.7f,.11f,-1));
             Vector3 warningPosition=view.transform.position;Quaternion warningLook=view.transform.rotation;
@@ -204,15 +224,17 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
             var music=MusicPlayer.Instance!=null?MusicPlayer.Instance.GetComponent<AudioSource>():null;
             float musicVolume=music!=null?music.volume:0;
             float fadeStart=blackout.color.a;
+            float finaleVol=finaleMusicSource!=null?finaleMusicSource.volume:0;
             yield return Shot("FadeToBlack",3f,u=>
             {
                 float fade=Mathf.Lerp(fadeStart,1f,Mathf.SmoothStep(0,1,u));blackout.color=new Color(0,0,0,fade);
                 endingTitle.alpha=endingLine.alpha=1-Mathf.SmoothStep(0,1,Mathf.InverseLerp(.1f,.85f,u));
                 if(music!=null)music.volume=musicVolume*(1-fade);
+                if(finaleMusicSource!=null)finaleMusicSource.volume=finaleVol*(1-fade);
             });
             while(!effectsDone)yield return null;
             if(music!=null)music.Stop();
-            siren.StopCue();blackout.color=Color.black;endingTitle.alpha=endingLine.alpha=0;
+            StopFinalMusic();siren.StopCue();blackout.color=Color.black;endingTitle.alpha=endingLine.alpha=0;
             if(overlayCanvas!=null){overlayCanvas.overrideSorting=true;overlayCanvas.sortingOrder=-1;}
             // The report is now on black; stop rendering the obscured city and
             // animating the close wave while keeping overlay UI and ESC available.
@@ -388,7 +410,7 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
     {rt.anchorMin=new Vector2(0,top?.93f:0);rt.anchorMax=new Vector2(1,top?1:.07f);rt.offsetMin=rt.offsetMax=Vector2.zero;}
     void OnDisable()
     {
-        StopAllCoroutines();RestorePresentation();if(siren!=null)siren.StopCue();IsPlaying=IsComplete=false;if(active==this)active=null;
+        StopAllCoroutines();RestorePresentation();StopFinalMusic();if(siren!=null)siren.StopCue();IsPlaying=IsComplete=false;if(active==this)active=null;
         if(overlayRoot!=null)overlayRoot.SetActive(false);if(CinematicWave!=null)Destroy(CinematicWave.gameObject);
         if(waveFace!=null)Destroy(waveFace);if(sunsetDisc!=null)Destroy(sunsetDisc.gameObject);
     }

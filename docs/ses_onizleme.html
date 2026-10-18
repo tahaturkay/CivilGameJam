@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CivilGameJam - Aktif Ses & Müzik Listesi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b1a26;
+      --card-bg: #132738;
+      --card-border: #203e55;
+      --accent: #26bba6;
+      --accent-hover: #31d9c1;
+      --accent-dim: rgba(38, 187, 166, 0.15);
+      --cream: #fff8e7;
+      --text: #e6f1f5;
+      --text-muted: #8ba2b5;
+      --danger: #e76f51;
+      --warning: #f4a261;
+      --success: #2a9d8f;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(circle at top, #15334c 0%, var(--bg) 100%);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    .badge {
+      display: inline-block;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 2.3rem;
+      font-weight: 800;
+      color: var(--cream);
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 720px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+
+    .folder-info {
+      background: rgba(19, 39, 56, 0.7);
+      border: 1px dashed var(--accent);
+      border-radius: 10px;
+      padding: 12px 20px;
+      margin: 20px auto 0;
+      max-width: 720px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--accent);
+      text-align: left;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
+      gap: 20px;
+      margin-top: 30px;
+    }
+
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      transform: translateY(-2px);
+    }
+
+    .card.playing {
+      border-color: var(--accent);
+      background: #173248;
+    }
+
+    .card.playing::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+      animation: pulse 1.5s infinite alternate;
+    }
+
+    @keyframes pulse {
+      from { opacity: 0.6; }
+      to { opacity: 1; filter: drop-shadow(0 0 6px var(--accent)); }
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--cream);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-duration {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--accent);
+      background: var(--accent-dim);
+      padding: 3px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+
+    .card-desc {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .card-desc strong {
+      color: #b0c9dd;
+    }
+
+    .player-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: auto;
+    }
+
+    .btn-play {
+      background: var(--accent);
+      color: #062226;
+      border: none;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .btn-play:hover {
+      background: var(--accent-hover);
+      transform: scale(1.06);
+    }
+
+    .btn-play:active {
+      transform: scale(0.96);
+    }
+
+    .progress-bar-container {
+      flex: 1;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 4px;
+      transition: width 0.1s linear;
+    }
+
+    .time-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      min-width: 65px;
+      text-align: right;
+    }
+
+    .category-badge {
+      font-size: 0.72rem;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .cat-music { background: rgba(142, 68, 173, 0.25); color: #c39bd3; }
+    .cat-disaster { background: rgba(231, 111, 81, 0.25); color: #f4a261; }
+    .cat-gameplay { background: rgba(42, 157, 143, 0.25); color: #48cae4; }
+    .cat-quiz { background: rgba(243, 156, 18, 0.25); color: #f9e79f; }
+    .cat-endgame { background: rgba(52, 152, 219, 0.25); color: #85c1e9; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="badge">CivilGameJam 2026 Audio Suite</div>
+      <h1>Oyuna Entegre Edilen Aktif Sesler</h1>
+      <p class="subtitle">Müzik ve Efekt (SFX) kanalları için ayrı klasör yapısı oluşturuldu ve kodlara bağlandı. Aşağıdan tüm sesleri dinleyebilirsiniz.</p>
+      <div class="folder-info">
+        📁 <strong>Audio/Music:</strong> Ana Ekran Müziği (AnaMixer -> Muzik)<br>
+        📁 <strong>Audio/SFX:</strong> Tüm Efektler ve Ambiyanslar (AnaMixer -> Efekt)
+      </div>
+    </header>
+
+    <div class="grid" id="audioGrid"></div>
+  </div>
+
+  <script>
+    const tracks = [
+      {
+        id: "ana_ekran_muzigi",
+        title: "1. Ana Ekran Müziği",
+        category: "Müzik Grubu",
+        catClass: "cat-music",
+        duration: "Music/ (Loop)",
+        file: "../Assets/Resources/Audio/Music/ana_ekran_muzigi.wav",
+        desc: "<strong>MainMenu:</strong> Sadece ana menüde çalar. Ayarlar'daki 'Müzik Sesi' barı ile kontrol edilir."
+      },
+      {
+        id: "ana_oyun_muzigi",
+        title: "2. Ana Oyun Müziği (Quiet Island Flow)",
+        category: "Müzik Grubu",
+        catClass: "cat-music",
+        duration: "Music/ (Loop)",
+        file: "../Assets/Resources/Audio/Music/Quiet Island Flow.wav",
+        desc: "<strong>MainScene:</strong> Oyun boyunca loop olarak çalar. Afet günü gelince siren öncesinde smooth şekilde susar; afet bittiğinde smooth şekilde tekrar açılır."
+      },
+      {
+        id: "dalga",
+        title: "3. Dalga Ambiyansı (dalga.mp3)",
+        category: "SFX Grubu",
+        catClass: "cat-gameplay",
+        duration: "SFX/ (Loop)",
+        file: "../Assets/Resources/Audio/SFX/dalga.mp3",
+        desc: "<strong>Oyun Boyunca:</strong> MainScene açıldığında hafif düzeyde (Vol: 0.22) arkadan sürekli çalar. Efekt kanalına bağlıdır."
+      },
+      {
+        id: "upgrade",
+        title: "3. Bina Yükseltme (upgrade.mp3)",
+        category: "SFX Grubu",
+        catClass: "cat-gameplay",
+        duration: "SFX/ (One-shot)",
+        file: "../Assets/Resources/Audio/SFX/upgrade.mp3",
+        desc: "<strong>Satın Alım:</strong> Herhangi bir bina veya yapı yükseltmesi (Lv 1->2 veya 2->3) satın alındığında tetiklenir."
+      },
+      {
+        id: "quiz_dogru_sesi",
+        title: "4. Quiz Doğru Cevap Sesi",
+        category: "SFX Grubu",
+        catClass: "cat-quiz",
+        duration: "SFX/ (One-shot)",
+        file: "../Assets/Resources/Audio/SFX/quiz_dogru_sesi.wav",
+        desc: "<strong>Okul Quizi:</strong> Oyuncu doğru şıkkı seçtiğinde çalan özgün akademik kalimba & ferah çan tınısı."
+      },
+      {
+        id: "quiz_yanlis_sesi",
+        title: "5. Quiz Yanlış Cevap Sesi",
+        category: "SFX Grubu",
+        catClass: "cat-quiz",
+        duration: "SFX/ (One-shot)",
+        file: "../Assets/Resources/Audio/SFX/quiz_yanlis_sesi.wav",
+        desc: "<strong>Okul Quizi:</strong> Oyuncu yanlış şıkkı seçtiğinde çalan sönümlü marimba düşüş tınısı."
+      },
+      {
+        id: "siren",
+        title: "6. Afet Sireni (siren.mp3)",
+        category: "SFX Grubu",
+        catClass: "cat-disaster",
+        duration: "SFX/ (Afet Süresince)",
+        file: "../Assets/Resources/Audio/SFX/siren.mp3",
+        desc: "<strong>Afet Uyarısı:</strong> Tsunami hariç afetin başladığı gün çalar; afet simülasyonu bittiğinde otomatik susar."
+      },
+      {
+        id: "ates",
+        title: "7. Yangın Afeti (ates.mp3)",
+        category: "SFX Grubu",
+        catClass: "cat-disaster",
+        duration: "SFX/ (Afet Süresince)",
+        file: "../Assets/Resources/Audio/SFX/ates.mp3",
+        desc: "<strong>Yangın Günü:</strong> Yangın afeti başladığında binalar alev alırken çalar, afet tamamlandığında susar."
+      },
+      {
+        id: "yagmurvegokgurultusu",
+        title: "8. Yağmur ve Gök Gürültüsü",
+        category: "SFX Grubu",
+        catClass: "cat-disaster",
+        duration: "SFX/ (Afet Süresince)",
+        file: "../Assets/Resources/Audio/SFX/yagmurvegokgurultusu.mp3",
+        desc: "<strong>Sel Günü (yagmurvegokgurultusu.mp3):</strong> Sel afeti başladığı andan afet bitene kadar çalar, bitince susar."
+      },
+      {
+        id: "simsek",
+        title: "9. Şimşek Sesi (simsek.mp3)",
+        category: "SFX Grubu",
+        catClass: "cat-disaster",
+        duration: "SFX/ (One-shot)",
+        file: "../Assets/Resources/Audio/SFX/simsek.mp3",
+        desc: "<strong>Sel Anı:</strong> Yağmur yağarken ekranda anlık beyaz ışık (lightning) parladığı tam o milisaniyede çalar."
+      },
+      {
+        id: "afet_raporu_bildirim",
+        title: "10. Afet Raporu Bildirimi",
+        category: "SFX Grubu",
+        catClass: "cat-disaster",
+        duration: "SFX/ (One-shot)",
+        file: "../Assets/Resources/Audio/SFX/afet_raporu_bildirim.wav",
+        desc: "<strong>Afet Raporu:</strong> Afet sona erip hasar/kurtarılan sonuç paneli açıldığında çalan telsiz bildirimi."
+      },
+      {
+        id: "oyun_kazanma_sesi",
+        title: "11. Oyun Kazanma Sesi",
+        category: "SFX Grubu",
+        catClass: "cat-endgame",
+        duration: "SFX/ (One-shot)",
+        file: "../Assets/Resources/Audio/SFX/oyun_kazanma_sesi.wav",
+        desc: "<strong>Oyun Sonu:</strong> 20 gün başarıyla tamamlanıp karne/epilog ekranı açıldığında çalan zafer fanfarı."
+      }
+    ];
+
+    const grid = document.getElementById('audioGrid');
+    let currentAudio = null;
+    let currentBtn = null;
+    let currentFill = null;
+    let currentTimeDisp = null;
+    let currentCard = null;
+
+    tracks.forEach(t => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.id = `card-${t.id}`;
+
+      card.innerHTML = `
+        <div class="card-header">
+          <div>
+            <div class="card-title">
+              ${t.title}
+              <span class="category-badge ${t.catClass}">${t.category}</span>
+            </div>
+          </div>
+          <div class="card-duration">${t.duration}</div>
+        </div>
+        <div class="card-desc">${t.desc}</div>
+        <div class="player-row">
+          <button class="btn-play" id="btn-${t.id}">▶</button>
+          <div class="progress-bar-container" id="bar-${t.id}">
+            <div class="progress-fill" id="fill-${t.id}"></div>
+          </div>
+          <div class="time-display" id="time-${t.id}">0:00</div>
+        </div>
+      `;
+
+      grid.appendChild(card);
+
+      const audio = new Audio(t.file);
+      const btn = card.querySelector(`#btn-${t.id}`);
+      const bar = card.querySelector(`#bar-${t.id}`);
+      const fill = card.querySelector(`#fill-${t.id}`);
+      const timeDisp = card.querySelector(`#time-${t.id}`);
+
+      btn.addEventListener('click', () => {
+        if (currentAudio === audio) {
+          if (audio.paused) {
+            audio.play();
+            btn.textContent = '❚❚';
+            card.classList.add('playing');
+          } else {
+            audio.pause();
+            btn.textContent = '▶';
+            card.classList.remove('playing');
+          }
+        } else {
+          if (currentAudio) {
+            currentAudio.pause();
+            currentAudio.currentTime = 0;
+            if (currentBtn) currentBtn.textContent = '▶';
+            if (currentFill) currentFill.style.width = '0%';
+            if (currentCard) currentCard.classList.remove('playing');
+          }
+          currentAudio = audio;
+          currentBtn = btn;
+          currentFill = fill;
+          currentTimeDisp = timeDisp;
+          currentCard = card;
+
+          audio.play();
+          btn.textContent = '❚❚';
+          card.classList.add('playing');
+        }
+      });
+
+      audio.addEventListener('timeupdate', () => {
+        if (audio.duration) {
+          const pct = (audio.currentTime / audio.duration) * 100;
+          fill.style.width = `${pct}%`;
+          const mins = Math.floor(audio.currentTime / 60);
+          const secs = Math.floor(audio.currentTime % 60).toString().padStart(2, '0');
+          timeDisp.textContent = `${mins}:${secs}`;
+        }
+      });
+
+      audio.addEventListener('ended', () => {
+        btn.textContent = '▶';
+        fill.style.width = '0%';
+        timeDisp.textContent = '0:00';
+        card.classList.remove('playing');
+      });
+
+      bar.addEventListener('click', (e) => {
+        const rect = bar.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const width = rect.width;
+        if (audio.duration) {
+          audio.currentTime = (clickX / width) * audio.duration;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -45,6 +45,9 @@ public class OyunSonu : MonoBehaviour
         var finale = FindAnyObjectByType<IslandTsunamiFinale>();
         var backdrop = panel.GetComponent<Image>();
         if (finale != null && finale.IsComplete && backdrop != null) backdrop.color = Color.black;
+
+        SoundManager.Instance?.SirenCal(false, 0.8f);
+        if (gm.kazandiMi) SoundManager.Instance?.OyunKazanmaCal();
         int yildiz = gm.Yildiz();
 
         if (ribbonMain != null && ribbonLeft != null && ribbonRight != null)

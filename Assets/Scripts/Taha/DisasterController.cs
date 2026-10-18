@@ -59,6 +59,12 @@ public class DisasterController : MonoBehaviour
         if (gm.gun != sonKontrolEdilenGun)
         {
             sonKontrolEdilenGun = gm.gun;
+            // Tsunami uyarısı: Gün 19'da siren çalmaya başlar, müzik susar
+            if (gm.gun == 19)
+            {
+                if (MusicPlayer.Instance != null) MusicPlayer.Instance.MuzigiKapat(1.0f);
+                SoundManager.Instance?.SirenCal(true, 1.0f, 0.75f);
+            }
             int index = DengeAyarlari.Aktif.BuGunkuAfetIndex(gm.gun);
             if (index >= 0 && !gerceklesenAfetler.Contains(index)) AfetBaslat(index);
         }
@@ -98,7 +104,19 @@ public class DisasterController : MonoBehaviour
         foreach (BinaTuru b in afet.kontrolEdilen)
             if (gm.Level(b) < afet.gerekenLevel || gm.Hasarli(b)) yetersizler.Add(b);
         SavunmaYeterli = yetersizler.Count == 0;
-        if (MusicPlayer.Instance != null) MusicPlayer.Instance.AfetMuzigiBaslat(afet.afet);
+        
+        if (afet.afet == AfetTuru.Tsunami)
+        {
+            // Gün 20 Tsunami günü: Siren sesi çok az aşağıdan kısık çalar (0.20f)
+            SoundManager.Instance?.SirenSesSeviyesiAyarla(0.20f, 0.8f);
+        }
+        else
+        {
+            // Diğer afetler: Oyun müziği smooth susar, ardından siren başlar
+            if (MusicPlayer.Instance != null) yield return MusicPlayer.Instance.MuzigiKapatCoroutine(0.8f);
+            SoundManager.Instance?.SirenCal(true, 0.5f, 0.75f);
+        }
+
         try
         {
             switch (afet.afet)
@@ -110,9 +128,11 @@ public class DisasterController : MonoBehaviour
                     yield return new WaitForSeconds(afetSuresi * 2 / 3);
                     break;
                 case AfetTuru.Yangin:
+                    SoundManager.Instance?.AtesCal(true, 0.5f);
                     yield return YanginEfektiOynat(!SavunmaYeterli);
                     break;
                 case AfetTuru.Sel:
+                    SoundManager.Instance?.YagmurVeGokGurultusuCal(true, 0.5f);
                     if (yagmurEfekti != null) yagmurEfekti.SetActive(true);
                     if (!SavunmaYeterli) yield return SuYukseltIndir(selSuYuksekligi, afetSuresi);
                     else yield return new WaitForSeconds(afetSuresi);
@@ -124,6 +144,13 @@ public class DisasterController : MonoBehaviour
                     else yield return TsunamiEfekti(SavunmaYeterli);
                     break;
             }
+
+            // Siren ve afet sesleri afet biterken smooth şekilde sessizleşir (Tsunami hariç: tsunami sireni rapor çıkana kadar sürer)
+            if (afet.afet != AfetTuru.Tsunami)
+            {
+                SoundManager.Instance?.TumAfetSesleriniDurdur(1.0f);
+            }
+
             foreach (BinaTuru b in damagedTypes)
             {
                 int purchasedLevel=gm.Level(b);
@@ -162,7 +189,12 @@ public class DisasterController : MonoBehaviour
             if(afet.afet==AfetTuru.Yangin&&gm.afetOlduMu)FireAwaitingReport=true;
             else EfektleriTemizle();
             AfetDevamEdiyorMu = gm.afetSuruyor = false;
-            if (MusicPlayer.Instance != null&&!gm.oyunBittiMi) MusicPlayer.Instance.NormalMuzigeDon();
+            if (afet.afet != AfetTuru.Tsunami)
+            {
+                SoundManager.Instance?.TumAfetSesleriniDurdur(0.3f);
+                if (MusicPlayer.Instance != null && !gm.oyunBittiMi) MusicPlayer.Instance.MuzigiAc(1.2f);
+            }
+            // Tsunami durumunda kısık siren oyun sonu / afet raporu açılana kadar devam eder!
         }
     }
 

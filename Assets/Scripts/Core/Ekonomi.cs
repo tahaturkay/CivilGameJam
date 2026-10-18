@@ -65,6 +65,7 @@ public static class Ekonomi
         gm.yukseltmeSayisi++;
         gm.LevelAyarla(bina, gm.Level(bina) + 1);
         gm.YapiIsleminiBildir(bina);
+        SoundManager.Instance?.UpgradeCal();
         return true;
     }
 

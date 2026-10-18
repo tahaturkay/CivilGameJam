@@ -46,6 +46,8 @@ public class AfetRaporu : MonoBehaviour
 
     void Goster(GameManager gm)
     {
+        SoundManager.Instance?.AfetRaporuCal();
+        SoundManager.Instance?.SirenCal(false, 0.8f);
         var afet = DengeAyarlari.Aktif.afetler[AfetIndex(gm.sonAfetTuru)];
 
         string afetIsmi = AfetAdi(gm.sonAfetTuru);

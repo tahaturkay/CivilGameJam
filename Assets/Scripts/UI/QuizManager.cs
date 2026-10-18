@@ -465,6 +465,7 @@ public class QuizManager : MonoBehaviour
 
         if (secilenIndex == aktifSoru.dogruSikIndex)
         {
+            SoundManager.Instance?.QuizDogruCal();
             float eklenen = gm != null ? gm.FarkindalikEkle(DengeAyarlari.Aktif.dogruCevapOdulu) : 0f;
             if (gm != null) gm.dogruCevapSayisi++;
             kalanSorular.Remove(aktifSoru);
@@ -481,6 +482,7 @@ public class QuizManager : MonoBehaviour
         }
         else
         {
+            SoundManager.Instance?.QuizYanlisCal();
             ApplyChoiceVisualState(
                 secilenIndex,
                 UIManager.RedClose, UIManager.RedCloseDark, UIManager.RedCloseDark, Color.white);

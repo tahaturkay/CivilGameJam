@@ -40,7 +40,15 @@ public class MusicPlayer : MonoBehaviour
     void Start()
     {
         Ayarlar.SesleriUygula();
-        Cal(normalMuzik);
+        if (normalMuzik == null)
+        {
+            string sahne = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            if (sahne == "MainMenu")
+                normalMuzik = Resources.Load<AudioClip>("Audio/Music/ana_ekran_muzigi");
+            else
+                normalMuzik = Resources.Load<AudioClip>("Audio/Music/Quiet Island Flow");
+        }
+        if (normalMuzik != null) Cal(normalMuzik);
     }
 
     void OnDestroy()
@@ -63,7 +71,7 @@ public class MusicPlayer : MonoBehaviour
 
     public void NormalMuzigeDon()
     {
-        Cal(normalMuzik);
+        MuzigiAc(gecisSuresi);
     }
 
     public void Cal(AudioClip klip)
@@ -73,6 +81,49 @@ public class MusicPlayer : MonoBehaviour
 
         StopAllCoroutines();
         StartCoroutine(Gecis(klip));
+    }
+
+    /// <summary>Müziği belirtilen sürede smooth şekilde susturur</summary>
+    public IEnumerator MuzigiKapatCoroutine(float sure = 1.0f)
+    {
+        if (kaynak == null || !kaynak.isPlaying) yield break;
+        float baslangic = kaynak.volume;
+        for (float t = 0; t < sure; t += Time.unscaledDeltaTime)
+        {
+            kaynak.volume = Mathf.Lerp(baslangic, 0f, t / sure);
+            yield return null;
+        }
+        kaynak.volume = 0f;
+        kaynak.Pause();
+    }
+
+    public void MuzigiKapat(float sure = 1.0f)
+    {
+        StopAllCoroutines();
+        StartCoroutine(MuzigiKapatCoroutine(sure));
+    }
+
+    /// <summary>Müziği belirtilen sürede smooth şekilde açar</summary>
+    public IEnumerator MuzigiAcCoroutine(float sure = 1.2f)
+    {
+        if (kaynak == null) yield break;
+        if (kaynak.clip == null && normalMuzik != null) kaynak.clip = normalMuzik;
+        if (kaynak.clip == null) yield break;
+
+        if (!kaynak.isPlaying) kaynak.Play();
+        float baslangic = kaynak.volume;
+        for (float t = 0; t < sure; t += Time.unscaledDeltaTime)
+        {
+            kaynak.volume = Mathf.Lerp(baslangic, 1f, t / sure);
+            yield return null;
+        }
+        kaynak.volume = 1f;
+    }
+
+    public void MuzigiAc(float sure = 1.2f)
+    {
+        StopAllCoroutines();
+        StartCoroutine(MuzigiAcCoroutine(sure));
     }
 
     IEnumerator Gecis(AudioClip yeniKlip)
