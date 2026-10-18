@@ -1127,7 +1127,7 @@ PrefabInstance:
       objectReference: {fileID: 1164771659}
     - target: {fileID: 4981845140783318802, guid: 5c151845c79534c4eab6f8d2d39b1417, type: 3}
       propertyPath: selSuYuksekligi
-      value: 2.7
+      value: 2.92
       objectReference: {fileID: 0}
     - target: {fileID: 4981845140783318802, guid: 5c151845c79534c4eab6f8d2d39b1417, type: 3}
       propertyPath: tsunamiBaslangicZ
@@ -3167,9 +3167,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 2051258098}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8714db96f732e4bb8a8c4e6f57bfe0b1, type: 3}
+  m_Script: {fileID: 11500000, guid: 048243f723e8b4400b61dc853a2fbaa3, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DereYatagiKarari
+  m_EditorClassIdentifier: Assembly-CSharp::IslandSimulationPause
 --- !u!1001 &3283489967467981303
 PrefabInstance:
   m_ObjectHideFlags: 0

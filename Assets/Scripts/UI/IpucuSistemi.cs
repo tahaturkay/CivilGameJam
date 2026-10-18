@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 
 /// <summary>One quiet, non-blocking hint at a time. Disaster guidance outranks general teaching.</summary>
@@ -18,8 +19,17 @@ public class IpucuSistemi : MonoBehaviour
     void Start()
     {
         if(serit==null||ipucuText==null)return;
+        var img=serit.GetComponent<Image>();
+        if(img!=null)
+        {
+            img.sprite=CivicUI.GetBeveledCardSprite(new Color32(20,38,50,240),new Color32(12,24,34,255));
+            img.type=Image.Type.Sliced;
+            img.color=Color.white;
+        }
+        ipucuText.font=TurkishTMPFontSupport.EnsureFont(ipucuText.font);
         ipucuText.fontSize=20;ipucuText.fontSizeMax=20;ipucuText.fontSizeMin=16;ipucuText.enableAutoSizing=true;
-        ipucuText.textWrappingMode=TextWrappingModes.Normal;ipucuText.fontStyle=FontStyles.Normal;
+        ipucuText.textWrappingMode=TextWrappingModes.Normal;ipucuText.fontStyle=FontStyles.Bold;
+        ipucuText.color=Color.white;
         ipucuText.alignment=TextAlignmentOptions.Center;ipucuText.richText=true;
         CivicUI.Fill(ipucuText.rectTransform,14);
     }
@@ -29,9 +39,6 @@ public class IpucuSistemi : MonoBehaviour
         if(gm==null||data==null||serit==null||ipucuText==null)return;
         bool blocked=gm.oyunDurduMu||gm.afetSuruyor||gm.afetOlduMu||gm.oyunBittiMi||PauseMenu.DurdurulduMu;
         if(blocked){serit.SetActive(false);return;}
-        var decision=GetComponent<DereYatagiKarari>();
-        if(decision!=null&&Time.unscaledTime<decision.GeriBildirimBitisi)
-        {Show(decision.GeriBildirim);return;}
         if(active>=0&&active<10)
         {
             var disasters=DengeAyarlari.Aktif.afetler;

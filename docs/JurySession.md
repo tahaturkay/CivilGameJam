@@ -1,5 +1,7 @@
 # Üç dakikalık jüri akışı ve şehir tepkileri
 
+> Bu rapor ilk jüri düzenlemesinin kaydıdır. Dere yatağı kararı sonraki kullanıcı isteğiyle kaldırıldı; güncel afet/kamera/trafik davranışı `IslandInteractionRevision.md`, güncel karar içermeyen denge sonuçları `JuryBalance.json` içindedir. Aşağıdaki 174,3 saniye ölçümü kararın hâlâ bulunduğu önceki sürüme aittir.
+
 ## Başlangıç analizi
 
 `DengeAyarlari.asset` başlangıçta alanları kaydetmediği için sayılar `DengeAyarlari.cs` varsayılanlarından geliyordu: 28 gün, 12 saniye/gün, 7/14/21/28 afet takvimi, 500 coin ve 1000 nüfus. `DisasterController.afetSuresi` 15 saniyeydi; ada kurucusu da 15 yazıyordu. Hız yalnız gün sayacını etkiliyor, afet animasyonları ve raporlar hızdan bağımsız çalışıyordu.

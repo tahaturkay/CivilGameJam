@@ -49,10 +49,12 @@ public class IslandCameraController : MonoBehaviour
     private bool zoomAnchorActive;
     private Vector3 zoomAnchorWorld;
     private Vector2 zoomAnchorScreen;
+    Vector3 shakeOffset;
+    float shakeTime,shakeDuration,shakeStrength;
 
     /// <summary>True in frames where a camera pan gesture owns the pointer, preventing accidental building clicks.</summary>
     static bool gestureOwnsPointer;
-    public static bool SuppressWorldClick { get=>gestureOwnsPointer||SpaceHeld(); private set=>gestureOwnsPointer=value; }
+    public static bool SuppressWorldClick { get=>gestureOwnsPointer; private set=>gestureOwnsPointer=value; }
 
     private void Awake()
     {
@@ -70,6 +72,7 @@ public class IslandCameraController : MonoBehaviour
 
     private void OnDisable()
     {
+        StopShake();
         dragging = false;
         keyboardPanVelocity = Vector3.zero;
         keyboardPanDampingVelocity = Vector3.zero;
@@ -93,6 +96,7 @@ public class IslandCameraController : MonoBehaviour
 
     private void Update()
     {
+        RemoveShakeOffset();
         SuppressWorldClick = false;
         if (cachedCamera == null || !cachedCamera.orthographic) return;
 
@@ -116,12 +120,10 @@ public class IslandCameraController : MonoBehaviour
             out middlePressed, out middleHeld, out rightPressed, out rightHeld, out leftPressed, out leftHeld);
         bool pointerOverUi = IsPointerOverUi();
         bool shiftHeld = ShiftHeld();
-        bool spaceHeld = SpaceHeld();
-
         if (hasMouse)
         {
-            bool panHeld = middleHeld || rightHeld || (spaceHeld && leftHeld);
-            bool panStarted = middlePressed || rightPressed || (spaceHeld && leftPressed);
+            bool panHeld = middleHeld || rightHeld;
+            bool panStarted = middlePressed || rightPressed;
             if (panStarted && !pointerOverUi)
             {
                 dragging = true;
@@ -152,6 +154,21 @@ public class IslandCameraController : MonoBehaviour
             targetOrthographicSize = Mathf.Clamp(targetOrthographicSize - keyboardZoom * keyboardZoomSpeed * Time.unscaledDeltaTime,
                 minOrthographicSize, maxOrthographicSize);
         UpdateSmoothZoom(Time.unscaledDeltaTime);
+    }
+
+    /// <summary>Additive presentation offset. Navigation remains the owner of the camera's base position.</summary>
+    public void Shake(float duration,float strength)
+    {shakeDuration=Mathf.Max(.01f,duration);shakeTime=0;shakeStrength=strength;}
+    public void StopShake(){RemoveShakeOffset();shakeDuration=shakeStrength=0;}
+    void RemoveShakeOffset(){transform.position-=shakeOffset;shakeOffset=Vector3.zero;}
+    void LateUpdate()
+    {
+        if(shakeDuration<=0)return;
+        shakeTime=Mathf.Min(shakeDuration,shakeTime+Time.deltaTime);
+        float amplitude=shakeStrength*(1-shakeTime/shakeDuration);
+        shakeOffset=(transform.right*(Mathf.PerlinNoise(shakeTime*23,7)*2-1)+transform.up*(Mathf.PerlinNoise(11,shakeTime*29)*2-1))*amplitude;
+        transform.position+=shakeOffset;
+        if(shakeTime>=shakeDuration)shakeDuration=0;
     }
 
     /// <summary>
@@ -371,8 +388,7 @@ public class IslandCameraController : MonoBehaviour
     {
         GameManager manager = GameManager.Instance;
         return PauseMenu.DurdurulduMu ||
-               (manager != null && (manager.oyunDurduMu || manager.afetOlduMu || manager.oyunBittiMi)) ||
-               (disasterController != null && disasterController.AfetDevamEdiyorMu);
+               (manager != null && (manager.oyunDurduMu || manager.afetOlduMu || manager.oyunBittiMi));
     }
 
     private static bool IsPointerOverUi()
@@ -482,18 +498,6 @@ public class IslandCameraController : MonoBehaviour
 #endif
 #if ENABLE_LEGACY_INPUT_MANAGER
         return Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-#else
-        return false;
-#endif
-    }
-
-    private static bool SpaceHeld()
-    {
-#if ENABLE_INPUT_SYSTEM
-        if (Keyboard.current != null && Keyboard.current.spaceKey.isPressed) return true;
-#endif
-#if ENABLE_LEGACY_INPUT_MANAGER
-        return Input.GetKey(KeyCode.Space);
 #else
         return false;
 #endif

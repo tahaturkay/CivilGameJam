@@ -41,8 +41,16 @@ public sealed class IslandCityLife : MonoBehaviour
     private const float VehicleHalfLength = 1.75f;
     private const float VehicleHalfWidth = .9f;
     private const float VehicleSafetyMargin = .18f;
-    private const float VehicleRouteHeadway = 4.1f;
+    // Leave room for a leading low-poly car's rear corner to swing through tight turns.
+    private const float VehicleRouteHeadway = 6.5f;
     private const float IntersectionReservationRadius = 6.5f;
+    private const float TrafficClearanceRadius = IntersectionReservationRadius + VehicleHalfLength + .55f;
+    // Route vertices are miter-offset from the road centerline. Keep red queues beyond
+    // the entire offset and a little clear of the physical junction footprint.
+    private const float TrafficStopLineDistance = TrafficClearanceRadius + LaneOffset * 1.5f + .75f;
+    private const float TrafficGreenSeconds = 8f;
+    private const float TrafficAmberSeconds = 1f;
+    private const float TrafficAllRedSeconds = .45f;
 
     private static readonly float[] RoadX = { -60f, -30f, 0f, 30f, 60f };
     private static readonly float[] RoadZ = { -42f, -14f, 14f, 40f };
@@ -109,6 +117,22 @@ public sealed class IslandCityLife : MonoBehaviour
         public bool returningToRoute;
         public Vector3 curbTarget;
         public float tiltAngle;
+        public int committedJunction = -1;
+        public bool waitingAtSignal;
+        public float stalledScaledSeconds;
+    }
+
+    private enum TrafficPhase { GreenA, AmberA, ClearA, GreenB, AmberB, ClearB }
+
+    private sealed class TrafficJunction
+    {
+        public int ringIndex;
+        public int cornerIndex;
+        public Vector3 center;
+        public TrafficPhase phase;
+        public float remaining;
+        public IslandTrafficSignal signalA;
+        public IslandTrafficSignal signalB;
     }
 
     private sealed class RoofShelter
@@ -141,6 +165,7 @@ public sealed class IslandCityLife : MonoBehaviour
     private VehicleRoute[] vehicleRoutes;
     private bool[,] vehicleRouteConflicts;
     private Vector3[,] vehicleRouteConflictPoints;
+    private TrafficJunction[] trafficJunctions;
     private RoofShelter[] roofShelters;
     private Transform cityLifeRoot;
     private GameManager gameManager;
@@ -164,6 +189,17 @@ public sealed class IslandCityLife : MonoBehaviour
     public int DisplacedVehicleCount {get{int n=0;foreach(var a in vehicles)if(a.displaced)n++;return n;}}
     public bool TrafficBlocked => incidentActive || (gameManager != null && gameManager.altyapiHasarli);
     public int VehicleCount { get { return vehicles.Count; } }
+    public int TrafficSignalCount { get { return trafficJunctions == null ? 0 : trafficJunctions.Length * 2; } }
+    public int TrafficCrossingCount { get; private set; }
+    public int TrafficStuckVehicleCount
+    {
+        get { int count = 0; foreach (VehicleActor actor in vehicles) if (actor.stalledScaledSeconds >= 20f) count++; return count; }
+    }
+    public int TrafficWaitingForSignalCount
+    {
+        get { int count = 0; foreach (VehicleActor actor in vehicles) if (actor.waitingAtSignal) count++; return count; }
+    }
+    public float TrafficTotalTravelDistance { get; private set; }
     public int ShelteredCount { get { return shelteredCount; } }
     public int GatheredCount { get { return gatheredCount; } }
     public bool TsunamiShelterOrdered => tsunamiShelterOrdered;
@@ -213,6 +249,7 @@ public sealed class IslandCityLife : MonoBehaviour
         cityLifeRoot.SetParent(transform, false);
         BuildVehicleRoutes();
         BuildVehicleRouteConflicts();
+        BuildTrafficSignals();
         SpawnCitizens();
         BuildCitizenMaterialBatches();
         SpawnVehicles();
@@ -232,6 +269,9 @@ public sealed class IslandCityLife : MonoBehaviour
         citizens.Clear();
         AnimalCount=0;
         vehicles.Clear();
+        trafficJunctions = null;
+        TrafficCrossingCount = 0;
+        TrafficTotalTravelDistance = 0f;
         tsunamiShelterOrdered=incidentActive=false;
         simulationElapsed=0;shelteredCount=gatheredCount=0;
         if (cityLifeRoot != null)
@@ -516,6 +556,186 @@ public sealed class IslandCityLife : MonoBehaviour
         }
     }
 
+    private void BuildTrafficSignals()
+    {
+        trafficJunctions = new TrafficJunction[8];
+        for (int ring = 0; ring < 2; ring++)
+        {
+            VehicleRoute routeA = vehicleRoutes[ring * 2];
+            VehicleRoute routeB = vehicleRoutes[ring * 2 + 1];
+            for (int corner = 0; corner < 4; corner++)
+            {
+                int junctionIndex = ring * 4 + corner;
+                Vector3 center = (routeA.points[corner] + routeB.points[3 - corner]) * .5f;
+                TrafficJunction junction = new TrafficJunction
+                {
+                    ringIndex = ring,
+                    cornerIndex = corner,
+                    center = center,
+                    phase = TrafficPhase.GreenA,
+                    remaining = TrafficGreenSeconds
+                };
+                trafficJunctions[junctionIndex] = junction;
+                junction.signalA = CreateTrafficSignal(ring, corner, 0, routeA, corner);
+                junction.signalB = CreateTrafficSignal(ring, corner, 1, routeB, 3 - corner);
+                RefreshTrafficSignalAspects(junction);
+            }
+        }
+    }
+
+    private IslandTrafficSignal CreateTrafficSignal(int ring, int corner, int group,
+        VehicleRoute route, int routeCorner)
+    {
+        int incomingSegment = (routeCorner + route.points.Length - 1) % route.points.Length;
+        Vector3 from = route.points[incomingSegment];
+        Vector3 to = route.points[routeCorner];
+        Vector3 direction = (to - from).normalized;
+        Vector3 stopPosition = to - direction * TrafficStopLineDistance;
+        GameObject signalObject = new GameObject("Trafik Isigi - " + (ring == 0 ? "Dis" : "Ic") + " " + corner + " " + group);
+        signalObject.transform.SetParent(cityLifeRoot, false);
+        IslandTrafficSignal signal = signalObject.AddComponent<IslandTrafficSignal>();
+        signal.Initialize(ring, corner, group, stopPosition, direction, stopPosition, RoadSurfaceY);
+        return signal;
+    }
+
+    private void UpdateTrafficSignals(float deltaTime)
+    {
+        if (trafficJunctions == null) return;
+        for (int i = 0; i < trafficJunctions.Length; i++)
+        {
+            TrafficJunction junction = trafficJunctions[i];
+            bool occupied = IsTrafficJunctionOccupied(i, junction);
+            float remainingDelta = deltaTime;
+            int transitions = 0;
+            while (remainingDelta > .0001f && transitions < 8)
+            {
+                if (IsClearancePhase(junction.phase))
+                {
+                    if (junction.remaining > 0f)
+                    {
+                        float consumed = Mathf.Min(remainingDelta, junction.remaining);
+                        junction.remaining -= consumed;
+                        remainingDelta -= consumed;
+                    }
+                    if (junction.remaining <= .0001f && !occupied)
+                    {
+                        AdvanceTrafficPhase(junction);
+                        RefreshTrafficSignalAspects(junction);
+                        transitions++;
+                        continue;
+                    }
+                    break;
+                }
+
+                float phaseTime = Mathf.Max(0f, junction.remaining);
+                float phaseConsumed = Mathf.Min(remainingDelta, phaseTime);
+                junction.remaining -= phaseConsumed;
+                remainingDelta -= phaseConsumed;
+                if (junction.remaining <= .0001f)
+                {
+                    AdvanceTrafficPhase(junction);
+                    RefreshTrafficSignalAspects(junction);
+                    transitions++;
+                }
+            }
+        }
+    }
+
+    private bool IsTrafficJunctionOccupied(int junctionIndex, TrafficJunction junction)
+    {
+        float clearanceSqr = TrafficClearanceRadius * TrafficClearanceRadius;
+        for (int i = 0; i < vehicles.Count; i++)
+        {
+            VehicleActor actor = vehicles[i];
+            if (actor.root == null || (actor.displaced && !actor.returningToRoute)) continue;
+            if (actor.committedJunction == junctionIndex ||
+                HorizontalDistanceSquared(actor.root.position, junction.center) <= clearanceSqr) return true;
+        }
+        return false;
+    }
+
+    private static bool IsClearancePhase(TrafficPhase phase)
+    {
+        return phase == TrafficPhase.ClearA || phase == TrafficPhase.ClearB;
+    }
+
+    private static void AdvanceTrafficPhase(TrafficJunction junction)
+    {
+        switch (junction.phase)
+        {
+            case TrafficPhase.GreenA:
+                junction.phase = TrafficPhase.AmberA;
+                junction.remaining = TrafficAmberSeconds;
+                break;
+            case TrafficPhase.AmberA:
+                junction.phase = TrafficPhase.ClearA;
+                junction.remaining = TrafficAllRedSeconds;
+                break;
+            case TrafficPhase.ClearA:
+                junction.phase = TrafficPhase.GreenB;
+                junction.remaining = TrafficGreenSeconds;
+                break;
+            case TrafficPhase.GreenB:
+                junction.phase = TrafficPhase.AmberB;
+                junction.remaining = TrafficAmberSeconds;
+                break;
+            case TrafficPhase.AmberB:
+                junction.phase = TrafficPhase.ClearB;
+                junction.remaining = TrafficAllRedSeconds;
+                break;
+            default:
+                junction.phase = TrafficPhase.GreenA;
+                junction.remaining = TrafficGreenSeconds;
+                break;
+        }
+    }
+
+    private static void RefreshTrafficSignalAspects(TrafficJunction junction)
+    {
+        IslandTrafficSignal.Aspect aspectA;
+        IslandTrafficSignal.Aspect aspectB;
+        switch (junction.phase)
+        {
+            case TrafficPhase.GreenA:
+                aspectA = IslandTrafficSignal.Aspect.Green;
+                aspectB = IslandTrafficSignal.Aspect.Red;
+                break;
+            case TrafficPhase.AmberA:
+                aspectA = IslandTrafficSignal.Aspect.Amber;
+                aspectB = IslandTrafficSignal.Aspect.Red;
+                break;
+            case TrafficPhase.GreenB:
+                aspectA = IslandTrafficSignal.Aspect.Red;
+                aspectB = IslandTrafficSignal.Aspect.Green;
+                break;
+            case TrafficPhase.AmberB:
+                aspectA = IslandTrafficSignal.Aspect.Red;
+                aspectB = IslandTrafficSignal.Aspect.Amber;
+                break;
+            default:
+                aspectA = aspectB = IslandTrafficSignal.Aspect.Red;
+                break;
+        }
+        if (junction.signalA != null) junction.signalA.SetAspect(aspectA);
+        if (junction.signalB != null) junction.signalB.SetAspect(aspectB);
+    }
+
+    public string GetTrafficSignalPhase(int ringIndex, int cornerIndex)
+    {
+        if (trafficJunctions == null || ringIndex < 0 || ringIndex >= 2 || cornerIndex < 0 || cornerIndex >= 4)
+            return "YOK";
+        return trafficJunctions[ringIndex * 4 + cornerIndex].phase.ToString();
+    }
+
+    public IslandTrafficSignal.Aspect GetTrafficSignalAspect(int ringIndex, int cornerIndex, int directionGroup)
+    {
+        if (trafficJunctions == null || ringIndex < 0 || ringIndex >= 2 || cornerIndex < 0 || cornerIndex >= 4)
+            return IslandTrafficSignal.Aspect.Red;
+        TrafficJunction junction = trafficJunctions[ringIndex * 4 + cornerIndex];
+        IslandTrafficSignal signal = directionGroup == 0 ? junction.signalA : junction.signalB;
+        return signal == null ? IslandTrafficSignal.Aspect.Red : signal.CurrentAspect;
+    }
+
     private void CacheRoofShelters()
     {
         if (houses == null)
@@ -643,9 +863,10 @@ public sealed class IslandCityLife : MonoBehaviour
             float distance = Mathf.Repeat(desiredDistance + i * searchStep, route.totalLength);
             Vector3 position, direction;
             EvaluateRoute(route, distance, out position, out direction);
-            bool clear = true;
+            bool clear = IsVehicleSpawnOutsideJunction(position);
             for (int other = 0; other < vehicles.Count; other++)
             {
+                if (!clear) break;
                 VehicleActor existing = vehicles[other];
                 if (existing.root != null && VehicleOverlaps(position, direction, existing.root.position, existing.root.forward))
                 {
@@ -664,6 +885,19 @@ public sealed class IslandCityLife : MonoBehaviour
         safePosition = Vector3.zero;
         safeDirection = Vector3.forward;
         return false;
+    }
+
+    private bool IsVehicleSpawnOutsideJunction(Vector3 position)
+    {
+        if (trafficJunctions == null) return true;
+        float minimumDistance = TrafficClearanceRadius + 1f;
+        float minimumDistanceSqr = minimumDistance * minimumDistance;
+        for (int i = 0; i < trafficJunctions.Length; i++)
+        {
+            if (HorizontalDistanceSquared(position, trafficJunctions[i].center) <= minimumDistanceSqr)
+                return false;
+        }
+        return true;
     }
 
     private static void RemoveVehicleColliders(GameObject vehicle)
@@ -734,6 +968,7 @@ public sealed class IslandCityLife : MonoBehaviour
 
         float deltaTime = Time.deltaTime*MovementSpeedMultiplier;
         simulationElapsed+=deltaTime;
+        UpdateTrafficSignals(deltaTime);
         bool stopVehicles = TrafficBlocked;
         UpdateVehicles(deltaTime, !stopVehicles, activeHazard);
         UpdateCitizens(deltaTime);
@@ -1226,11 +1461,14 @@ public sealed class IslandCityLife : MonoBehaviour
         {
             VehicleActor actor = vehicles[i];
             if (actor.root == null) continue;
+            actor.waitingAtSignal = false;
+            ReleaseClearedJunction(actor);
             if (activeHazard && disasterController != null &&
                 (incidentType == AfetTuru.Sel || incidentType == AfetTuru.Tsunami) &&
                 !actor.displaced && disasterController.WaterReaches(actor.root.position))
             {
                 BeginVehicleDisplacement(actor);
+                actor.committedJunction = -1;
             }
 
             if (actor.displaced)
@@ -1247,21 +1485,121 @@ public sealed class IslandCityLife : MonoBehaviour
             }
             if (!canDrive) continue;
 
-            float proposedDistance = Mathf.Repeat(actor.distance + actor.speed * deltaTime, actor.route.totalLength);
+            Vector3 previousPosition = actor.root.position;
+            float movement = actor.speed * deltaTime;
+            float distanceToCorner;
+            int junctionIndex;
+            GetNextJunction(actor, out distanceToCorner, out junctionIndex);
+            bool greenForUpcomingJunction = false;
+            if (junctionIndex >= 0 && actor.committedJunction != junctionIndex)
+            {
+                TrafficJunction junction = trafficJunctions[junctionIndex];
+                int group = actor.routeIndex % 2;
+                bool green = IsTrafficGroupGreen(junction, group);
+                bool reachesStopLine = distanceToCorner <= TrafficStopLineDistance ||
+                    movement >= distanceToCorner - TrafficStopLineDistance;
+                greenForUpcomingJunction = green;
+                bool alreadyInClearance = HorizontalDistanceSquared(previousPosition, junction.center) <=
+                    TrafficClearanceRadius * TrafficClearanceRadius;
+                if (green)
+                {
+                    // A car already in the physical zone must clear even if the phase just
+                    // changed. New cars are committed only after a successful move enters it.
+                    if (alreadyInClearance) actor.committedJunction = junctionIndex;
+                }
+                else if (alreadyInClearance)
+                {
+                    actor.committedJunction = junctionIndex;
+                }
+                else if (reachesStopLine)
+                {
+                    movement = Mathf.Min(movement, Mathf.Max(0f, distanceToCorner - TrafficStopLineDistance));
+                    actor.waitingAtSignal = true;
+                }
+            }
+
+            float proposedDistance = Mathf.Repeat(actor.distance + movement, actor.route.totalLength);
             Vector3 position, direction;
             EvaluateRoute(actor.route, proposedDistance, out position, out direction);
             position.y = actor.root.position.y;
             Quaternion proposedRotation=direction.sqrMagnitude>.001f?Quaternion.RotateTowards(actor.root.rotation,Quaternion.LookRotation(direction,Vector3.up),150f*deltaTime):actor.root.rotation;
             if (!HasRouteHeadway(actor, proposedDistance) || HasIntersectionReservation(actor, i, proposedDistance) ||
-                !IsVehicleMovementSafe(actor, actor.root.position, position, proposedRotation*Vector3.forward)) continue;
+                !IsVehicleMovementSafe(actor, actor.root.position, position, proposedRotation*Vector3.forward))
+            {
+                RegisterVehicleStall(actor, deltaTime, previousPosition);
+                continue;
+            }
 
             actor.distance = proposedDistance;
             actor.root.position = position;
+            if (greenForUpcomingJunction && junctionIndex >= 0 && actor.committedJunction < 0 &&
+                SegmentEntersClearance(previousPosition, position, trafficJunctions[junctionIndex].center,
+                    TrafficClearanceRadius))
+            {
+                actor.committedJunction = junctionIndex;
+            }
+            float travelled = HorizontalDistance(previousPosition, position);
+            TrafficTotalTravelDistance += travelled;
+            if (distanceToCorner > 0f && movement + .001f >= distanceToCorner && actor.committedJunction == junctionIndex)
+                TrafficCrossingCount++;
+            if (travelled > .02f) actor.stalledScaledSeconds = 0f;
+            else if (actor.waitingAtSignal) actor.stalledScaledSeconds = 0f;
+            else actor.stalledScaledSeconds += deltaTime;
             if (direction.sqrMagnitude > .001f)
             {
                 actor.root.rotation = proposedRotation;
             }
         }
+    }
+
+    private void GetNextJunction(VehicleActor actor, out float distanceToCorner, out int junctionIndex)
+    {
+        distanceToCorner = float.PositiveInfinity;
+        junctionIndex = -1;
+        if (actor.route == null || trafficJunctions == null) return;
+        float remaining = Mathf.Repeat(actor.distance, actor.route.totalLength);
+        int segment = 0;
+        while (segment < actor.route.segmentLengths.Length - 1 && remaining >= actor.route.segmentLengths[segment])
+        {
+            remaining -= actor.route.segmentLengths[segment];
+            segment++;
+        }
+        int routeCorner = (segment + 1) % actor.route.points.Length;
+        int physicalCorner = actor.routeIndex % 2 == 0 ? routeCorner : 3 - routeCorner;
+        distanceToCorner = actor.route.segmentLengths[segment] - remaining;
+        junctionIndex = (actor.routeIndex / 2) * 4 + physicalCorner;
+    }
+
+    private bool IsTrafficGroupGreen(TrafficJunction junction, int group)
+    {
+        return group == 0 ? junction.phase == TrafficPhase.GreenA : junction.phase == TrafficPhase.GreenB;
+    }
+
+    private void ReleaseClearedJunction(VehicleActor actor)
+    {
+        if (actor.committedJunction < 0 || trafficJunctions == null || actor.root == null) return;
+        float distanceToNextCorner;
+        int nextJunction;
+        GetNextJunction(actor, out distanceToNextCorner, out nextJunction);
+        // The route corner marks entry/exit ordering. Keep ownership until the car has
+        // crossed that corner and its full footprint has also cleared the physical zone.
+        if (nextJunction == actor.committedJunction) return;
+        if (HorizontalDistanceSquared(actor.root.position, trafficJunctions[actor.committedJunction].center) >
+            TrafficClearanceRadius * TrafficClearanceRadius)
+            actor.committedJunction = -1;
+    }
+
+    private static void RegisterVehicleStall(VehicleActor actor, float deltaTime, Vector3 previousPosition)
+    {
+        if (actor.waitingAtSignal)
+        {
+            actor.stalledScaledSeconds = 0f;
+            return;
+        }
+        if (HorizontalDistanceSquared(actor.root.position, previousPosition) > .01f)
+            actor.stalledScaledSeconds = 0f;
+        else
+            actor.stalledScaledSeconds += deltaTime;
     }
 
     private void BeginVehicleDisplacement(VehicleActor actor)
@@ -1364,10 +1702,21 @@ public sealed class IslandCityLife : MonoBehaviour
             bool otherOwnsZone = HorizontalDistanceSquared(other.root.position, conflict) <= IntersectionReservationRadius * IntersectionReservationRadius;
             bool actorInZone = HorizontalDistanceSquared(actor.root.position, conflict) <= IntersectionReservationRadius * IntersectionReservationRadius;
             bool otherApproachingFirst = i < actorIndex &&
-                HorizontalDistanceSquared(other.root.position, conflict) <= (IntersectionReservationRadius + 3f) * (IntersectionReservationRadius + 3f);
+                HorizontalDistanceSquared(other.root.position, conflict) <= (IntersectionReservationRadius + 3f) * (IntersectionReservationRadius + 3f) &&
+                !IsVehicleWaitingOnRed(other);
             if ((otherOwnsZone && !actorInZone) || (!actorInZone && otherApproachingFirst)) return true;
         }
         return false;
+    }
+
+    private bool IsVehicleWaitingOnRed(VehicleActor actor)
+    {
+        if (trafficJunctions == null || actor == null || actor.root == null) return false;
+        float distanceToCorner;
+        int junctionIndex;
+        GetNextJunction(actor, out distanceToCorner, out junctionIndex);
+        if (junctionIndex < 0 || distanceToCorner > TrafficStopLineDistance + .25f) return false;
+        return !IsTrafficGroupGreen(trafficJunctions[junctionIndex], actor.routeIndex % 2);
     }
 
     private bool IsVehicleMovementSafe(VehicleActor actor, Vector3 from, Vector3 to, Vector3 direction)
@@ -1504,6 +1853,18 @@ public sealed class IslandCityLife : MonoBehaviour
         float x = a.x - b.x;
         float z = a.z - b.z;
         return x * x + z * z;
+    }
+
+    private static bool SegmentEntersClearance(Vector3 from, Vector3 to, Vector3 center, float radius)
+    {
+        float dx = to.x - from.x;
+        float dz = to.z - from.z;
+        float lengthSquared = dx * dx + dz * dz;
+        float t = lengthSquared > .0001f
+            ? Mathf.Clamp01(((center.x - from.x) * dx + (center.z - from.z) * dz) / lengthSquared)
+            : 0f;
+        Vector3 closest = new Vector3(from.x + dx * t, center.y, from.z + dz * t);
+        return HorizontalDistanceSquared(closest, center) <= radius * radius;
     }
 
     private void OnDestroy()

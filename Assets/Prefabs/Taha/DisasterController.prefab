@@ -4669,9 +4669,10 @@ MonoBehaviour:
   tsunamiBitisZ: 102
   tsunamiDalgaY: 1
   tsunamiSuYuksekligi: 3.02
-  selSuYuksekligi: 2.7
+  selSuYuksekligi: 2.92
   kuruZeminY: 2.4
   afetSuresi: 8
+  editorDebugAfetleri: 0
   yanginEfekti: {fileID: 5891901248801708289, guid: 5a171c17257de4605b485617c2dc57d0, type: 3}
   yagmurEfekti: {fileID: 1398191045040160382}
   yanginPrefab: {fileID: 5891901248801708289, guid: 5a171c17257de4605b485617c2dc57d0, type: 3}

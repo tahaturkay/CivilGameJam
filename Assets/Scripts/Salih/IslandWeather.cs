@@ -120,7 +120,7 @@ public class IslandWeather : MonoBehaviour
         AfetTuru? active=disaster!=null?(disaster.AfetDevamEdiyorMu?(AfetTuru?)disaster.AktifAfetTuru:null):manualDisaster;
         bool flood=active==AfetTuru.Sel,fire=active==AfetTuru.Yangin;
         float targetStorm=flood?1:Forecast(),targetWarmth=fire?1:0;
-        float speed=1-Mathf.Exp(-Mathf.Min(Time.unscaledDeltaTime,.1f)*.9f);
+        float speed=1-Mathf.Exp(-Mathf.Min(Time.deltaTime,.1f)*.9f);
         storm=Mathf.Lerp(storm,targetStorm,speed);warmth=Mathf.Lerp(warmth,targetWarmth,speed);
         if(RainObject!=null&&RainObject.activeSelf!=flood)RainObject.SetActive(flood);
         if(flood&&Time.time>=nextLightning)

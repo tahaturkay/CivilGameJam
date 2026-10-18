@@ -70,13 +70,13 @@ public sealed class CityFeedbackTestRobotu : MonoBehaviour
         var root=Get<Transform>(citizen,"root");var start=root.position;
         // Put one pedestrian on a long unobstructed leg; changing only the speed removes random waits from the measurement.
         void ResetCitizen(){root.position=start;Field(citizen,"mode").SetValue(citizen,IslandCityLife.CityLifeMode.Normal);Field(citizen,"waitRemaining").SetValue(citizen,0f);Field(citizen,"hasInitialLeg").SetValue(citizen,true);Field(citizen,"resumeAtNode").SetValue(citizen,false);Field(citizen,"initialLegTarget").SetValue(citizen,start+Vector3.right*20);}
-        ResetCitizen();gm.hizCarpani=1;yield return new WaitForSecondsRealtime(.45f);float d1=Vector3.Distance(start,root.position);
-        ResetCitizen();gm.hizCarpani=2;yield return new WaitForSecondsRealtime(.45f);float d2=Vector3.Distance(start,root.position);
-        ResetCitizen();gm.hizCarpani=3;yield return new WaitForSecondsRealtime(.45f);float d3=Vector3.Distance(start,root.position);
-        Check(d1>.3f&&Mathf.Abs(d2/d1-2)<.20f&&Mathf.Abs(d3/d1-3)<.25f,"Pedestrian distance follows 1x/2x/3x: "+d1.ToString("F2")+" / "+d2.ToString("F2")+" / "+d3.ToString("F2"));
+        ResetCitizen();gm.hizCarpani=1;float started=Time.time;yield return new WaitForSecondsRealtime(.45f);float d1=Vector3.Distance(start,root.position)/(Time.time-started);
+        ResetCitizen();gm.hizCarpani=2;started=Time.time;yield return new WaitForSecondsRealtime(.45f);float d2=Vector3.Distance(start,root.position)/(Time.time-started);
+        ResetCitizen();gm.hizCarpani=3;started=Time.time;yield return new WaitForSecondsRealtime(.45f);float d3=Vector3.Distance(start,root.position)/(Time.time-started);
+        Check(d1>.3f&&Mathf.Abs(d2/d1-2)<.20f&&Mathf.Abs(d3/d1-3)<.25f,"Pedestrian metres per game second follow 1x/2x/3x: "+d1.ToString("F2")+" / "+d2.ToString("F2")+" / "+d3.ToString("F2"));
         var vehicleList=(IList)Field(city,"vehicles").GetValue(city);object car=vehicleList[0];
-        gm.hizCarpani=1;float v=Get<float>(car,"distance");yield return new WaitForSecondsRealtime(.35f);float v1=Get<float>(car,"distance")-v;
-        gm.hizCarpani=3;v=Get<float>(car,"distance");yield return new WaitForSecondsRealtime(.35f);float v3=Get<float>(car,"distance")-v;
+        gm.hizCarpani=1;float v=Get<float>(car,"distance");started=Time.time;yield return new WaitForSecondsRealtime(.35f);float v1=(Get<float>(car,"distance")-v)/(Time.time-started);
+        gm.hizCarpani=3;v=Get<float>(car,"distance");started=Time.time;yield return new WaitForSecondsRealtime(.35f);float v3=(Get<float>(car,"distance")-v)/(Time.time-started);
         Check(v1>.1f&&Mathf.Abs(v3/v1-3)<.4f,"Traffic route distance follows selected speed: "+v1.ToString("F2")+" / "+v3.ToString("F2"));
         gm.kullaniciDurdurdu=true;yield return null;
         var actors=city.transform.Find("SehirYasami").Cast<Transform>().ToArray();var positions=actors.Select(t=>t.position).ToArray();
@@ -103,7 +103,19 @@ public sealed class CityFeedbackTestRobotu : MonoBehaviour
         Check(city.ShelteredCount==city.LivingActorCount&&city.SweptCitizenCount==0,"Residents remain indoors on the tsunami day");
         gm.kullaniciDurdurdu=true;yield return null;yaw=siren.RotorYaw;yield return new WaitForSecondsRealtime(.2f);
         Check(Mathf.Abs(Mathf.DeltaAngle(yaw,siren.RotorYaw))<.01f,"Pausing also holds the siren rotor");gm.kullaniciDurdurdu=false;
-        gm.gun=1;gm.hizCarpani=2;yield return null;yield return null;
+        float originalDuration=disaster.afetSuresi;disaster.afetSuresi=2;disaster.enabled=true;disaster.AfetBaslat(3);
+        bool indoorsThroughWave=true,alarmThroughWave=true,daylightThroughWave=true;
+        while(disaster.AfetDevamEdiyorMu)
+        {
+            yield return null;
+            if(!disaster.AfetDevamEdiyorMu)break;
+            indoorsThroughWave&=city.ShelteredCount==city.LivingActorCount&&city.SweptCitizenCount==0;
+            alarmThroughWave&=siren.AlarmActive;
+            daylightThroughWave&=weather.NightAmount<.001f;
+        }
+        Check(indoorsThroughWave&&gm.afetOlduMu,"All warned residents remain indoors throughout the real tsunami wave");
+        Check(alarmThroughWave&&daylightThroughWave,"Tsunami keeps its alarm and daylight for the full active event");
+        gm.gun=1;report.Devam();disaster.afetSuresi=originalDuration;disaster.enabled=false;gm.hizCarpani=2;yield return null;yield return null;
         Check(!city.TsunamiShelterOrdered&&city.ShelteredCount==0&&!siren.AlarmActive,"Leaving the warning window releases shelter without stale state");
 
         // Inspect all remaining siren schedules using real disaster coroutines, with shortened effects only in this test.
@@ -130,13 +142,16 @@ public sealed class CityFeedbackTestRobotu : MonoBehaviour
         Check(network.ConstructionVisible&&network.GetComponentsInChildren<MeshFilter>().Any(f=>f.sharedMesh!=null&&f.sharedMesh.name.StartsWith("Ada Yol Güvenliği")),"Damaged roads show the new shared striped low-poly barriers");
         Check(!network.GetComponentsInChildren<Collider>().Any(c=>c.name.StartsWith("YolOnarımı")),"Decorative repair barriers add no blocking physics colliders");
         yield return new WaitForEndOfFrame();ScreenCapture.CaptureScreenshot("Logs/CityFeedback_Barriers.png");yield return null;
+        Field(clock,"gunSayaci").SetValue(clock,DengeAyarlari.Aktif.birGunSuresi*.32f);yield return null;yield return null;
+        var marker=network.GetComponentsInChildren<MeshFilter>().First(f=>f.sharedMesh!=null&&f.sharedMesh.name.StartsWith("Ada Yol Güvenliği")).transform;
+        yield return CaptureTower(marker,"Logs/CityFeedback_BarrierDetail.png",9);
     }
-    IEnumerator CaptureTower(Transform tower)
+    IEnumerator CaptureTower(Transform tower,string path="Logs/CityFeedback_Siren.png",float framing=12)
     {
         Camera camera=Camera.main;var nav=camera.GetComponent<IslandCameraController>();bool enabled=nav.enabled;nav.enabled=false;
         Vector3 position=camera.transform.position;Quaternion rotation=camera.transform.rotation;float size=camera.orthographicSize;
-        camera.transform.position=tower.position+new Vector3(-17,15,-20);camera.transform.LookAt(tower.position+Vector3.up*4);camera.orthographicSize=12;
-        yield return new WaitForEndOfFrame();ScreenCapture.CaptureScreenshot("Logs/CityFeedback_Siren.png");yield return null;
+        camera.transform.position=tower.position+new Vector3(-17,15,-20);camera.transform.LookAt(tower.position+Vector3.up*(framing==12?4:1));camera.orthographicSize=framing;
+        yield return new WaitForEndOfFrame();ScreenCapture.CaptureScreenshot(path);yield return null;
         camera.transform.SetPositionAndRotation(position,rotation);camera.orthographicSize=size;nav.enabled=enabled;
     }
 }

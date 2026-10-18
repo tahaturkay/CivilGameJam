@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using UnityEngine.EventSystems;
 using TMPro;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -18,39 +19,50 @@ public class UIManager : MonoBehaviour
         Star,
         UpArrow,
         Play,
-        CloseX
+        CloseX,
+        Gear,
+        Guide,
+        Shield,
+        Clock,
+        Heart,
+        Refresh,
+        Home,
+        MenuGrid,
+        Volume,
+        Checkmark,
+        Exit
     }
 
-    // --- ONAYLANAN PROTOTİP RENK PALETİ ---
-    public static readonly Color32 DarkInk         = new Color32(20, 29, 43, 255);    // #141D2B
-    public static readonly Color32 CreamBg         = new Color32(255, 248, 231, 255); // #FFF8E7 (Krem)
-    public static readonly Color32 CreamShadow     = new Color32(226, 212, 181, 255); // #E2D4B5
-    public static readonly Color32 ModalCyanBg     = new Color32(228, 244, 243, 255); // #E4F4F3
-    public static readonly Color32 ModalCyanShadow = new Color32(180, 212, 210, 255); // #B4D4D2
-    public static readonly Color32 DarkSlotBg      = new Color32(27, 42, 56, 255);    // #1B2A38
-    public static readonly Color32 DarkSlotBorder  = new Color32(15, 23, 34, 255);    // #0F1722
+    // --- COHESIVE ARCADE COLOR PALETTE ---
+    public static readonly Color32 DarkInk         = CivicUI.DarkInk;
+    public static readonly Color32 CreamBg         = CivicUI.Cream;
+    public static readonly Color32 CreamShadow     = CivicUI.CreamShadow;
+    public static readonly Color32 ModalCyanBg     = CivicUI.Mint;
+    public static readonly Color32 ModalCyanShadow = CivicUI.MintShadow;
+    public static readonly Color32 DarkSlotBg      = CivicUI.DarkSlotBg;
+    public static readonly Color32 DarkSlotBorder  = CivicUI.DarkSlotBorder;
 
-    public static readonly Color32 RibbonBlue      = new Color32(43, 148, 229, 255);  // #2B94E5
-    public static readonly Color32 RibbonBlueDark  = new Color32(26, 98, 160, 255);   // #1A62A0
-    public static readonly Color32 RibbonRed       = new Color32(232, 74, 85, 255);   // #E84A55
-    public static readonly Color32 RibbonRedDark   = new Color32(158, 39, 48, 255);   // #9E2730
+    public static readonly Color32 RibbonBlue      = CivicUI.RibbonBlue;
+    public static readonly Color32 RibbonBlueDark  = CivicUI.RibbonBlueLip;
+    public static readonly Color32 RibbonRed       = CivicUI.RibbonRed;
+    public static readonly Color32 RibbonRedDark   = CivicUI.RibbonRedLip;
 
-    public static readonly Color32 GreenBtn        = new Color32(72, 209, 108, 255);  // #48D16C
-    public static readonly Color32 GreenBtnLeft    = new Color32(47, 179, 84, 255);   // #2FB354
-    public static readonly Color32 GreenBtnDark    = new Color32(29, 122, 55, 255);   // #1D7A37
+    public static readonly Color32 GreenBtn        = CivicUI.GreenBtn;
+    public static readonly Color32 GreenBtnLeft    = CivicUI.GreenBtnLeft;
+    public static readonly Color32 GreenBtnDark    = CivicUI.GreenBtnDark;
 
-    public static readonly Color32 GoldBtn         = new Color32(255, 200, 59, 255);  // #FFC83B
-    public static readonly Color32 GoldBtnLeft     = new Color32(235, 166, 28, 255);  // #EBA61C
-    public static readonly Color32 GoldBtnDark     = new Color32(184, 123, 16, 255);  // #B87B10
-    public static readonly Color32 GoldStar        = new Color32(255, 212, 59, 255);  // #FFD43B
+    public static readonly Color32 GoldBtn         = CivicUI.GoldBtn;
+    public static readonly Color32 GoldBtnLeft     = CivicUI.GoldBtnLeft;
+    public static readonly Color32 GoldBtnDark     = CivicUI.GoldBtnDark;
+    public static readonly Color32 GoldStar        = CivicUI.GoldStar;
 
-    public static readonly Color32 BlueBtn         = new Color32(74, 171, 247, 255);  // #4AABF7
-    public static readonly Color32 BlueBtnLeft     = new Color32(43, 148, 229, 255);  // #2B94E5
-    public static readonly Color32 BlueBtnDark     = new Color32(27, 105, 168, 255);  // #1B69A8
+    public static readonly Color32 BlueBtn         = CivicUI.CyanBtn;
+    public static readonly Color32 BlueBtnLeft     = CivicUI.CyanBtnLeft;
+    public static readonly Color32 BlueBtnDark     = CivicUI.CyanBtnDark;
 
-    public static readonly Color32 RedClose        = new Color32(239, 68, 77, 255);   // #EF444D
-    public static readonly Color32 RedCloseDark    = new Color32(163, 36, 43, 255);   // #A3242B
-    public static readonly Color32 MutedText       = new Color32(92, 107, 115, 255);  // #5C6B73
+    public static readonly Color32 RedClose        = CivicUI.CoralBtn;
+    public static readonly Color32 RedCloseDark    = CivicUI.CoralBtnDark;
+    public static readonly Color32 MutedText       = CivicUI.Muted;
 
     [Header("Üst Bar Metinleri")]
     public TMP_Text gunText;
@@ -62,6 +74,9 @@ public class UIManager : MonoBehaviour
     private Image awarenessFillBar;
     private TMP_Text gunSubLabelText;
     private TMP_Text farkindalikSubLabelText;
+    private RectTransform disasterAlertBadgeRt;
+    private Image disasterAlertBadgeImg;
+    private TMP_Text disasterAlertBadgeText;
 
     // Zaman Hızı Butonları (0: Durdur, 1: 1X, 2: 2X, 3: 3X)
     private readonly Button[] speedButtons = new Button[4];
@@ -77,21 +92,30 @@ public class UIManager : MonoBehaviour
 
     // HUD ölçüleri tek bir ölçekte tutulur; mevcut canvas sabit piksel kullandığı için
     // yalnızca ekran kenar boşlukları ve dar ekranlarda grup ölçeği uyarlanır.
-    private const float IkonOlcek = 1.8f;
-    private const float IkonYuvasi = 44f * IkonOlcek;
-    private const float IkonBoyu = 32f * IkonOlcek;
-    private const float KartYuksekligi = 112f;
-    private const float YaziSolBosluk = 10f + IkonYuvasi + 10f;
-    private const float EkGenislik = YaziSolBosluk - 64f;
+    private const float IkonOlcek = 1.0f;
+    private const float IkonYuvasi = 48f;
+    private const float IkonBoyu = 30f;
+    private const float KartYuksekligi = 74f;
+    private const float YaziSolBosluk = 68f;
+    private const float EkGenislik = 0f;
     private const float HudKenarBoslugu = 20f;
-    private const float HudGruplarArasiBosluk = 32f;
-    private const string UstPanelOlcegiKey = "ui_ust_panel_olcegi";
+    private const float HudGruplarArasiBosluk = 20f;
+    private const float SolHudTasarimOlcegi = 1.5f;
+    private const float SagHudGenisligi = 325f;
+    private const float SagGunKartiYuksekligi = 128f;
+    private const float SagUyariYuksekligi = 30f;
+    private const float SagKontrolYuksekligi = 46f;
+    private const float SagHudKartiAraligi = 6f;
+    private const float SagUyariKontrolAraligi = 8f;
+    private const float SagGunIcerikOlcegi = 1.3f;
+    private const float UstPanelYeniStandartCarpani = 1.25f;
+    private const string UstPanelOlcegiKey = "ui_ust_panel_olcegi_v2";
     private const string UstPanelDikeyBoslukKey = "ui_ust_panel_dikey_bosluk";
     private static System.Action ustPanelAyarDegisti;
 
     public static float UstPanelOlcegi
     {
-        get { return Mathf.Clamp(PlayerPrefs.GetFloat(UstPanelOlcegiKey, 1f), 0.75f, 1.25f); }
+        get { return Mathf.Clamp(PlayerPrefs.GetFloat(UstPanelOlcegiKey, 1f), 0.75f, 1.5f); }
     }
 
     public static float UstPanelDikeyBosluk
@@ -101,7 +125,7 @@ public class UIManager : MonoBehaviour
 
     public static void UstPanelAyarlariniUygula(float olcek, float dikeyBosluk)
     {
-        PlayerPrefs.SetFloat(UstPanelOlcegiKey, Mathf.Clamp(olcek, 0.75f, 1.25f));
+        PlayerPrefs.SetFloat(UstPanelOlcegiKey, Mathf.Clamp(olcek, 0.75f, 1.5f));
         PlayerPrefs.SetFloat(UstPanelDikeyBoslukKey, Mathf.Clamp(dikeyBosluk, 0f, 80f));
         if (ustPanelAyarDegisti != null) ustPanelAyarDegisti();
     }
@@ -149,6 +173,7 @@ public class UIManager : MonoBehaviour
 
     private void Awake()
     {
+        if(GetComponent<IslandSimulationPause>()==null)gameObject.AddComponent<IslandSimulationPause>();
         sharedFont = gunText != null ? gunText.font : TMP_Settings.defaultFontAsset;
         EnsureTurkishFontSupport(sharedFont);
         ApplyPrototypeHudAndModals();
@@ -212,7 +237,7 @@ public class UIManager : MonoBehaviour
         StyleExistingExternalPanels();
     }
 
-    // SOL ÜST: 1) İnsan Sayısı (Nüfus) -> 2) Para -> 3) Farkındalık (Yan yana, Krem arka planlı)
+    // SOL ÜST: 1) İnsan Sayısı (Nüfus) -> 2) Para -> 3) Farkındalık (Yan yana, Krem arka planlı, beveled arcade kartlar)
     private void BuildTopLeftHud(Transform ustBar)
     {
         GameObject leftGroup = new GameObject("TopLeftHudGroup", typeof(RectTransform), typeof(HorizontalLayoutGroup));
@@ -221,13 +246,13 @@ public class UIManager : MonoBehaviour
         lgRt.anchorMin = new Vector2(0f, 1f);
         lgRt.anchorMax = new Vector2(0f, 1f);
         lgRt.pivot = new Vector2(0f, 1f);
-        lgRt.anchoredPosition = new Vector2(20f, -18f);
-        float leftGroupWidth = 230f + EkGenislik + 265f + EkGenislik + 275f + EkGenislik + 28f;
+        lgRt.anchoredPosition = new Vector2(20f, -16f);
+        float leftGroupWidth = 215f + EkGenislik + 245f + EkGenislik + 270f + EkGenislik + 24f;
         lgRt.sizeDelta = new Vector2(leftGroupWidth, KartYuksekligi + 4f);
         leftHudGroupRt = lgRt;
 
         HorizontalLayoutGroup hlg = leftGroup.GetComponent<HorizontalLayoutGroup>();
-        hlg.spacing = 14f;
+        hlg.spacing = 12f;
         hlg.childAlignment = TextAnchor.UpperLeft;
         hlg.childControlWidth = false;
         hlg.childControlHeight = false;
@@ -237,25 +262,25 @@ public class UIManager : MonoBehaviour
         // 1. İNSAN SAYISI (NÜFUS) - Basit İnsan Figürü İkonu
         TMP_Text nufusSub;
         CreateHudPillCard(
-            leftGroup.transform, "NufusPill", 230f + EkGenislik, KartYuksekligi,
-            IconType.Person, new Color32(76, 153, 145, 255),
+            leftGroup.transform, "NufusPill", 215f + EkGenislik, KartYuksekligi,
+            IconType.Person, new Color32(56, 180, 242, 255),
             "NÜFUS", nufusText, out nufusSub, false, out _);
 
         // 2. PARA (BÜTÇE) - Altıgen Sikke İkonu
         TMP_Text paraSub;
         CreateHudPillCard(
-            leftGroup.transform, "ParaPill", 265f + EkGenislik, KartYuksekligi,
-            IconType.HexCoin, new Color32(218, 163, 65, 255),
-            "COIN", paraText, out paraSub, false, out _);
+            leftGroup.transform, "ParaPill", 245f + EkGenislik, KartYuksekligi,
+            IconType.HexCoin, new Color32(255, 184, 46, 255),
+            "BÜTÇE", paraText, out paraSub, false, out _);
 
         // 3. FARKINDALIK - Basic Açık Kitap İkonu + İlerleme Çubuğu
         CreateHudPillCard(
-            leftGroup.transform, "FarkindalikPill", 275f + EkGenislik, KartYuksekligi,
-            IconType.Book, new Color32(67, 139, 147, 255),
+            leftGroup.transform, "FarkindalikPill", 270f + EkGenislik, KartYuksekligi,
+            IconType.Book, new Color32(63, 212, 127, 255),
             "FARKINDALIK", farkindalikText, out farkindalikSubLabelText, true, out awarenessFillBar);
     }
 
-    // SAĞ ÜST: En sağ üst köşede Gün Sayısı, hemen altında Durdur (II), 1X, 2X, 3X butonları
+    // SAĞ ÜST: En sağ üst köşede Gün Sayısı ve Dinamik Afet Uyarısı, hemen altında Durdur (II), 1X, 2X, 3X ve Hızlı Ayarlar
     private void BuildTopRightHud(Transform ustBar)
     {
         GameObject rightCol = new GameObject("TopRightHudColumn", typeof(RectTransform));
@@ -264,32 +289,61 @@ public class UIManager : MonoBehaviour
         rcRt.anchorMin = new Vector2(1f, 1f);
         rcRt.anchorMax = new Vector2(1f, 1f);
         rcRt.pivot = new Vector2(1f, 1f);
-        rcRt.anchoredPosition = new Vector2(-20f, -18f);
-        rcRt.sizeDelta = new Vector2(260f + EkGenislik, KartYuksekligi + 60f);
+        rcRt.anchoredPosition = new Vector2(-20f, -16f);
+        float rightHudHeight = SagGunKartiYuksekligi + SagHudKartiAraligi + SagUyariYuksekligi +
+            SagUyariKontrolAraligi + SagKontrolYuksekligi;
+        rcRt.sizeDelta = new Vector2(SagHudGenisligi + EkGenislik, rightHudHeight);
         rightHudColumnRt = rcRt;
 
         // Üstte Gün Kutusu (Krem arka planlı)
         RectTransform dayPill = CreateHudPillCard(
-            rightCol.transform, "GunPill", 248f + EkGenislik, KartYuksekligi,
-            IconType.Calendar, new Color32(196, 104, 78, 255),
-            "GÜN SAYACI", gunText, out gunSubLabelText, false, out _);
+            rightCol.transform, "GunPill", SagHudGenisligi + EkGenislik, SagGunKartiYuksekligi,
+            IconType.Calendar, new Color32(240, 77, 90, 255),
+            "GÜN SAYACI", gunText, out gunSubLabelText, false, out _, SagGunIcerikOlcegi);
         dayPill.anchorMin = new Vector2(1f, 1f);
         dayPill.anchorMax = new Vector2(1f, 1f);
         dayPill.pivot = new Vector2(1f, 1f);
         dayPill.anchoredPosition = Vector2.zero;
 
-        // Altında Zaman Akışı Butonları: Durdur (II), 1X, 2X, 3X
+        // Afet uyarısı kendi satırını kullanır; gün kartının metnini ve hız kontrollerini örtmez.
+        GameObject alertObj = new GameObject("DisasterAlertBadge", typeof(RectTransform), typeof(Image));
+        alertObj.transform.SetParent(rightCol.transform, false);
+        disasterAlertBadgeRt = alertObj.GetComponent<RectTransform>();
+        disasterAlertBadgeRt.anchorMin = new Vector2(1f, 1f);
+        disasterAlertBadgeRt.anchorMax = new Vector2(1f, 1f);
+        disasterAlertBadgeRt.pivot = new Vector2(1f, 1f);
+        disasterAlertBadgeRt.anchoredPosition = new Vector2(0f, -(SagGunKartiYuksekligi + SagHudKartiAraligi));
+        disasterAlertBadgeRt.sizeDelta = new Vector2(SagHudGenisligi + EkGenislik, SagUyariYuksekligi);
+
+        disasterAlertBadgeImg = alertObj.GetComponent<Image>();
+        disasterAlertBadgeImg.sprite = CivicUI.GetPillBadgeSprite(CivicUI.CyanBtn, CivicUI.CyanBtnDark);
+        disasterAlertBadgeImg.type = Image.Type.Sliced;
+        disasterAlertBadgeImg.color = Color.white;
+        disasterAlertBadgeImg.raycastTarget = false;
+
+        disasterAlertBadgeText = CreateText(
+            alertObj.transform, "AlertText", sharedFont, "AFETE HAZIRLIK",
+            15f, FontStyles.Bold, Color.white, TextAlignmentOptions.Center);
+        disasterAlertBadgeText.enableAutoSizing = true;
+        disasterAlertBadgeText.fontSizeMin = 12f;
+        disasterAlertBadgeText.fontSizeMax = 15f;
+        disasterAlertBadgeText.textWrappingMode = TextWrappingModes.NoWrap;
+        disasterAlertBadgeText.overflowMode = TextOverflowModes.Ellipsis;
+        CivicUI.Fill(disasterAlertBadgeText.rectTransform, 4f);
+
+        // Altında Zaman Akışı Butonları + Hızlı Ayarlar Dişli Butonu
         GameObject speedRow = new GameObject("SpeedControlsRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
         speedRow.transform.SetParent(rightCol.transform, false);
         RectTransform srRt = speedRow.GetComponent<RectTransform>();
         srRt.anchorMin = new Vector2(1f, 1f);
         srRt.anchorMax = new Vector2(1f, 1f);
         srRt.pivot = new Vector2(1f, 1f);
-        srRt.anchoredPosition = new Vector2(0f, -(KartYuksekligi + 8f));
-        srRt.sizeDelta = new Vector2(248f + EkGenislik, 42f);
+        srRt.anchoredPosition = new Vector2(0f, -(SagGunKartiYuksekligi + SagHudKartiAraligi +
+            SagUyariYuksekligi + SagUyariKontrolAraligi));
+        srRt.sizeDelta = new Vector2(SagHudGenisligi + EkGenislik, SagKontrolYuksekligi);
 
         HorizontalLayoutGroup sHlg = speedRow.GetComponent<HorizontalLayoutGroup>();
-        sHlg.spacing = 8f;
+        sHlg.spacing = 6f;
         sHlg.childAlignment = TextAnchor.MiddleRight;
         sHlg.childControlWidth = true;
         sHlg.childControlHeight = true;
@@ -304,17 +358,17 @@ public class UIManager : MonoBehaviour
             btnObj.transform.SetParent(speedRow.transform, false);
 
             Image btnImg = btnObj.GetComponent<Image>();
-            btnImg.sprite = GetCreamBoxSprite(CreamBg, CreamShadow);
+            btnImg.sprite = CivicUI.GetSquareButtonSprite(CreamBg, CreamShadow);
             btnImg.type = Image.Type.Sliced;
 
             Button btn = btnObj.GetComponent<Button>();
             btn.targetGraphic = btnImg;
             btn.onClick.AddListener(() => SetTimeSpeed(mode));
 
-            TMP_Text txt = CreateText(btnObj.transform, "Text", sharedFont, labels[i], 18f, FontStyles.Bold, DarkInk, TextAlignmentOptions.Center);
+            TMP_Text txt = CreateText(btnObj.transform, "Text", sharedFont, labels[i], 19f, FontStyles.Bold, DarkInk, TextAlignmentOptions.Center);
             txt.rectTransform.anchorMin = Vector2.zero;
             txt.rectTransform.anchorMax = Vector2.one;
-            txt.rectTransform.offsetMin = new Vector2(0f, 4f);
+            txt.rectTransform.offsetMin = new Vector2(0f, 3f);
             txt.rectTransform.offsetMax = Vector2.zero;
 
             speedButtons[i] = btn;
@@ -322,7 +376,45 @@ public class UIManager : MonoBehaviour
             speedButtonLabels[i] = txt;
         }
 
-        // Eğer Ana Canvas üzerinde HizKontrol varsa, eski HizPaneli'ni gizleyip bizim butonlarımızı bağlayalım
+        // Hızlı Ayarlar / Duraklat Butonu (Screenshot 2 floating square button)
+        GameObject settingsBtnObj = new GameObject("QuickSettingsBtn", typeof(RectTransform), typeof(Image), typeof(Button));
+        settingsBtnObj.transform.SetParent(speedRow.transform, false);
+        Image sImg = settingsBtnObj.GetComponent<Image>();
+        sImg.sprite = CivicUI.GetSquareButtonSprite(CivicUI.CyanBtn, CivicUI.CyanBtnDark);
+        sImg.type = Image.Type.Sliced;
+
+        Button sBtn = settingsBtnObj.GetComponent<Button>();
+        sBtn.targetGraphic = sImg;
+        sBtn.onClick.AddListener(() =>
+        {
+            var pause = FindAnyObjectByType<PauseMenu>();
+            if (pause != null)
+            {
+                if (PauseMenu.DurdurulduMu) pause.Devam();
+                else pause.Durdur();
+            }
+            else
+            {
+                var settings = FindAnyObjectByType<SettingsPanel>(FindObjectsInactive.Include);
+                if (settings != null)
+                {
+                    if (settings.AcikMi) settings.Kapat();
+                    else settings.Ac();
+                }
+            }
+        });
+
+        GameObject sIcon = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+        sIcon.transform.SetParent(settingsBtnObj.transform, false);
+        RectTransform sIconRt = sIcon.GetComponent<RectTransform>();
+        CivicUI.Fill(sIconRt, 7f);
+        sIconRt.anchoredPosition = new Vector2(0f, 2f);
+        Image sIconImg = sIcon.GetComponent<Image>();
+        sIconImg.sprite = CivicUI.GetColoredIconSprite(CivicUI.IconType.Gear, Color.white);
+        sIconImg.preserveAspect = true;
+        sIconImg.raycastTarget = false;
+
+        // Eğer Ana Canvas üzerinde HizKontrol varsa bağlayalım
         HizKontrol hizKontrol = GetComponentInParent<HizKontrol>();
         if (hizKontrol == null) hizKontrol = FindAnyObjectByType<HizKontrol>();
         if (hizKontrol != null)
@@ -332,8 +424,44 @@ public class UIManager : MonoBehaviour
 
             hizKontrol.duraklatButonu = speedButtons[0];
             hizKontrol.hizButonlari = new[] { speedButtons[1], speedButtons[2], speedButtons[3] };
-            hizKontrol.enabled = false; // Renklendirmeyi UIManager kendi piksel-art sprite'larıyla yapıyor
         }
+    }
+
+    /// <summary>Called by HizKontrol before EventSystem processes Space as a UI Submit key.</summary>
+    public bool TryHandleSpacePauseInput()
+    {
+        GameManager gm = GameManager.Instance;
+        if (gm == null || SpacePauseIsBlocked(gm)) return false;
+
+        if (EventSystem.current != null)
+            EventSystem.current.SetSelectedGameObject(null);
+
+        SetTimeSpeed(0);
+        return true;
+    }
+
+    private static bool SpacePauseIsBlocked(GameManager gm)
+    {
+        if (gm.oyunDurduMu || gm.oyunBittiMi || gm.afetOlduMu || PauseMenu.DurdurulduMu)
+            return true;
+
+        // A report is shown when the hazard flag is still set, so inspect its visible panel
+        // separately while allowing Space to pause/resume during the hazard itself.
+        var settings = FindAnyObjectByType<SettingsPanel>(FindObjectsInactive.Include);
+        if (settings != null && settings.AcikMi) return true;
+
+        var report = FindAnyObjectByType<AfetRaporu>(FindObjectsInactive.Include);
+        if (report != null && report.panel != null && report.panel.activeInHierarchy) return true;
+
+        var gameOver = FindAnyObjectByType<OyunSonu>(FindObjectsInactive.Include);
+        if (gameOver != null && gameOver.panel != null && gameOver.panel.activeInHierarchy) return true;
+
+        if (FindAnyObjectByType<MainMenu>() != null) return true;
+
+        GameObject selected = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
+        if (selected == null) return false;
+        return selected.GetComponent<InputField>() != null || selected.GetComponent<TMP_InputField>() != null ||
+               selected.GetComponentInParent<InputField>() != null || selected.GetComponentInParent<TMP_InputField>() != null;
     }
 
     public void SetTimeSpeed(int mode)
@@ -344,11 +472,13 @@ public class UIManager : MonoBehaviour
             if (mode == 0)
             {
                 gm.kullaniciDurdurdu = !gm.kullaniciDurdurdu;
+                GetComponent<IslandSimulationPause>()?.ApplyPause();
             }
             else
             {
                 gm.hizCarpani = Mathf.Clamp(mode, 1, 3);
                 gm.kullaniciDurdurdu = false;
+                GetComponent<IslandSimulationPause>()?.ApplyPause();
             }
         }
         RefreshSpeedButtonVisuals();
@@ -371,12 +501,12 @@ public class UIManager : MonoBehaviour
             bool isActive = (i == activeMode);
             if (isActive)
             {
-                speedButtonImages[i].sprite = GetCreamBoxSprite(GoldBtn, GoldBtnDark);
+                speedButtonImages[i].sprite = CivicUI.GetSquareButtonSprite(GoldBtn, GoldBtnDark);
                 speedButtonImages[i].color = Color.white;
             }
             else
             {
-                speedButtonImages[i].sprite = GetCreamBoxSprite(CreamBg, CreamShadow);
+                speedButtonImages[i].sprite = CivicUI.GetSquareButtonSprite(CreamBg, CreamShadow);
                 speedButtonImages[i].color = Color.white;
             }
             if (speedButtonLabels[i] != null)
@@ -387,78 +517,78 @@ public class UIManager : MonoBehaviour
     private RectTransform CreateHudPillCard(
         Transform parent, string name, float width, float height,
         IconType iconType, Color32 iconColor, string subLabel,
-        TMP_Text existingValueText, out TMP_Text outSubLabel, bool withProgressBar, out Image progressFill)
+        TMP_Text existingValueText, out TMP_Text outSubLabel, bool withProgressBar, out Image progressFill,
+        float contentScale = 1f)
     {
         progressFill = null;
+        float contentLeft = YaziSolBosluk * contentScale;
+        float iconSlotSize = IkonYuvasi * contentScale;
+        float iconSize = IkonBoyu * contentScale;
         GameObject card = new GameObject(name, typeof(RectTransform), typeof(Image));
         card.transform.SetParent(parent, false);
         RectTransform rt = card.GetComponent<RectTransform>();
         rt.sizeDelta = new Vector2(width, height);
 
         Image bg = card.GetComponent<Image>();
-        bg.sprite = GetCreamBoxSprite(CreamBg, CreamShadow);
+        bg.sprite = CivicUI.GetBeveledCardSprite(CreamBg, CreamShadow);
         bg.type = Image.Type.Sliced;
+        bg.color = Color.white;
 
-        // Küçük şehir renk şeridi kartı ikon rengiyle eşler, içerik alanını daraltmaz.
-        GameObject accentObj = new GameObject("CityColorAccent", typeof(RectTransform), typeof(Image));
-        accentObj.transform.SetParent(card.transform, false);
-        RectTransform accentRt = accentObj.GetComponent<RectTransform>();
-        accentRt.anchorMin = new Vector2(0f, 1f);
-        accentRt.anchorMax = new Vector2(1f, 1f);
-        accentRt.offsetMin = new Vector2(YaziSolBosluk, -14f);
-        accentRt.offsetMax = new Vector2(-12f, -10f);
-        Image accentImg = accentObj.GetComponent<Image>();
-        accentImg.color = iconColor;
-        accentImg.raycastTarget = false;
-
-        // Sol İkon Yuvası (Koyu Çerçeveli)
+        // Sol İkon Yuvası (Koyu Yuvarlatılmış Çerçeveli Slot)
         GameObject iconSlot = new GameObject("IconSlot", typeof(RectTransform), typeof(Image));
         iconSlot.transform.SetParent(card.transform, false);
         RectTransform isRt = iconSlot.GetComponent<RectTransform>();
         isRt.anchorMin = new Vector2(0f, 0.5f);
         isRt.anchorMax = new Vector2(0f, 0.5f);
         isRt.pivot = new Vector2(0f, 0.5f);
-        isRt.anchoredPosition = new Vector2(10f, 0f);
-        isRt.sizeDelta = new Vector2(IkonYuvasi, IkonYuvasi);
+        isRt.anchoredPosition = new Vector2(10f * contentScale, 1f * contentScale);
+        isRt.sizeDelta = new Vector2(iconSlotSize, iconSlotSize);
 
         Image slotImg = iconSlot.GetComponent<Image>();
-        slotImg.sprite = GetDarkSlotSprite();
+        slotImg.sprite = CivicUI.GetDarkSlotSprite();
         slotImg.type = Image.Type.Sliced;
+        slotImg.color = Color.white;
 
         GameObject iconGraphic = new GameObject("IconGraphic", typeof(RectTransform), typeof(Image));
         iconGraphic.transform.SetParent(iconSlot.transform, false);
         RectTransform igRt = iconGraphic.GetComponent<RectTransform>();
         igRt.anchorMin = new Vector2(0.5f, 0.5f);
         igRt.anchorMax = new Vector2(0.5f, 0.5f);
-        igRt.sizeDelta = new Vector2(IkonBoyu, IkonBoyu);
+        igRt.sizeDelta = new Vector2(iconSize, iconSize);
         igRt.anchoredPosition = Vector2.zero;
 
         Image igImg = iconGraphic.GetComponent<Image>();
-        igImg.sprite = GetColoredIconSprite(iconType, iconColor);
+        igImg.sprite = CivicUI.GetColoredIconSprite((CivicUI.IconType)iconType, iconColor);
         igImg.preserveAspect = true;
+        igImg.raycastTarget = false;
 
         // Küçük Üst Etiket
-        outSubLabel = CreateText(card.transform, "SubLabel", sharedFont, subLabel, 12f, FontStyles.Bold, MutedText, TextAlignmentOptions.Left);
+        outSubLabel = CreateText(card.transform, "SubLabel", sharedFont, subLabel,
+            11f * contentScale, FontStyles.Bold, MutedText, TextAlignmentOptions.Left);
         RectTransform slRt = outSubLabel.rectTransform;
         slRt.anchorMin = new Vector2(0f, 1f);
         slRt.anchorMax = new Vector2(1f, 1f);
         slRt.pivot = new Vector2(0f, 1f);
-        slRt.anchoredPosition = new Vector2(YaziSolBosluk, -20f);
-        slRt.sizeDelta = new Vector2(-(YaziSolBosluk + 10f), 16f);
+        slRt.anchoredPosition = new Vector2(contentLeft, -10f * contentScale);
+        slRt.sizeDelta = new Vector2(-(contentLeft + 8f * contentScale), 15f * contentScale);
 
-        // Ana Değer Metni (Mevcut TMP_Text referansını koruyarak içine taşıyoruz)
+        // Ana Değer Metni
         if (existingValueText != null)
         {
             existingValueText.transform.SetParent(card.transform, false);
             RectTransform vtRt = existingValueText.rectTransform;
             vtRt.anchorMin = new Vector2(0f, 0f);
             vtRt.anchorMax = new Vector2(1f, 1f);
-            vtRt.offsetMin = new Vector2(YaziSolBosluk, withProgressBar ? 20f : 10f);
-            vtRt.offsetMax = new Vector2(-12f, -22f);
-            existingValueText.fontSize = withProgressBar ? 20f : 21f;
+            vtRt.offsetMin = new Vector2(contentLeft, (withProgressBar ? 18f : 8f) * contentScale);
+            // The expanded day card reserves a distinct title band above its value.
+            float valueTopPadding = !withProgressBar && contentScale > 1.05f
+                ? 30f * contentScale
+                : 14f * contentScale;
+            vtRt.offsetMax = new Vector2(-10f * contentScale, -valueTopPadding);
+            existingValueText.fontSize = (withProgressBar ? 19f : 20f) * contentScale;
             existingValueText.enableAutoSizing = true;
-            existingValueText.fontSizeMin = 15f;
-            existingValueText.fontSizeMax = withProgressBar ? 20f : 21f;
+            existingValueText.fontSizeMin = 14f * contentScale;
+            existingValueText.fontSizeMax = (withProgressBar ? 19f : 20f) * contentScale;
             existingValueText.fontStyle = FontStyles.Bold;
             existingValueText.color = DarkInk;
             existingValueText.alignment = TextAlignmentOptions.MidlineLeft;
@@ -474,26 +604,26 @@ public class UIManager : MonoBehaviour
             bbRt.anchorMin = new Vector2(0f, 0f);
             bbRt.anchorMax = new Vector2(1f, 0f);
             bbRt.pivot = new Vector2(0f, 0f);
-            bbRt.anchoredPosition = new Vector2(YaziSolBosluk, 12f);
-            bbRt.sizeDelta = new Vector2(-(YaziSolBosluk + 14f), 10f);
+            bbRt.anchoredPosition = new Vector2(contentLeft, 10f * contentScale);
+            bbRt.sizeDelta = new Vector2(-(contentLeft + 12f * contentScale), 8f * contentScale);
 
             Image bbImg = barBg.GetComponent<Image>();
-            bbImg.color = DarkInk;
+            bbImg.color = DarkSlotBg;
 
             GameObject barFill = new GameObject("AwarenessBarFill", typeof(RectTransform), typeof(Image));
             barFill.transform.SetParent(barBg.transform, false);
             RectTransform bfRt = barFill.GetComponent<RectTransform>();
             bfRt.anchorMin = new Vector2(0f, 0f);
             bfRt.anchorMax = new Vector2(1f, 1f);
-            bfRt.offsetMin = new Vector2(2f, 2f);
-            bfRt.offsetMax = new Vector2(-2f, -2f);
+            bfRt.offsetMin = new Vector2(1f, 1f);
+            bfRt.offsetMax = new Vector2(-1f, -1f);
 
             progressFill = barFill.GetComponent<Image>();
             progressFill.sprite = GetSolidWhiteSprite();
             progressFill.type = Image.Type.Filled;
             progressFill.fillMethod = Image.FillMethod.Horizontal;
             progressFill.fillOrigin = 0;
-            progressFill.color = new Color32(72, 209, 108, 255);
+            progressFill.color = GreenBtn;
             progressFill.fillAmount = 0.2f;
         }
 
@@ -514,7 +644,7 @@ public class UIManager : MonoBehaviour
         hoverTooltipRt.sizeDelta = new Vector2(230f, 44f);
 
         Image bg = tooltipObj.GetComponent<Image>();
-        bg.sprite = GetCreamBoxSprite(CreamBg, CreamShadow);
+        bg.sprite = CivicUI.GetPillBadgeSprite(CreamBg, CreamShadow);
         bg.type = Image.Type.Sliced;
         bg.raycastTarget = false;
 
@@ -673,14 +803,40 @@ public class UIManager : MonoBehaviour
 
         if (kalan != sonKalan && gunSubLabelText != null)
         {
-            gunSubLabelText.text = kalan > 0
-                ? "AFETE " + kalan + " GÜN"
-                : (kalan == 0 ? "AFET GÜNÜ!" : "GÜN SAYACI");
+            gunSubLabelText.text = "GÜN SAYACI";
         }
         if (tavan != sonTavan && farkindalikSubLabelText != null)
             farkindalikSubLabelText.text = "FARKINDALIK (MAKS %" + tavan + ")";
         if (gm.gun != sonGun && gunText != null)
             gunText.text = "Gün: " + gm.gun + "/" + d.toplamGun;
+
+        if (disasterAlertBadgeText != null && disasterAlertBadgeImg != null && (kalan != sonKalan || gm.gun != sonGun))
+        {
+            if (kalan > 3)
+            {
+                disasterAlertBadgeImg.sprite = CivicUI.GetPillBadgeSprite(CivicUI.CyanBtn, CivicUI.CyanBtnDark);
+                disasterAlertBadgeText.text = "AFETE " + kalan + " GÜN";
+                disasterAlertBadgeText.color = Color.white;
+            }
+            else if (kalan >= 1)
+            {
+                disasterAlertBadgeImg.sprite = CivicUI.GetPillBadgeSprite(CivicUI.CoralBtn, CivicUI.CoralBtnDark);
+                disasterAlertBadgeText.text = "DİKKAT: " + kalan + " GÜN KALDI!";
+                disasterAlertBadgeText.color = Color.white;
+            }
+            else if (kalan == 0)
+            {
+                disasterAlertBadgeImg.sprite = CivicUI.GetPillBadgeSprite(CivicUI.RibbonRed, CivicUI.RibbonRedLip);
+                disasterAlertBadgeText.text = "AFET GÜNÜ!";
+                disasterAlertBadgeText.color = Color.white;
+            }
+            else
+            {
+                disasterAlertBadgeImg.sprite = CivicUI.GetPillBadgeSprite(CivicUI.GreenBtn, CivicUI.GreenBtnDark);
+                disasterAlertBadgeText.text = "ŞEHİR GÜVENDE";
+                disasterAlertBadgeText.color = Color.white;
+            }
+        }
         UpdateParaAnimasyonlari(gm, gelir);
         int gelirGosterimi = gelirAnimasyonuAktif ? gosterilenGelir : gelir;
         if (paraText != null &&
@@ -831,8 +987,11 @@ public class UIManager : MonoBehaviour
         float leftMargin = Mathf.Max(HudKenarBoslugu, safeMin.x - hudBarRt.rect.xMin + HudKenarBoslugu);
         float rightMargin = Mathf.Max(HudKenarBoslugu, hudBarRt.rect.xMax - safeMax.x + HudKenarBoslugu);
         float availableWidth = Mathf.Max(1f, safeMax.x - safeMin.x - HudKenarBoslugu * 2f);
-        float userScale = UstPanelOlcegi;
-        float leftScale = Mathf.Min(1f, availableWidth / (leftHudGroupRt.sizeDelta.x * userScale)) * userScale;
+        // The former 125% setting is the new 100% baseline. A versioned key above
+        // prevents legacy saved values from applying that multiplier twice.
+        float userScale = UstPanelOlcegi * UstPanelYeniStandartCarpani;
+        float leftScale = Mathf.Min(SolHudTasarimOlcegi,
+            availableWidth / (leftHudGroupRt.sizeDelta.x * userScale)) * userScale;
         float rightScale = Mathf.Min(1f, availableWidth / (rightHudColumnRt.sizeDelta.x * userScale)) * userScale;
         bool placeControlsBelow = leftHudGroupRt.sizeDelta.x * leftScale +
                                   rightHudColumnRt.sizeDelta.x * rightScale + HudGruplarArasiBosluk > availableWidth;
@@ -927,7 +1086,7 @@ public class UIManager : MonoBehaviour
         switch (bina)
         {
             case BinaTuru.TemelBina: return "KONUTLAR";
-            case BinaTuru.Okul:      return "OKUL";
+            case BinaTuru.Okul:      return "ODTÜ";
             case BinaTuru.Akut:      return "AKUT MERKEZİ";
             case BinaTuru.Itfaiye:   return "İTFAİYE";
             case BinaTuru.DenizSeti: return "DENİZ SETİ";
@@ -968,189 +1127,32 @@ public class UIManager : MonoBehaviour
 
     public static Sprite GetSolidWhiteSprite()
     {
-        if (solidWhiteSprite != null) return solidWhiteSprite;
-        Texture2D tex = new Texture2D(4, 4, TextureFormat.RGBA32, false);
-        for (int i = 0; i < 16; i++) tex.SetPixel(i % 4, i / 4, Color.white);
-        tex.Apply();
-        solidWhiteSprite = Sprite.Create(tex, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f));
-        return solidWhiteSprite;
+        return CivicUI.GetSolidWhiteSprite();
     }
 
-    // 1) KREM KUTU SPRITE: Kalın koyu çerçeve (#141D2B) + Alt blok gölge + Yuvarlatılmış/Stepped köşe
     public static Sprite GetCreamBoxSprite(Color32 fillColor, Color32 bottomShade)
     {
-        ulong key = RenkAnahtari(fillColor, bottomShade);
-        if (creamBoxCache.TryGetValue(key, out Sprite cached) && cached != null)
-            return cached;
-
-        int w = 48, h = 48;
-        int border = 3;
-        int shadow = 5;
-        Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
-        tex.filterMode = FilterMode.Point;
-        tex.wrapMode = TextureWrapMode.Clamp;
-
-        for (int y = 0; y < h; y++)
-        {
-            for (int x = 0; x < w; x++)
-            {
-                bool cutOuter = (x < 3 && y < 3) || (x >= w - 3 && y < 3) || (x < 3 && y >= h - 3) || (x >= w - 3 && y >= h - 3);
-                if (cutOuter)
-                {
-                    tex.SetPixel(x, y, Color.clear);
-                    continue;
-                }
-
-                bool isBorder = x < border || x >= w - border || y < border + 2 || y >= h - border;
-                bool isCornerStep = (x < 5 && y < 5) || (x >= w - 5 && y < 5) || (x < 5 && y >= h - 5) || (x >= w - 5 && y >= h - 5);
-
-                if (y < 2)
-                {
-                    tex.SetPixel(x, y, DarkInk);
-                }
-                else if (isBorder || isCornerStep)
-                {
-                    tex.SetPixel(x, y, DarkInk);
-                }
-                else if (y < border + shadow + 1)
-                {
-                    tex.SetPixel(x, y, bottomShade);
-                }
-                else
-                {
-                    tex.SetPixel(x, y, fillColor);
-                }
-            }
-        }
-
-        tex.Apply();
-        Sprite sp = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(10, 12, 10, 10));
-        creamBoxCache[key] = sp;
-        return sp;
+        return CivicUI.GetBeveledCardSprite(fillColor, bottomShade);
     }
 
-    // 2) STEPPED PIXEL-ART MODAL KARTI (#E4F4F3 açık buz mavisi gövde + basamaklı köşe + kalın çerçeve)
     public static Sprite GetSteppedModalSprite()
     {
-        if (steppedModalSprite != null) return steppedModalSprite;
-
-        int w = 64, h = 64;
-        Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
-        tex.filterMode = FilterMode.Point;
-        tex.wrapMode = TextureWrapMode.Clamp;
-
-        for (int y = 0; y < h; y++)
-        {
-            for (int x = 0; x < w; x++)
-            {
-                int dx = Mathf.Min(x, w - 1 - x);
-                int dy = Mathf.Min(y, h - 1 - y);
-
-                if ((dx < 4 && dy < 8) || (dx < 8 && dy < 4))
-                {
-                    tex.SetPixel(x, y, Color.clear);
-                    continue;
-                }
-
-                bool isOuterBorder = dx < 4 || dy < 4 || (dx < 8 && dy < 8) || (dx < 11 && dy < 6) || (dx < 6 && dy < 11);
-                if (isOuterBorder)
-                {
-                    tex.SetPixel(x, y, DarkInk);
-                }
-                else if (y < 11)
-                {
-                    tex.SetPixel(x, y, ModalCyanShadow);
-                }
-                else if (y >= h - 7)
-                {
-                    tex.SetPixel(x, y, new Color32(244, 252, 251, 255));
-                }
-                else
-                {
-                    tex.SetPixel(x, y, ModalCyanBg);
-                }
-            }
-        }
-
-        tex.Apply();
-        steppedModalSprite = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(16, 16, 16, 16));
-        return steppedModalSprite;
+        return CivicUI.GetBeveledCardSprite(ModalCyanBg, ModalCyanShadow);
     }
 
-    // 3) KOYU İÇ YUVA (DARK SLOT) SPRITE (#1B2A38)
     public static Sprite GetDarkSlotSprite()
     {
-        if (darkSlotSprite != null) return darkSlotSprite;
-
-        int w = 48, h = 48;
-        Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
-        tex.filterMode = FilterMode.Point;
-        tex.wrapMode = TextureWrapMode.Clamp;
-
-        for (int y = 0; y < h; y++)
-        {
-            for (int x = 0; x < w; x++)
-            {
-                int dx = Mathf.Min(x, w - 1 - x);
-                int dy = Mathf.Min(y, h - 1 - y);
-
-                if (dx < 3 && dy < 3)
-                {
-                    tex.SetPixel(x, y, Color.clear);
-                }
-                else if (dx < 3 || dy < 3 || (dx < 5 && dy < 5))
-                {
-                    tex.SetPixel(x, y, DarkSlotBorder);
-                }
-                else
-                {
-                    tex.SetPixel(x, y, DarkSlotBg);
-                }
-            }
-        }
-
-        tex.Apply();
-        darkSlotSprite = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(10, 10, 10, 10));
-        return darkSlotSprite;
+        return CivicUI.GetDarkSlotSprite();
     }
 
-    // 4) ÜST KURDELE (RIBBON BANNER) OLUŞTURUCU
     public static Sprite GetRibbonMainSprite(Color32 fill, Color32 bottomLip)
     {
-        string anahtar = "ribbon" + RenkAnahtari(fill, bottomLip);
-        if (OnbellekteVar(anahtar, out Sprite onceki)) return onceki;
-        int w = 32, h = 32;
-        Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
-        tex.filterMode = FilterMode.Point;
-        for (int y = 0; y < h; y++)
-        {
-            Color32 c = y < 5 ? bottomLip : fill;
-            for (int x = 0; x < w; x++) tex.SetPixel(x, y, c);
-        }
-        tex.Apply();
-        return spriteCache[anahtar] = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(4, 6, 4, 4));
+        return CivicUI.GetRibbonMainSprite(fill, bottomLip);
     }
 
     public static Sprite GetRibbonTailSprite(bool leftSide)
     {
-        string anahtar = leftSide ? "tailL" : "tailR";
-        if (OnbellekteVar(anahtar, out Sprite onceki)) return onceki;
-        int w = 32, h = 40;
-        Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
-        tex.filterMode = FilterMode.Point;
-        for (int y = 0; y < h; y++)
-        {
-            float ny = (float)y / h;
-            float notchDepth = (0.5f - Mathf.Abs(ny - 0.5f)) * 0.7f;
-            for (int x = 0; x < w; x++)
-            {
-                float nx = (float)x / w;
-                bool inside = leftSide ? (nx >= notchDepth) : (nx <= 1f - notchDepth);
-                tex.SetPixel(x, y, inside ? Color.white : Color.clear);
-            }
-        }
-        tex.Apply();
-        return spriteCache[anahtar] = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f);
+        return CivicUI.GetRibbonTailSprite(leftSide, RibbonBlue, RibbonBlueDark, RibbonBlueDark);
     }
 
     public static RectTransform CreateRibbonBanner(
@@ -1158,93 +1160,17 @@ public class UIManager : MonoBehaviour
         Color32 mainColor, Color32 lipColor, Color32 tailColor,
         out Image mainImg, out Image leftTailImg, out Image rightTailImg, out TMP_Text titleText)
     {
-        GameObject ribbonObj = new GameObject("RibbonBanner", typeof(RectTransform), typeof(Image));
-        ribbonObj.transform.SetParent(modalCard, false);
-        RectTransform ribbonRt = ribbonObj.GetComponent<RectTransform>();
-        ribbonRt.anchorMin = new Vector2(0f, 1f);
-        ribbonRt.anchorMax = new Vector2(1f, 1f);
-        ribbonRt.pivot = new Vector2(0.5f, 1f);
-        ribbonRt.anchoredPosition = new Vector2(0f, -18f);
-        ribbonRt.sizeDelta = new Vector2(44f, 68f);
-
-        GameObject tailL = new GameObject("TailLeft", typeof(RectTransform), typeof(Image));
-        tailL.transform.SetParent(ribbonRt, false);
-        RectTransform tlRt = tailL.GetComponent<RectTransform>();
-        tlRt.anchorMin = new Vector2(0f, 0f);
-        tlRt.anchorMax = new Vector2(0f, 0f);
-        tlRt.pivot = new Vector2(0f, 0f);
-        tlRt.anchoredPosition = new Vector2(-20f, -12f);
-        tlRt.sizeDelta = new Vector2(36f, 52f);
-        leftTailImg = tailL.GetComponent<Image>();
-        leftTailImg.sprite = GetRibbonTailSprite(true);
-        leftTailImg.color = tailColor;
-
-        GameObject tailR = new GameObject("TailRight", typeof(RectTransform), typeof(Image));
-        tailR.transform.SetParent(ribbonRt, false);
-        RectTransform trRt = tailR.GetComponent<RectTransform>();
-        trRt.anchorMin = new Vector2(1f, 0f);
-        trRt.anchorMax = new Vector2(1f, 0f);
-        trRt.pivot = new Vector2(1f, 0f);
-        trRt.anchoredPosition = new Vector2(20f, -12f);
-        trRt.sizeDelta = new Vector2(36f, 52f);
-        rightTailImg = tailR.GetComponent<Image>();
-        rightTailImg.sprite = GetRibbonTailSprite(false);
-        rightTailImg.color = tailColor;
-
-        mainImg = ribbonObj.GetComponent<Image>();
-        mainImg.sprite = GetRibbonMainSprite(mainColor, lipColor);
-        mainImg.type = Image.Type.Sliced;
-
-        titleText = CreateText(ribbonRt, "RibbonTitle", font, title, 28f, FontStyles.Bold, Color.white, TextAlignmentOptions.Center);
-        titleText.rectTransform.anchorMin = Vector2.zero;
-        titleText.rectTransform.anchorMax = Vector2.one;
-        titleText.rectTransform.offsetMin = new Vector2(16f, 6f);
-        titleText.rectTransform.offsetMax = new Vector2(-16f, 0f);
-
-        return ribbonRt;
+        RectTransform rt = CivicUI.CreateRibbon(modalCard, title, mainColor, lipColor, tailColor, font);
+        mainImg = rt.GetComponent<Image>();
+        leftTailImg = rt.Find("TailLeft").GetComponent<Image>();
+        rightTailImg = rt.Find("TailRight").GetComponent<Image>();
+        titleText = rt.Find("RibbonTitle").GetComponent<TMP_Text>();
+        return rt;
     }
 
-    // 5) İKİ TONLU (TWO-TONE) ARCADE BUTON SPRITE & YARDIMCISI (IMAGE 2 STİLİ)
     public static Sprite GetTwoToneButtonSprite(Color32 mainFill, Color32 leftIconFill, Color32 shadowColor)
     {
-        string anahtar = "btn" + RenkAnahtari(mainFill, leftIconFill) + "_" + RenkAnahtari(shadowColor, shadowColor);
-        if (OnbellekteVar(anahtar, out Sprite onceki)) return onceki;
-        int w = 128, h = 48;
-        int leftWidth = 44;
-        int border = 3;
-        int shadow = 5;
-
-        Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
-        tex.filterMode = FilterMode.Point;
-        tex.wrapMode = TextureWrapMode.Clamp;
-
-        for (int y = 0; y < h; y++)
-        {
-            for (int x = 0; x < w; x++)
-            {
-                bool cornerCut = (x < 3 && y < 3) || (x >= w - 3 && y < 3) || (x < 3 && y >= h - 3) || (x >= w - 3 && y >= h - 3);
-                if (cornerCut) { tex.SetPixel(x, y, Color.clear); continue; }
-
-                if (y < shadow)
-                {
-                    tex.SetPixel(x, y, shadowColor);
-                }
-                else if (x < border || x >= w - border || y < shadow + border || y >= h - border || (x >= leftWidth - border && x < leftWidth))
-                {
-                    tex.SetPixel(x, y, DarkInk);
-                }
-                else if (x < leftWidth)
-                {
-                    tex.SetPixel(x, y, leftIconFill);
-                }
-                else
-                {
-                    tex.SetPixel(x, y, mainFill);
-                }
-            }
-        }
-        tex.Apply();
-        return spriteCache[anahtar] = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(46, 10, 8, 6));
+        return CivicUI.GetTwoToneButtonSprite(mainFill, leftIconFill, shadowColor);
     }
 
     public static Button CreateTwoToneArcadeButton(
@@ -1252,143 +1178,17 @@ public class UIManager : MonoBehaviour
         Color32 mainFill, Color32 leftFill, Color32 shadowCol,
         Color32 textColor, IconType iconType, out TMP_Text outLabel)
     {
-        GameObject btnObj = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
-        btnObj.transform.SetParent(parent, false);
-
-        Image btnImg = btnObj.GetComponent<Image>();
-        btnImg.sprite = GetTwoToneButtonSprite(mainFill, leftFill, shadowCol);
-        btnImg.type = Image.Type.Sliced;
-
-        Button btn = btnObj.GetComponent<Button>();
-        btn.targetGraphic = btnImg;
-
-        GameObject iconObj = new GameObject("LeftIcon", typeof(RectTransform), typeof(Image));
-        iconObj.transform.SetParent(btnObj.transform, false);
-        RectTransform iconRt = iconObj.GetComponent<RectTransform>();
-        iconRt.anchorMin = new Vector2(0f, 0.5f);
-        iconRt.anchorMax = new Vector2(0f, 0.5f);
-        iconRt.pivot = new Vector2(0.5f, 0.5f);
-        iconRt.anchoredPosition = new Vector2(22f, 2f);
-        iconRt.sizeDelta = new Vector2(48f, 48f);
-        Image iconImg = iconObj.GetComponent<Image>();
-        iconImg.sprite = GetColoredIconSprite(iconType, Color.white);
-        iconImg.raycastTarget = false;
-
-        outLabel = CreateText(btnObj.transform, "Label", font, labelText, 20f, FontStyles.Bold, textColor, TextAlignmentOptions.Center);
-        outLabel.rectTransform.anchorMin = Vector2.zero;
-        outLabel.rectTransform.anchorMax = Vector2.one;
-        outLabel.rectTransform.offsetMin = new Vector2(72f, 5f);
-        outLabel.rectTransform.offsetMax = new Vector2(-10f, 0f);
-
+        Button btn = CivicUI.CreateTwoToneButton(
+            parent, name, labelText, mainFill, leftFill, shadowCol,
+            (CivicUI.IconType)iconType, null, font);
+        outLabel = btn.GetComponentInChildren<TMP_Text>(true);
+        if (outLabel != null) outLabel.color = textColor;
         return btn;
     }
 
-    // 6) İKON ÜRETİCİ (BASİT İNSAN FİGÜRÜ, ALTIGEN SİKKE, BASİT KİTAP, TAKVİM, YILDIZ)
     public static Sprite GetColoredIconSprite(IconType type, Color32 mainColor)
     {
-        string anahtar = "icon" + (int)type + "_" + RenkAnahtari(mainColor, mainColor);
-        if (OnbellekteVar(anahtar, out Sprite onceki)) return onceki;
-        int size = 48;
-        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-        tex.filterMode = FilterMode.Bilinear;
-        tex.wrapMode = TextureWrapMode.Clamp;
-
-        for (int y = 0; y < size; y++)
-        {
-            for (int x = 0; x < size; x++)
-            {
-                float nx = (x + 0.5f) / size;
-                float ny = (y + 0.5f) / size;
-                tex.SetPixel(x, y, EvaluateIconPixel(type, nx, ny, mainColor));
-            }
-        }
-        tex.Apply();
-        return spriteCache[anahtar] = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
-    }
-
-    private static Color EvaluateIconPixel(IconType type, float x, float y, Color32 mainColor)
-    {
-        switch (type)
-        {
-            case IconType.Person:
-                // Basit İnsan Figürü (Kafa çemberi + Omuz/Gövde yarım daire + Koyu dış kontur)
-                float dHead = Vector2.Distance(new Vector2(x, y), new Vector2(0.5f, 0.70f));
-                float dBody = Vector2.Distance(new Vector2(x, (y - 0.14f) * 1.15f + 0.14f), new Vector2(0.5f, 0.14f));
-                bool inHeadOuter = dHead <= 0.21f;
-                bool inHeadInner = dHead <= 0.14f;
-                bool inBodyOuter = y >= 0.14f && y <= 0.46f && dBody <= 0.36f;
-                bool inBodyInner = y >= 0.20f && y <= 0.45f && dBody <= 0.29f;
-                if (inHeadInner || inBodyInner) return mainColor;
-                if (inHeadOuter || inBodyOuter) return DarkInk;
-                return Color.clear;
-
-            case IconType.HexCoin:
-                // Altıgen Para Sikkesi
-                float dx = Mathf.Abs(x - 0.5f);
-                float dy = Mathf.Abs(y - 0.5f);
-                float hexDist = Mathf.Max(dx * 0.866f + dy * 0.5f, dy);
-                if (hexDist > 0.42f) return Color.clear;
-                if (hexDist > 0.34f) return DarkInk;
-                if (hexDist > 0.26f) return new Color32(229, 169, 28, 255);
-                return mainColor;
-
-            case IconType.Book:
-                // Basic Açık Kitap İkonu
-                bool inBookBox = x >= 0.10f && x <= 0.90f && y >= 0.18f && y <= 0.82f;
-                if (!inBookBox) return Color.clear;
-                bool border = x < 0.17f || x > 0.83f || y < 0.25f || y > 0.75f || Mathf.Abs(x - 0.5f) < 0.045f;
-                if (border) return DarkInk;
-                bool pageLines = (Mathf.Abs(y - 0.58f) < 0.035f || Mathf.Abs(y - 0.42f) < 0.035f)
-                              && ((x >= 0.24f && x <= 0.42f) || (x >= 0.58f && x <= 0.76f));
-                if (pageLines) return mainColor;
-                return Color.white;
-
-            case IconType.Calendar:
-                // Takvim İkonu
-                if (x < 0.12f || x > 0.88f || y < 0.12f || y > 0.86f) return Color.clear;
-                if (x < 0.19f || x > 0.81f || y < 0.19f || y > 0.79f || (y > 0.58f && y < 0.65f)) return DarkInk;
-                if (y >= 0.65f) return mainColor;
-                return Color.white;
-
-            case IconType.Star:
-                // 5 köşeli yıldız: koyu dış çizgi + dolgu (diğer ikonlarla aynı piksel stil)
-                if (YildizIcinde(x, y, 0.49f, 0.21f)) return YildizIcinde(x, y, 0.38f, 0.16f) ? (Color)mainColor : (Color)DarkInk;
-                return Color.clear;
-
-            case IconType.UpArrow:
-                bool head = y >= 0.50f && y <= 0.86f && Mathf.Abs(x - 0.5f) <= (0.86f - y) * 0.95f;
-                bool stem = y >= 0.16f && y <= 0.52f && Mathf.Abs(x - 0.5f) <= 0.13f;
-                return (head || stem) ? (Color)mainColor : Color.clear;
-
-            case IconType.Play:
-                bool tri = x >= 0.26f && x <= 0.80f && Mathf.Abs(y - 0.5f) <= (0.80f - x) * 0.65f;
-                return tri ? (Color)mainColor : Color.clear;
-
-            case IconType.CloseX:
-                float d1 = Mathf.Abs((x - 0.5f) - (y - 0.5f));
-                float d2 = Mathf.Abs((x - 0.5f) + (y - 0.5f));
-                bool inX = x >= 0.20f && x <= 0.80f && y >= 0.20f && y <= 0.80f && (d1 <= 0.11f || d2 <= 0.11f);
-                return inX ? (Color)mainColor : Color.clear;
-        }
-        return mainColor;
-    }
-
-    // Merkezi (0.5, 0.48), sivri ucu yukarıda olan 5 köşeli yıldızın içinde mi?
-    private static bool YildizIcinde(float x, float y, float disYaricap, float icYaricap)
-    {
-        const int kose = 10;
-        bool icinde = false;
-        float oncekiX = 0f, oncekiY = 0f;
-        for (int i = 0; i <= kose; i++)
-        {
-            float aci = Mathf.PI / 2f + i * Mathf.PI / 5f;
-            float r = i % 2 == 0 ? disYaricap : icYaricap;
-            float px = 0.5f + Mathf.Cos(aci) * r, py = 0.48f + Mathf.Sin(aci) * r;
-            if (i > 0 && ((py > y) != (oncekiY > y)) && (x < (oncekiX - px) * (y - py) / (oncekiY - py) + px))
-                icinde = !icinde;
-            oncekiX = px; oncekiY = py;
-        }
-        return icinde;
+        return CivicUI.GetColoredIconSprite((CivicUI.IconType)type, mainColor);
     }
 
     public static TMP_Text CreateText(

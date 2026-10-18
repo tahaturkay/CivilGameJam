@@ -20,15 +20,56 @@ public class PauseMenu : MonoBehaviour
     void Start()
     {
         foreach(Transform child in pausePanel.transform)child.gameObject.SetActive(false);
-        var overlay=pausePanel.GetComponent<Image>();if(overlay!=null){overlay.sprite=null;overlay.color=new Color(.04f,.08f,.11f,.65f);}
-        pauseCard=CivicUI.Box("CivicPauseCard",pausePanel.transform,CivicUI.Cream,true).rectTransform;
-        var title=CivicUI.Text("Title",pauseCard,"KISA BİR MOLA",32,CivicUI.Navy);title.fontStyle=FontStyles.Bold;CivicUI.Place(title.rectTransform,32,24,500,56);
-        var subtitle=CivicUI.Text("Subtitle",pauseCard,"Şehir seni bekliyor.",21,CivicUI.Muted);CivicUI.Place(subtitle.rectTransform,32,86,500,40);
-        var resume=CivicUI.Button("Resume",pauseCard,"ŞEHRE DÖN",CivicUI.Teal,CivicUI.Cream,null,Devam);CivicUI.Place((RectTransform)resume.transform,32,152,500,62);
-        var settings=CivicUI.Button("Settings",pauseCard,"AYARLAR & KONTROLLER",CivicUI.Amber,CivicUI.Navy,null,AyarlariAc);CivicUI.Place((RectTransform)settings.transform,32,232,500,62);
-        var menu=CivicUI.Button("Menu",pauseCard,"ANA MENÜ",CivicUI.Navy,CivicUI.Cream,null,AnaMenuyeDon);CivicUI.Place((RectTransform)menu.transform,32,312,500,62);
+        var overlay=pausePanel.GetComponent<Image>();
+        if(overlay!=null){overlay.sprite=null;overlay.color=new Color32(10,18,28,190);}
+        var box=CivicUI.Box("CivicPauseCard",pausePanel.transform,Color.white,true);
+        box.sprite=CivicUI.GetBeveledCardSprite(CivicUI.Mint,CivicUI.MintShadow);
+        box.type=Image.Type.Sliced;
+        pauseCard=box.rectTransform;
+        pauseCard.sizeDelta=new Vector2(560,390);
+
+        TMP_FontAsset font=TurkishTMPFontSupport.PreferredFont;
+
+        // Folded Blue Ribbon
+        CivicUI.CreateRibbon(
+            pauseCard,
+            "OYUN DURAKLATILDI",
+            CivicUI.RibbonBlue,CivicUI.RibbonBlueLip,CivicUI.RibbonBlueTail,
+            font);
+
+        // Subtitle pill badge
+        var badge=CivicUI.Box("SubtitleBadge",pauseCard,Color.white,false);
+        badge.sprite=CivicUI.GetPillBadgeSprite(CivicUI.Cream,CivicUI.CreamShadow);
+        badge.type=Image.Type.Sliced;
+        CivicUI.Place(badge.rectTransform,60,68,440,32);
+
+        var subText=CivicUI.Text("SubText",badge.transform,"Zaman durduruldu · Şehrin güvende",15,CivicUI.Navy,font);
+        subText.fontStyle=FontStyles.Bold;
+        subText.alignment=TextAlignmentOptions.Center;
+        CivicUI.Fill(subText.rectTransform,4);
+
+        // 1) Devam Et Button
+        var resumeBtn=CivicUI.CreateTwoToneButton(
+            pauseCard,"ResumeBtn",font,"ŞEHRE DEVAM ET   →",
+            CivicUI.Green,CivicUI.GreenLeft,CivicUI.GreenShadow,
+            Color.white,CivicUI.IconType.Play,Devam);
+        CivicUI.Place((RectTransform)resumeBtn.transform,32,122,496,56);
+
+        // 2) Ayarlar & Kontroller Button
+        var setBtn=CivicUI.CreateTwoToneButton(
+            pauseCard,"SettingsBtn",font,"AYARLAR & KONTROLLER",
+            CivicUI.Cyan,CivicUI.CyanLeft,CivicUI.CyanShadow,
+            Color.white,CivicUI.IconType.Gear,AyarlariAc);
+        CivicUI.Place((RectTransform)setBtn.transform,32,194,496,56);
+
+        // 3) Ana Menü Button
+        var menuBtn=CivicUI.CreateTwoToneButton(
+            pauseCard,"MenuBtn",font,"ANA MENÜYE DÖN",
+            CivicUI.Navy,CivicUI.NavyLeft,CivicUI.NavyShadow,
+            Color.white,CivicUI.IconType.Home,AnaMenuyeDon);
+        CivicUI.Place((RectTransform)menuBtn.transform,32,266,496,56);
     }
-    void LateUpdate(){if(pausePanel.activeSelf&&pauseCard!=null)CivicUI.FitCard(pauseCard,new Vector2(564,410),32,1.6f);}
+    void LateUpdate(){if(pausePanel.activeSelf&&pauseCard!=null)CivicUI.FitCard(pauseCard,new Vector2(560,350),32,1.6f);}
 
     void Awake()
     {
@@ -66,6 +107,7 @@ public class PauseMenu : MonoBehaviour
         pausePanel.SetActive(false);
         Time.timeScale = 1f;
         DurdurulduMu = false;
+        GetComponent<IslandSimulationPause>()?.ApplyPause();
     }
 
     public void AyarlariAc()

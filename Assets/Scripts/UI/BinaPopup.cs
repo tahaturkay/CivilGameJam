@@ -56,18 +56,36 @@ public class BinaPopup : MonoBehaviour
         if(Time.unscaledTime>=refreshAt) { Guncelle(); refreshAt=Time.unscaledTime+.2f; }
     }
     void LateUpdate() { if(AcikMi)PositionCard(); }
+    RectTransform ribbonRt;
+    TMP_Text ribbonTitleText;
+    Image statusPillImg;
+    Image yukseltIconImg;
+    Image quizIconImg;
+
     void BuildCard()
     {
         if(styled || panel==null)return; styled=true;
         TMP_FontAsset font=baslikText!=null?baslikText.font:null;
         var overlay=panel.GetComponent<Image>(); if(overlay==null)overlay=panel.AddComponent<Image>();
-        overlay.sprite=null; overlay.color=Color.clear; overlay.raycastTarget=true;
+        overlay.sprite=null; overlay.color=new Color32(10, 18, 28, 140); overlay.raycastTarget=true;
         CivicUI.Fill((RectTransform)panel.transform);
         var surface=panel.GetComponent<BuildingCardDismissSurface>();
         if(surface==null)surface=panel.AddComponent<BuildingCardDismissSurface>(); surface.owner=this;
-        var box=CivicUI.Box("ContextBuildingCard",panel.transform,CivicUI.Cream,true); card=box.rectTransform;
-        var shadow=box.gameObject.AddComponent<Shadow>(); shadow.effectColor=new Color(0,0,0,.22f); shadow.effectDistance=new Vector2(7,-7);
-        card.sizeDelta=new Vector2(430,400);
+
+        // Arcade Beveled Mint Card
+        var box=CivicUI.Box("ContextBuildingCard",panel.transform,CivicUI.Mint,true); card=box.rectTransform;
+        var boxImg=box.GetComponent<Image>();
+        boxImg.sprite=CivicUI.GetBeveledCardSprite(CivicUI.Mint, CivicUI.MintShadow);
+        boxImg.type=Image.Type.Sliced;
+        boxImg.color=Color.white;
+
+        var shadow=box.gameObject.AddComponent<Shadow>(); shadow.effectColor=new Color(0,0,0,.26f); shadow.effectDistance=new Vector2(8,-8);
+        card.sizeDelta=new Vector2(460,440);
+
+        // Overlapping Ribbon Banner
+        ribbonRt = CivicUI.CreateRibbon(card, "BİNA DETAYI", CivicUI.RibbonBlue, CivicUI.RibbonBlueLip, CivicUI.RibbonBlueTail, font, 60f, 36f);
+        ribbonTitleText = ribbonRt.GetComponentInChildren<TMP_Text>();
+
         // Keep all inspector-backed controls and event bindings, replace only their visual layout.
         if(baslikText!=null)baslikText.transform.SetParent(card,false);
         if(seviyeText!=null)seviyeText.transform.SetParent(card,false);
@@ -76,25 +94,57 @@ public class BinaPopup : MonoBehaviour
         if(quizButonu!=null)quizButonu.transform.SetParent(card,false);
         if(kapatButonu!=null)kapatButonu.transform.SetParent(card,false);
         foreach(Transform child in panel.transform)if(child!=card)child.gameObject.SetActive(false);
-        var stripe=CivicUI.Box("Accent",card,CivicUI.Teal); CivicUI.Place(stripe.rectTransform,0,0,430,6);
-        if(baslikText==null)baslikText=CivicUI.Text("Title",card,"",26,CivicUI.Navy,font);
-        if(seviyeText==null)seviyeText=CivicUI.Text("Level",card,"",18,CivicUI.Teal,font);
-        if(aciklamaText==null)aciklamaText=CivicUI.Text("Description",card,"",20,CivicUI.Navy,font);
-        StyleText(baslikText,26,CivicUI.Navy,true); CivicUI.Place(baslikText.rectTransform,24,22,330,40);
-        StyleText(seviyeText,18,CivicUI.Teal,true); CivicUI.Place(seviyeText.rectTransform,24,66,382,30);
-        StyleText(aciklamaText,20,CivicUI.Navy,false); aciklamaText.alignment=TextAlignmentOptions.TopLeft;
-        CivicUI.Place(aciklamaText.rectTransform,24,112,382,167);
-        actionHint=CivicUI.Text("ActionHint",card,"",16,CivicUI.Muted,font); CivicUI.Place(actionHint.rectTransform,24,278,382,34);
-        if(yukseltButonu==null)yukseltButonu=CivicUI.Button("Upgrade",card,"",CivicUI.Teal,CivicUI.Cream,font,null);
+
+        if(baslikText!=null)baslikText.gameObject.SetActive(false); // Title is now displayed on the gorgeous top ribbon!
+
+        // Status Capsule Pill Badge
+        var pillObj = new GameObject("StatusPillBadge", typeof(RectTransform), typeof(Image));
+        pillObj.transform.SetParent(card, false);
+        var pillRt = pillObj.GetComponent<RectTransform>();
+        CivicUI.Place(pillRt, 24f, 74f, 412f, 32f);
+        statusPillImg = pillObj.GetComponent<Image>();
+        statusPillImg.sprite = CivicUI.GetPillBadgeSprite(CivicUI.GreenBtn, CivicUI.GreenBtnDark);
+        statusPillImg.type = Image.Type.Sliced;
+        statusPillImg.color = Color.white;
+
+        if(seviyeText==null)seviyeText=CivicUI.Text("Level",pillRt,"",16,Color.white,font);
+        else seviyeText.transform.SetParent(pillRt,false);
+        StyleText(seviyeText,16,Color.white,true);
+        seviyeText.alignment=TextAlignmentOptions.Center;
+        CivicUI.Fill(seviyeText.rectTransform, 4f);
+
+        // Inner Cream Info Card
+        var innerCard = new GameObject("InnerInfoCard", typeof(RectTransform), typeof(Image));
+        innerCard.transform.SetParent(card, false);
+        var icRt = innerCard.GetComponent<RectTransform>();
+        CivicUI.Place(icRt, 24f, 114f, 412f, 168f);
+        var icImg = innerCard.GetComponent<Image>();
+        icImg.sprite = CivicUI.GetBeveledCardSprite(CivicUI.Cream, CivicUI.CreamShadow);
+        icImg.type = Image.Type.Sliced;
+        icImg.color = Color.white;
+
+        if(aciklamaText==null)aciklamaText=CivicUI.Text("Description",innerCard.transform,"",18,CivicUI.DarkInk,font);
+        else aciklamaText.transform.SetParent(innerCard.transform,false);
+        StyleText(aciklamaText,18,CivicUI.DarkInk,false);
+        aciklamaText.alignment=TextAlignmentOptions.TopLeft;
+        CivicUI.Place(aciklamaText.rectTransform, 14f, 10f, 384f, 110f);
+
+        actionHint=CivicUI.Text("ActionHint",innerCard.transform,"",15,CivicUI.Muted,font);
+        actionHint.fontStyle=FontStyles.Bold;
+        CivicUI.Place(actionHint.rectTransform, 14f, 126f, 384f, 34f);
+
+        // Buttons
+        if(yukseltButonu==null)yukseltButonu=CivicUI.Button("Upgrade",card,"",CivicUI.GoldBtn,CivicUI.DarkInk,font,null);
         if(yukseltButonText==null)yukseltButonText=yukseltButonu.GetComponentInChildren<TMP_Text>(true);
-        StyleButton(yukseltButonu,yukseltButonText,CivicUI.Teal,CivicUI.Cream,24,322,382,54);
-        if(quizButonu==null)quizButonu=CivicUI.Button("Quiz",card,"BİRLİKTE ÖĞREN · QUIZ",CivicUI.Amber,CivicUI.Navy,font,null);
+        StyleArcadeButton(yukseltButonu, yukseltButonText, CivicUI.GoldBtn, CivicUI.GoldBtnLeft, CivicUI.GoldBtnDark, CivicUI.IconType.UpArrow, 24f, 294f, 412f, 58f, out yukseltIconImg);
+
+        if(quizButonu==null)quizButonu=CivicUI.Button("Quiz",card,"BİRLİKTE ÖĞREN · QUIZ",CivicUI.PurpleBtn,Color.white,font,null);
         quizLabel=quizButonu.GetComponentInChildren<TMP_Text>(true);
-        StyleButton(quizButonu,quizLabel,CivicUI.Amber,CivicUI.Navy,24,388,382,48);
+        StyleArcadeButton(quizButonu, quizLabel, CivicUI.PurpleBtn, CivicUI.PurpleBtnLeft, CivicUI.PurpleBtnDark, CivicUI.IconType.Book, 24f, 360f, 412f, 54f, out quizIconImg);
         if(quizLabel!=null)quizLabel.text="FARKINDALIK QUIZİ";
-        if(kapatButonu==null)kapatButonu=CivicUI.Button("Close",card,"×",CivicUI.Navy,CivicUI.Cream,font,null);
-        StyleButton(kapatButonu,kapatButonu.GetComponentInChildren<TMP_Text>(true),CivicUI.Navy,CivicUI.Cream,370,20,38,38);
-        var closeLabel=kapatButonu.GetComponentInChildren<TMP_Text>(true); if(closeLabel!=null)closeLabel.text="×";
+
+        if(kapatButonu==null)kapatButonu=CivicUI.Button("Close",card,"×",CivicUI.CoralBtn,Color.white,font,null);
+        StyleCloseButton(kapatButonu, 404f, 12f, 42f, 42f);
     }
     static void StyleText(TMP_Text t,float size,Color color,bool bold)
     {
@@ -103,13 +153,70 @@ public class BinaPopup : MonoBehaviour
         t.color=color; t.textWrappingMode=TextWrappingModes.Normal; t.overflowMode=TextOverflowModes.Overflow;
         t.alignment=TextAlignmentOptions.MidlineLeft; t.raycastTarget=false;
     }
-    static void StyleButton(Button button,TMP_Text label,Color fill,Color ink,float x,float y,float w,float h)
+    static void StyleArcadeButton(Button button, TMP_Text label, Color32 fill, Color32 leftFill, Color32 shadow, CivicUI.IconType icon, float x, float y, float w, float h, out Image iconImg)
     {
         var le=button.GetComponent<LayoutElement>(); if(le!=null)le.ignoreLayout=true;
-        CivicUI.Place((RectTransform)button.transform,x,y,w,h);
-        var img=button.GetComponent<Image>(); if(img!=null){img.sprite=null;img.color=fill;button.targetGraphic=img;}
-        foreach(Transform child in button.transform)if(label==null || child!=label.transform)child.gameObject.SetActive(false);
-        if(label!=null){StyleText(label,20,ink,true);label.alignment=TextAlignmentOptions.Center;CivicUI.Fill(label.rectTransform,8);}
+        CivicUI.Place((RectTransform)button.transform, x, y, w, h);
+        var img=button.GetComponent<Image>();
+        if(img!=null)
+        {
+            img.sprite=CivicUI.GetTwoToneButtonSprite(fill, leftFill, shadow);
+            img.type=Image.Type.Sliced;
+            img.color=Color.white;
+            button.targetGraphic=img;
+        }
+
+        GameObject iconObj = button.transform.Find("LeftIcon")?.gameObject;
+        if(iconObj==null)
+        {
+            iconObj = new GameObject("LeftIcon", typeof(RectTransform), typeof(Image));
+            iconObj.transform.SetParent(button.transform, false);
+        }
+        RectTransform iconRt = iconObj.GetComponent<RectTransform>();
+        iconRt.anchorMin = new Vector2(0f, 0.5f);
+        iconRt.anchorMax = new Vector2(0f, 0.5f);
+        iconRt.pivot = new Vector2(0.5f, 0.5f);
+        iconRt.anchoredPosition = new Vector2(26f, 2f);
+        iconRt.sizeDelta = new Vector2(32f, 32f);
+
+        iconImg = iconObj.GetComponent<Image>();
+        iconImg.sprite = CivicUI.GetColoredIconSprite(icon, Color.white);
+        iconImg.preserveAspect = true;
+        iconImg.raycastTarget = false;
+
+        foreach(Transform child in button.transform)
+            if(child!=iconObj.transform && (label==null || child!=label.transform)) child.gameObject.SetActive(false);
+
+        if(label!=null)
+        {
+            StyleText(label, 20f, Color.white, true);
+            label.alignment=TextAlignmentOptions.Center;
+            label.rectTransform.anchorMin = Vector2.zero;
+            label.rectTransform.anchorMax = Vector2.one;
+            label.rectTransform.offsetMin = new Vector2(56f, 5f);
+            label.rectTransform.offsetMax = new Vector2(-12f, 0f);
+        }
+    }
+    static void StyleCloseButton(Button button, float x, float y, float w, float h)
+    {
+        var le=button.GetComponent<LayoutElement>(); if(le!=null)le.ignoreLayout=true;
+        CivicUI.Place((RectTransform)button.transform, x, y, w, h);
+        var img=button.GetComponent<Image>();
+        if(img!=null)
+        {
+            img.sprite=CivicUI.GetSquareButtonSprite(CivicUI.CoralBtn, CivicUI.CoralBtnDark);
+            img.type=Image.Type.Sliced;
+            img.color=Color.white;
+            button.targetGraphic=img;
+        }
+        var label=button.GetComponentInChildren<TMP_Text>(true);
+        if(label!=null)
+        {
+            StyleText(label, 22f, Color.white, true);
+            label.alignment=TextAlignmentOptions.Center;
+            CivicUI.Fill(label.rectTransform, 4f);
+            label.text="×";
+        }
     }
     public void Ac(BinaTuru bina) { Ac(bina,null); }
     public void Ac(BinaTuru bina,Transform anchor)
@@ -159,16 +266,34 @@ public class BinaPopup : MonoBehaviour
         var gm=GameManager.Instance; if(gm==null)return;
         var d=DengeAyarlari.Aktif; int level=gm.Level(aktifBina); bool damaged=gm.Hasarli(aktifBina);
         bool school=aktifBina==BinaTuru.Okul && !damaged;
-        card.sizeDelta=new Vector2(430,school?460:400);
+        card.sizeDelta=new Vector2(460,school?490:425);
         bool selectedDamaged=selectedVisual!=null?selectedVisual.IsDamaged:damaged;
         string condition=selectedDamaged?(selectedVisual!=null?AfetAdi(selectedVisual.DamageCause)+" HASARI":"HASARLI"):"BU YAPI SAĞLAM";
         seviyeText.text="SEVİYE "+level+" / "+d.maxLevel+"   ·   "+TurkishTMPFontSupport.TurkceBuyukHarf(condition);
-        seviyeText.color=selectedDamaged?new Color32(165,68,48,255):CivicUI.Teal;
+        if(statusPillImg!=null)
+        {
+            statusPillImg.sprite=selectedDamaged
+                ? CivicUI.GetPillBadgeSprite(CivicUI.CoralBtn, CivicUI.CoralBtnDark)
+                : CivicUI.GetPillBadgeSprite(CivicUI.GreenBtn, CivicUI.GreenBtnDark);
+        }
         BinaBilgileriniDoldur(aktifBina,level,damaged);
+        if(ribbonTitleText!=null && baslikText!=null)
+            ribbonTitleText.text=baslikText.text;
+
         int cost=damaged?Ekonomi.OnarimMaliyeti(aktifBina):Ekonomi.YukseltmeMaliyeti(aktifBina);
         bool max=!damaged && level>=d.maxLevel;
         yukseltButonText.text=max?"EN YÜKSEK SEVİYE":(damaged?"ONAR":"YÜKSELT")+"  ·  "+cost+" COIN";
         yukseltButonu.interactable=damaged?Ekonomi.OnarilabilirMi(aktifBina):Ekonomi.YukseltilebilirMi(aktifBina);
+
+        // Update Button Sprite according to status
+        Image yImg = yukseltButonu.GetComponent<Image>();
+        if(yImg!=null)
+        {
+            if(damaged) yImg.sprite = CivicUI.GetTwoToneButtonSprite(CivicUI.CoralBtn, CivicUI.CoralBtnLeft, CivicUI.CoralBtnDark);
+            else if(max) yImg.sprite = CivicUI.GetSquareButtonSprite(CivicUI.SlateBtn, CivicUI.SlateBtnDark);
+            else yImg.sprite = CivicUI.GetTwoToneButtonSprite(CivicUI.GoldBtn, CivicUI.GoldBtnLeft, CivicUI.GoldBtnDark);
+        }
+
         actionHint.text=max?"Bu yapı tamamen geliştirildi.":gm.para<cost?(cost-gm.para)+" coin daha gerekli. Günlük geliri bekleyebilirsin.":damaged?"Onar ve yapıyı yeniden göreve döndür.":"Bir sonraki seviye için hazır.";
         if(damaged && gm.para>=cost)actionHint.text=selectedDamaged?"Onarım, bu gruptaki hasarlı yapıları iyileştirir.":"Bu yapı sağlam. Onarım gruptaki hasarlı yapılar içindir.";
         if(quizButonu!=null)quizButonu.gameObject.SetActive(school);
@@ -184,7 +309,7 @@ public class BinaPopup : MonoBehaviour
                 text+=level<d.maxLevel?"Sonraki: "+d.KonutKapasitesi(level+1)+" kişi · gelir ×"+HousingMultiplier(level+1).ToString("0.##"):"Kapasite tamamen geliştirildi.";
                 text+=damaged?"\nGruptaki hasar geliri yarıya düşürüyor.":"\n"+Defense(AfetTuru.Deprem,level,damaged); break;
             case BinaTuru.Okul:
-                baslikText.text="OKUL";
+                baslikText.text="ODTÜ";
                 text="Bilgi paylaş, afetlere birlikte hazırlan.\nFarkındalık: %"+Mathf.RoundToInt(gm.farkindalikYuzdesi)+" / %"+Mathf.RoundToInt(d.FarkindalikTavani(level))+"\n";
                 text+=damaged?"Quiz için önce okulu onar.":"Quiz ile farkındalığı artır.\n"+Defense(AfetTuru.Deprem,level,damaged); break;
             case BinaTuru.Akut:

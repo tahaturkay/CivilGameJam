@@ -77,7 +77,7 @@ public static class IslandSceneSetup
         GameManager gm = Ensure<GameManager>(scene, "Assets/Prefabs/GameManager.prefab");
         Ensure<EconomyAndTime>(scene, "Assets/Prefabs/Nisa/EconomyAndTime.prefab");
         var ui=Ensure<UIManager>(scene, "Assets/Prefabs/UI/Ana Canvas.prefab");
-        if(ui.GetComponent<DereYatagiKarari>()==null)ui.gameObject.AddComponent<DereYatagiKarari>();
+        if(ui.GetComponent<DereYatagiKarari>()!=null)UnityEngine.Object.DestroyImmediate(ui.GetComponent<DereYatagiKarari>());
         DisasterController disaster = Ensure<DisasterController>(scene, "Assets/Prefabs/Taha/DisasterController.prefab");
         foreach (BinaTuru type in Enum.GetValues(typeof(BinaTuru)))
         {
@@ -159,7 +159,7 @@ public static class IslandSceneSetup
         disaster.kuruZeminY = groundY;
         disaster.afetSuresi = 8;
         disaster.tsunamiSuYuksekligi = groundY + .62f;
-        disaster.selSuYuksekligi = groundY + .30f;
+        disaster.selSuYuksekligi = groundY + .52f;
 
         // Önceki haritanın ölçeğindeki su/dalga modellerini kapat; efekt mantığını aynen kullan.
         if (disaster.tsunamiSuyu != null) disaster.tsunamiSuyu.gameObject.SetActive(false);

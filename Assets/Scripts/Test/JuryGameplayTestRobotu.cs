@@ -69,7 +69,7 @@ public sealed class JuryGameplayTestRobotu : MonoBehaviour
         DereYatagiKarari liveDecision = FindAnyObjectByType<DereYatagiKarari>();
         IpucuSistemi hints = FindAnyObjectByType<IpucuSistemi>();
         Check(gm != null && disaster != null && report != null, "GameManager, DisasterController, and AfetRaporu are present");
-        Check(liveDecision != null, "Scheduled riverbed decision is installed on the main canvas");
+        Check(liveDecision == null, "Retired riverbed decision is absent from the main canvas");
         if (gm == null || disaster == null || report == null) yield break;
 
         gm.kullaniciDurdurdu = true;
@@ -134,6 +134,7 @@ public sealed class JuryGameplayTestRobotu : MonoBehaviour
         int allBuildings = FindObjectsByType<BuildingVisuals>(FindObjectsSortMode.None).Length;
         Time.timeScale = 4f;
         disaster.AfetBaslat(0);
+        gm.kullaniciDurdurdu=false; // The incident already holds the calendar; HUD pause now also freezes actors.
         yield return WaitForIncident(disaster, gm, 12f);
         yield return null;
         int localDamage = CountLocalDamage();
@@ -175,6 +176,7 @@ public sealed class JuryGameplayTestRobotu : MonoBehaviour
         int populationBeforeFlood = gm.nufus;
         Vector3[] beforeFlood = city != null ? Positions(Vehicles(city)) : new Vector3[0];
         disaster.AfetBaslat(1);
+        gm.kullaniciDurdurdu=false;
 
         float floodDeadline = Time.realtimeSinceStartup + 12f;
         bool sawFloodWater = false, sawSweptCitizen = false, sawDisplacedCar = false;
@@ -194,11 +196,11 @@ public sealed class JuryGameplayTestRobotu : MonoBehaviour
         Time.timeScale = 1f;
         yield return null;
 
-        int expectedFloodDeaths = Mathf.RoundToInt(150f * 1.5f * (1f - gm.farkindalikYuzdesi * DengeAyarlari.Aktif.farkindalikEtkisi) *
+        int expectedFloodDeaths = Mathf.RoundToInt(150f * (1f - gm.farkindalikYuzdesi * DengeAyarlari.Aktif.farkindalikEtkisi) *
                                                    (1f - gm.akutLevel * DengeAyarlari.Aktif.akutEtkisi));
-        Check(gm.afetOlduMu && liveDecision != null && liveDecision.KabulEdildi && gm.sonAfetTuru == AfetTuru.Sel &&
+        Check(gm.afetOlduMu && liveDecision == null && gm.sonAfetTuru == AfetTuru.Sel &&
               gm.sonVefatSayisi == expectedFloodDeaths,
-            "Accepted riverbed decision applies the 1.5 flood casualty multiplier (" + gm.sonVefatSayisi + "/" + expectedFloodDeaths + ")");
+            "Flood uses the base casualty formula without the retired decision multiplier (" + gm.sonVefatSayisi + "/" + expectedFloodDeaths + ")");
         Check(gm.nufus == populationBeforeFlood - gm.sonVefatSayisi,
             "Only DisasterController's reported flood casualties change population");
         Check(sawFloodWater, "Flood surface becomes active during the incident");
@@ -239,8 +241,8 @@ public sealed class JuryGameplayTestRobotu : MonoBehaviour
     {
         gm.kullaniciDurdurdu = true;
         gm.oyunDurduMu = false;
-        yield return ProbeDecision(gm, false);
-        yield return ProbeDecision(gm, true);
+        Check(FindAnyObjectByType<DereYatagiKarari>()==null,"Riverbed event cannot open or grant rewards");
+        yield return null;
     }
 
     IEnumerator ProbeDecision(GameManager gm, bool accept)
@@ -341,9 +343,9 @@ public sealed class JuryGameplayTestRobotu : MonoBehaviour
         QuizManager quiz = QuizManager.Instance;
         BinaPopup popup = BinaPopup.Instance;
         DereYatagiKarari decision = FindAnyObjectByType<DereYatagiKarari>();
-        Check(gm != null && disaster != null && report != null && quiz != null && popup != null && decision != null,
-            "Timed run has all game, report, quiz, popup, and decision systems");
-        if (gm == null || disaster == null || report == null || quiz == null || popup == null || decision == null) yield break;
+        Check(gm != null && disaster != null && report != null && quiz != null && popup != null && decision == null,
+            "Timed run has game/report/quiz/popup systems and no retired riverbed event");
+        if (gm == null || disaster == null || report == null || quiz == null || popup == null) yield break;
 
         float originalDayLength = DengeAyarlari.Aktif.birGunSuresi;
         gm.hizCarpani = 2;
@@ -368,7 +370,7 @@ public sealed class JuryGameplayTestRobotu : MonoBehaviour
                 report.Devam();
                 continue;
             }
-            if (decision.Acik && !decisionHandled)
+            if (decision!=null&&decision.Acik && !decisionHandled)
             {
                 Write("Day " + gm.gun + " riverbed decision: reject after 4 seconds.");
                 yield return new WaitForSecondsRealtime(4f);
@@ -421,8 +423,8 @@ public sealed class JuryGameplayTestRobotu : MonoBehaviour
             "Natural 1-to-20 day session ends in a win at day 20");
         Check(quizzesAnswered == 2, "Timed session answers exactly two quizzes");
         Check(disaster.DefendedIncidentCount==4,"Timed session contains exactly four defended scheduled incidents");
-        Check(decisionHandled && decision.Soruldu && decision.Cozuldu && !decision.KabulEdildi,
-            "Timed session rejects the scheduled flood decision after displaying it");
+        Check(decision==null&&!decisionHandled,
+            "Timed session stays uninterrupted by the retired riverbed decision");
         Check(originalDayLength == DengeAyarlari.Aktif.birGunSuresi && Mathf.Approximately(Time.timeScale, 1f),
             "Timed session retains the configured day duration and Unity time scale");
         Check(elapsed >= 150f && elapsed <= 180f, "Natural timed run lasts " + elapsed.ToString("F1") + " seconds (target 150–180)");

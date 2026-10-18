@@ -34,6 +34,8 @@ static class OtomatikTest
         SessionState.SetBool(OlcumAnahtari, olcum);
         if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
 
+        // An interrupted Play run can leave in-memory ScriptableObject test values behind.
+        AssetDatabase.ImportAsset("Assets/Resources/DengeAyarlari.asset", ImportAssetOptions.ForceUpdate);
         EditorSceneManager.OpenScene(string.IsNullOrWhiteSpace(sahne) ? TestSahnesi : sahne.Trim());
         SessionState.SetBool(AktifAnahtari, true);
         EditorApplication.isPlaying = true;

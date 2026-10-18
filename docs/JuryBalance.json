@@ -30,9 +30,7 @@
     "dailyIncomePerResident": 0.1,
     "housingDamageIncomeMultiplier": 0.5,
     "damagePreservesPurchasedLevel": true,
-    "decisionAcceptCash": 150,
-    "decisionRejectAwareness": 5,
-    "acceptedFloodLossMultiplier": 1.5,
+    "riverbedEvent": "removed",
     "damagedAkutMitigationLevel": 0,
     "casualtyFormula": "round(base * (1 - awareness*0.006) * (1 - activeAkutLevel*0.10))"
   },
@@ -49,15 +47,14 @@
     {
       "policy": "leader: defend all and answer two quizzes",
       "cash": 1391,
-      "population": 1276,
-      "awareness": 65.0,
+      "population": 1274,
+      "awareness": 60.0,
       "quizDays": [
         4,
         6
       ],
-      "acceptedFloodDecision": false,
       "defendedIncidents": 4,
-      "totalDeaths": 76,
+      "totalDeaths": 78,
       "levels": {
         "housing": 2,
         "school": 2,
@@ -100,7 +97,7 @@
           "day": 10,
           "incident": "flood",
           "defended": true,
-          "awareness": 65.0,
+          "awareness": 60.0,
           "akutLevelUsed": 2,
           "baseLoss": 30.0,
           "deaths": 15,
@@ -110,7 +107,7 @@
           "day": 15,
           "incident": "quake",
           "defended": true,
-          "awareness": 65.0,
+          "awareness": 60.0,
           "akutLevelUsed": 2,
           "baseLoss": 40.0,
           "deaths": 20,
@@ -120,10 +117,10 @@
           "day": 20,
           "incident": "tsunami",
           "defended": true,
-          "awareness": 65.0,
+          "awareness": 60.0,
           "akutLevelUsed": 2,
           "baseLoss": 50.0,
-          "deaths": 24,
+          "deaths": 26,
           "damaged": []
         }
       ],
@@ -226,7 +223,7 @@
         {
           "day": 20,
           "cash": 1391,
-          "population": 1276
+          "population": 1274
         }
       ],
       "failedTargets": [],
@@ -234,14 +231,13 @@
       "card": "Lider"
     },
     {
-      "policy": "rich: save cash and accept the flood offer",
-      "cash": 1580,
-      "population": 285,
+      "policy": "rich: save cash without educating or defending",
+      "cash": 1465,
+      "population": 348,
       "awareness": 10.0,
       "quizDays": [],
-      "acceptedFloodDecision": true,
       "defendedIncidents": 0,
-      "totalDeaths": 715,
+      "totalDeaths": 652,
       "levels": {
         "housing": 1,
         "school": 1,
@@ -281,8 +277,8 @@
           "defended": false,
           "awareness": 10.0,
           "akutLevelUsed": 1,
-          "baseLoss": 225.0,
-          "deaths": 190,
+          "baseLoss": 150.0,
+          "deaths": 127,
           "damaged": [
             "infrastructure"
           ]
@@ -346,73 +342,73 @@
         },
         {
           "day": 7,
-          "cash": 1185,
+          "cash": 1035,
           "population": 898
         },
         {
           "day": 8,
-          "cash": 1230,
+          "cash": 1080,
           "population": 898
         },
         {
           "day": 9,
-          "cash": 1275,
+          "cash": 1125,
           "population": 898
         },
         {
           "day": 10,
-          "cash": 1310,
-          "population": 708
+          "cash": 1164,
+          "population": 771
         },
         {
           "day": 11,
-          "cash": 1345,
-          "population": 708
+          "cash": 1203,
+          "population": 771
         },
         {
           "day": 12,
-          "cash": 1380,
-          "population": 708
+          "cash": 1242,
+          "population": 771
         },
         {
           "day": 13,
-          "cash": 1415,
-          "population": 708
+          "cash": 1281,
+          "population": 771
         },
         {
           "day": 14,
-          "cash": 1450,
-          "population": 708
+          "cash": 1320,
+          "population": 771
         },
         {
           "day": 15,
-          "cash": 1476,
-          "population": 520
+          "cash": 1349,
+          "population": 583
         },
         {
           "day": 16,
-          "cash": 1502,
-          "population": 520
+          "cash": 1378,
+          "population": 583
         },
         {
           "day": 17,
-          "cash": 1528,
-          "population": 520
+          "cash": 1407,
+          "population": 583
         },
         {
           "day": 18,
-          "cash": 1554,
-          "population": 520
+          "cash": 1436,
+          "population": 583
         },
         {
           "day": 19,
-          "cash": 1580,
-          "population": 520
+          "cash": 1465,
+          "population": 583
         },
         {
           "day": 20,
-          "cash": 1580,
-          "population": 285
+          "cash": 1465,
+          "population": 348
         }
       ],
       "failedTargets": [],
@@ -422,12 +418,11 @@
     {
       "policy": "concrete: defend every event, keep awareness low, spend on resilience",
       "cash": 887,
-      "population": 1268,
-      "awareness": 15.0,
+      "population": 1267,
+      "awareness": 10.0,
       "quizDays": [],
-      "acceptedFloodDecision": false,
       "defendedIncidents": 4,
-      "totalDeaths": 99,
+      "totalDeaths": 102,
       "levels": {
         "housing": 2,
         "school": 2,
@@ -471,30 +466,30 @@
           "day": 10,
           "incident": "flood",
           "defended": true,
-          "awareness": 15.0,
+          "awareness": 10.0,
           "akutLevelUsed": 2,
           "baseLoss": 30.0,
-          "deaths": 22,
+          "deaths": 23,
           "damaged": []
         },
         {
           "day": 15,
           "incident": "quake",
           "defended": true,
-          "awareness": 15.0,
+          "awareness": 10.0,
           "akutLevelUsed": 3,
           "baseLoss": 40.0,
-          "deaths": 25,
+          "deaths": 26,
           "damaged": []
         },
         {
           "day": 20,
           "incident": "tsunami",
           "defended": true,
-          "awareness": 15.0,
+          "awareness": 10.0,
           "akutLevelUsed": 3,
           "baseLoss": 50.0,
-          "deaths": 32,
+          "deaths": 33,
           "damaged": []
         }
       ],
@@ -547,12 +542,12 @@
         {
           "day": 10,
           "cash": 465,
-          "population": 1258
+          "population": 1257
         },
         {
           "day": 11,
           "cash": 635,
-          "population": 1288
+          "population": 1287
         },
         {
           "day": 12,
@@ -597,7 +592,7 @@
         {
           "day": 20,
           "cash": 887,
-          "population": 1268
+          "population": 1267
         }
       ],
       "failedTargets": [],
@@ -606,16 +601,15 @@
     },
     {
       "policy": "camp: learn, keep defenses selective, repair after the flood and quake",
-      "cash": 683,
-      "population": 893,
-      "awareness": 65.0,
+      "cash": 680,
+      "population": 888,
+      "awareness": 60.0,
       "quizDays": [
         4,
         6
       ],
-      "acceptedFloodDecision": false,
       "defendedIncidents": 2,
-      "totalDeaths": 222,
+      "totalDeaths": 232,
       "levels": {
         "housing": 1,
         "school": 2,
@@ -659,7 +653,7 @@
           "day": 10,
           "incident": "flood",
           "defended": true,
-          "awareness": 65.0,
+          "awareness": 60.0,
           "akutLevelUsed": 2,
           "baseLoss": 30.0,
           "deaths": 15,
@@ -669,10 +663,10 @@
           "day": 15,
           "incident": "quake",
           "defended": false,
-          "awareness": 65.0,
+          "awareness": 60.0,
           "akutLevelUsed": 3,
           "baseLoss": 200.0,
-          "deaths": 85,
+          "deaths": 90,
           "damaged": [
             "housing"
           ]
@@ -681,10 +675,10 @@
           "day": 20,
           "incident": "tsunami",
           "defended": false,
-          "awareness": 65.0,
+          "awareness": 60.0,
           "akutLevelUsed": 3,
           "baseLoss": 250.0,
-          "deaths": 107,
+          "deaths": 112,
           "damaged": [
             "breakwater",
             "housing"
@@ -764,33 +758,33 @@
         },
         {
           "day": 15,
-          "cash": 390,
-          "population": 945
+          "cash": 389,
+          "population": 940
         },
         {
           "day": 16,
-          "cash": 485,
-          "population": 975
+          "cash": 483,
+          "population": 970
         },
         {
           "day": 17,
-          "cash": 583,
+          "cash": 580,
           "population": 1000
         },
         {
           "day": 18,
-          "cash": 683,
+          "cash": 680,
           "population": 1000
         },
         {
           "day": 19,
-          "cash": 783,
+          "cash": 780,
           "population": 1000
         },
         {
           "day": 20,
-          "cash": 683,
-          "population": 893
+          "cash": 680,
+          "population": 888
         }
       ],
       "failedTargets": [],
@@ -800,14 +794,13 @@
     {
       "policy": "fallback: educate and strengthen response, but leave protection incomplete",
       "cash": 575,
-      "population": 605,
-      "awareness": 40.0,
+      "population": 592,
+      "awareness": 35.0,
       "quizDays": [
         4
       ],
-      "acceptedFloodDecision": false,
       "defendedIncidents": 0,
-      "totalDeaths": 395,
+      "totalDeaths": 408,
       "levels": {
         "housing": 1,
         "school": 2,
@@ -851,10 +844,10 @@
           "day": 10,
           "incident": "flood",
           "defended": false,
-          "awareness": 40.0,
+          "awareness": 35.0,
           "akutLevelUsed": 3,
           "baseLoss": 150.0,
-          "deaths": 80,
+          "deaths": 83,
           "damaged": [
             "infrastructure"
           ]
@@ -863,10 +856,10 @@
           "day": 15,
           "incident": "quake",
           "defended": false,
-          "awareness": 40.0,
+          "awareness": 35.0,
           "akutLevelUsed": 3,
           "baseLoss": 200.0,
-          "deaths": 106,
+          "deaths": 111,
           "damaged": [
             "fire"
           ]
@@ -875,10 +868,10 @@
           "day": 20,
           "incident": "tsunami",
           "defended": false,
-          "awareness": 40.0,
+          "awareness": 35.0,
           "akutLevelUsed": 3,
           "baseLoss": 250.0,
-          "deaths": 133,
+          "deaths": 138,
           "damaged": [
             "breakwater"
           ]
@@ -933,57 +926,57 @@
         {
           "day": 10,
           "cash": 222,
-          "population": 844
+          "population": 841
         },
         {
           "day": 11,
           "cash": 264,
-          "population": 844
+          "population": 841
         },
         {
           "day": 12,
           "cash": 306,
-          "population": 844
+          "population": 841
         },
         {
           "day": 13,
           "cash": 348,
-          "population": 844
+          "population": 841
         },
         {
           "day": 14,
           "cash": 390,
-          "population": 844
+          "population": 841
         },
         {
           "day": 15,
           "cash": 427,
-          "population": 738
+          "population": 730
         },
         {
           "day": 16,
           "cash": 464,
-          "population": 738
+          "population": 730
         },
         {
           "day": 17,
           "cash": 501,
-          "population": 738
+          "population": 730
         },
         {
           "day": 18,
           "cash": 538,
-          "population": 738
+          "population": 730
         },
         {
           "day": 19,
           "cash": 575,
-          "population": 738
+          "population": 730
         },
         {
           "day": 20,
           "cash": 575,
-          "population": 605
+          "population": 592
         }
       ],
       "failedTargets": [],
@@ -993,15 +986,14 @@
     {
       "policy": "leader plus housing 3 and school 3 after core defenses",
       "cash": 1184,
-      "population": 1494,
-      "awareness": 65.0,
+      "population": 1492,
+      "awareness": 60.0,
       "quizDays": [
         4,
         6
       ],
-      "acceptedFloodDecision": false,
       "defendedIncidents": 4,
-      "totalDeaths": 76,
+      "totalDeaths": 78,
       "levels": {
         "housing": 3,
         "school": 3,
@@ -1048,7 +1040,7 @@
           "day": 10,
           "incident": "flood",
           "defended": true,
-          "awareness": 65.0,
+          "awareness": 60.0,
           "akutLevelUsed": 2,
           "baseLoss": 30.0,
           "deaths": 15,
@@ -1058,7 +1050,7 @@
           "day": 15,
           "incident": "quake",
           "defended": true,
-          "awareness": 65.0,
+          "awareness": 60.0,
           "akutLevelUsed": 2,
           "baseLoss": 40.0,
           "deaths": 20,
@@ -1068,10 +1060,10 @@
           "day": 20,
           "incident": "tsunami",
           "defended": true,
-          "awareness": 65.0,
+          "awareness": 60.0,
           "akutLevelUsed": 2,
           "baseLoss": 50.0,
-          "deaths": 24,
+          "deaths": 26,
           "damaged": []
         }
       ],
@@ -1174,7 +1166,7 @@
         {
           "day": 20,
           "cash": 1184,
-          "population": 1494
+          "population": 1492
         }
       ],
       "failedTargets": [],
@@ -1192,7 +1184,7 @@
     "baselineCashLessExtraSpendBeforeIncome": 591,
     "extraUpgradedPolicyEndingCash": 1184,
     "extraUpgradedPolicyDefendedIncidents": 4,
-    "extraUpgradedPolicyDeaths": 76,
+    "extraUpgradedPolicyDeaths": 78,
     "extraUpgradedPolicyPurchases": [
       "day 1: fire -> 2 (-250)",
       "day 1: housing -> 2 (-200)",
@@ -1232,26 +1224,26 @@
       ],
       "maximumQuizAnswers": 2,
       "perDayQuizAttemptProbability": 0.2,
-      "decision": "random 50/50 accept or reject",
+      "riverbedEvent": "removed",
       "perIncidentRepairAttemptProbability": 0.6
     },
-    "meanUnprotectedIncidents": 1.73,
+    "meanUnprotectedIncidents": 1.872,
     "unprotectedIncidentsByCount": {
-      "0": 60,
-      "1": 237,
-      "2": 24,
-      "3": 136,
-      "4": 43
+      "0": 40,
+      "1": 239,
+      "2": 31,
+      "3": 125,
+      "4": 65
     },
-    "meanFinalCash": 174.63,
-    "meanTotalDeaths": 241.62,
-    "meanAwareness": 54.27,
-    "meanQuizAnswers": 1.77,
-    "meanRepairs": 0.87
+    "meanFinalCash": 188.4,
+    "meanTotalDeaths": 255.82,
+    "meanAwareness": 50.56,
+    "meanQuizAnswers": 1.7,
+    "meanRepairs": 0.88
   },
   "cardsReachable": true,
   "reachableCards": {
-    "Kasa": "rich: save cash and accept the flood offer",
+    "Kasa": "rich: save cash without educating or defending",
     "Beton": "concrete: defend every event, keep awareness low, spend on resilience",
     "Çadır": "camp: learn, keep defenses selective, repair after the flood and quake",
     "Lider": "leader: defend all and answer two quizzes",

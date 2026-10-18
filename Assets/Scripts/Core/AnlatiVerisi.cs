@@ -41,11 +41,11 @@ public sealed class AnlatiVerisi : ScriptableObject
     public Ipucu[] afetIpuclari={
         new Ipucu{afet=AfetTuru.Yangin,yonlendirme="Kuru otlar tutuşmaya hazır: İtfaiye'yi güçlendir.",duygu="...çünkü ilk kıvılcım en yakın çatıya sıçrar."},
         new Ipucu{afet=AfetTuru.Sel,yonlendirme="Yaklaşan yağmurlar için Altyapı'yı güçlendir.",duygu="...çünkü önce zemin kattaki beşikler suya gömülür."},
-        new Ipucu{afet=AfetTuru.Deprem,yonlendirme="Konut, Okul, AKUT ve İtfaiye en az Seviye 2 olmalı.",duygu="...çünkü deprem haber vermez; bina ya hazırdır ya değildir."},
+        new Ipucu{afet=AfetTuru.Deprem,yonlendirme="Konut, ODTÜ, AKUT ve İtfaiye en az Seviye 2 olmalı.",duygu="...çünkü deprem haber vermez; bina ya hazırdır ya değildir."},
         new Ipucu{afet=AfetTuru.Tsunami,yonlendirme="Kıyıyı korumak için Deniz Seti'ni Seviye 3'e çıkar.",duygu="...çünkü deniz çekildiğinde kaçmak için çok geç olur."}
     };
     public string ilkIpucu="Bir binaya tıkla; yapının görevini ve bir sonraki seviyeyi aynı kartta görebilirsin.";
-    public string okulIpucu="Okulda kısa bir quiz çöz; doğru bilgi, afet anında hayat kurtarır.";
+    public string okulIpucu="ODTÜ'de kısa bir quiz çöz; doğru bilgi, afet anında hayat kurtarır.";
     public string okulDuygu="...çünkü Ayşe Öğretmen'in sınıfı deprem çantası nedir bilmiyor.";
     public string onarimIpucu="Hasarlı yapıya tıkla ve onar; yollar açılınca şehir yeniden hareket eder.";
     [Header("7. gün kararı")]

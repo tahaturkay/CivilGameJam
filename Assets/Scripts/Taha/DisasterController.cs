@@ -10,7 +10,7 @@ public class DisasterController : MonoBehaviour
     [Header("Ada ve dalga")]
     public Transform tsunamiDalgasi;
     public float tsunamiSetZ = 10f, tsunamiBaslangicZ = -45f, tsunamiBitisZ = 102f;
-    public float tsunamiDalgaY = 1f, tsunamiSuYuksekligi = 3.02f, selSuYuksekligi = 2.70f;
+    public float tsunamiDalgaY = 1f, tsunamiSuYuksekligi = 3.02f, selSuYuksekligi = 2.92f;
     public float kuruZeminY = 2.4f;
     [Min(1)] public float afetSuresi = 8f;
     [Tooltip("Yalnız editörde Ctrl+Shift+1..4 ile elle afet denemesi. Normal oynanışta kapalı.")]
@@ -32,7 +32,6 @@ public class DisasterController : MonoBehaviour
     readonly HashSet<BinaTuru> damagedTypes=new HashSet<BinaTuru>();
     Vector3[] waterVertices;
     int[] waterTriangles;
-    DereYatagiKarari decision;
 
     int sonKontrolEdilenGun;
     readonly HashSet<int> gerceklesenAfetler = new HashSet<int>();
@@ -82,7 +81,7 @@ public class DisasterController : MonoBehaviour
         incidentDamage.Clear();damagedTypes.Clear();
         if(islandBuildings==null)islandBuildings=FindObjectsByType<BuildingVisuals>(FindObjectsSortMode.None);
         foreach(var b in islandBuildings)if(b!=null)b.EnableLocalDamage();
-        if(decision==null)decision=FindAnyObjectByType<DereYatagiKarari>();
+        CalibrateFloodWaterline();
         AktifAfetTuru = afet.afet;
         var yetersizler = new List<BinaTuru>();
         foreach (BinaTuru b in afet.kontrolEdilen)
@@ -119,8 +118,6 @@ public class DisasterController : MonoBehaviour
                 gm.LevelAyarla(b,purchasedLevel);
             }
             float baz = afet.bazKayip * (SavunmaYeterli ? d.savunmaYeterliCarpani : 1f);
-            if(afet.afet==AfetTuru.Sel&&decision!=null&&decision.KabulEdildi&&AnlatiVerisi.Aktif!=null)
-                baz*=AnlatiVerisi.Aktif.selKayipCarpani;
             int akutEtkiLevel = gm.akutHasarli ? 0 : gm.akutLevel;
             float koruma = (1f - gm.farkindalikYuzdesi * d.farkindalikEtkisi) * (1f - akutEtkiLevel * d.akutEtkisi);
             int vefat = Mathf.Min(gm.nufus, Mathf.RoundToInt(baz * Mathf.Clamp01(koruma)));
@@ -144,6 +141,24 @@ public class DisasterController : MonoBehaviour
             AfetDevamEdiyorMu = gm.afetSuruyor = false;
             if (MusicPlayer.Instance != null) MusicPlayer.Instance.NormalMuzigeDon();
         }
+    }
+
+    void CalibrateFloodWaterline()
+    {
+        float roadTop=kuruZeminY+.34f;
+        foreach(var building in islandBuildings)
+        {
+            if(building==null||building.binaTuru!=BinaTuru.Altyapi)continue;
+            foreach(var model in building.levelModelleri)
+            {
+                if(model==null||!model.activeSelf)continue;
+                foreach(var renderer in model.GetComponentsInChildren<MeshRenderer>())
+                    if(renderer.bounds.max.y<kuruZeminY+1)roadTop=Mathf.Max(roadTop,renderer.bounds.max.y);
+            }
+        }
+        // Roads are raised above the grass. A grass-relative plane at +0.30 m left them dry.
+        selSuYuksekligi=Mathf.Max(selSuYuksekligi,roadTop+.18f);
+        tsunamiSuYuksekligi=Mathf.Max(tsunamiSuYuksekligi,selSuYuksekligi+.10f);
     }
 
     void TozEfekti(Transform bina)
@@ -222,9 +237,12 @@ public class DisasterController : MonoBehaviour
     IEnumerator KameraSalla(float sure, float siddet)
     {
         if (kamera == null) yield break;
+        var navigation=kamera.GetComponent<IslandCameraController>();
+        if(navigation!=null){navigation.Shake(sure,siddet);yield break;}
         kameraIlk = kamera.localPosition; kameraSallaniyor = true;
         for (float t = 0; t < sure; t += Time.deltaTime)
         {
+            if(IslandSimulationPause.IsPaused){yield return null;continue;}
             kamera.localPosition = kameraIlk + new Vector3(Random.Range(-1f, 1f), Random.Range(-1f, 1f), 0) * siddet * (1 - t / sure);
             yield return null;
         }
@@ -241,6 +259,7 @@ public class DisasterController : MonoBehaviour
         int count=Mathf.Min(candidates.Count,hasar?9:2),next=0;
         for(float t=0;t<afetSuresi;t+=Time.deltaTime)
         {
+            if(IslandSimulationPause.IsPaused){yield return null;continue;}
             if(next<count&&t>=next*afetSuresi*.60f/Mathf.Max(1,count-1))
             {
                 Transform bina=candidates[next++];
@@ -274,6 +293,7 @@ public class DisasterController : MonoBehaviour
     {
         for (float t = 0; t < sure; t += Time.deltaTime)
         {
+            if(IslandSimulationPause.IsPaused){yield return null;continue;}
             float u = t / sure;
             float height = u < .32f ? Mathf.SmoothStep(kuruZeminY - .3f, target, u / .32f) :
                 u > .78f ? Mathf.SmoothStep(target, kuruZeminY - .3f, (u - .78f) / .22f) : target;
@@ -290,6 +310,7 @@ public class DisasterController : MonoBehaviour
         float impactTime = travelTime * Mathf.InverseLerp(tsunamiBaslangicZ, tsunamiBitisZ, tsunamiSetZ);
         for (float t = 0; t < afetSuresi; t += Time.deltaTime)
         {
+            if(IslandSimulationPause.IsPaused){yield return null;continue;}
             float z = Mathf.Lerp(tsunamiBaslangicZ, tsunamiBitisZ, t / travelTime);
             float waveHeight = 1, y = tsunamiDalgaY;
             if(!TsunamiImpactTriggered&&t>=impactTime)
@@ -333,6 +354,7 @@ public class DisasterController : MonoBehaviour
         if (tsunamiDalgasi != null) { tsunamiDalgasi.gameObject.SetActive(false); tsunamiDalgasi.localScale = dalgaOlcek; }
         if (yagmurEfekti != null) yagmurEfekti.SetActive(false);
         if (kameraSallaniyor && kamera != null) kamera.localPosition = kameraIlk;
+        if(kamera!=null)kamera.GetComponent<IslandCameraController>()?.StopShake();
         kameraSallaniyor = false;
     }
 

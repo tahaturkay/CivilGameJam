@@ -52,7 +52,6 @@ class Policy:
     name: str
     targets: list[tuple[str, int, int]] = field(default_factory=list)
     quiz_days: tuple[int, ...] = ()
-    decision: str = "reject"
     repair_after_events: tuple[str, ...] = ()
 
 
@@ -68,7 +67,6 @@ class Run:
     defended: int = 0
     answered: int = 0
     quiz_count: int = 0
-    accepted: bool = False
     purchases: list[str] = field(default_factory=list)
     repairs: list[str] = field(default_factory=list)
     incidents: list[dict] = field(default_factory=list)
@@ -123,16 +121,9 @@ class Run:
                 self.quiz_count += 1
                 self.quiz_days_used.append(day)
 
-            if day == 7:
-                if policy.decision == "accept":
-                    self.accepted = True
-                    self.cash += 150
-                else:
-                    self.awareness = min(SCHOOL_CAP[self.levels["school"] - 1], self.awareness + 5)
-
             incident = next((name for name, event_day in DAYS.items() if event_day == day), None)
             if incident is not None:
-                self.resolve_incident(incident, day, policy.decision == "accept")
+                self.resolve_incident(incident, day)
                 for building in policy.repair_after_events:
                     self.repair(building, day)
 
@@ -151,7 +142,6 @@ class Run:
             "population": self.population,
             "awareness": self.awareness,
             "quizDays": self.quiz_days_used,
-            "acceptedFloodDecision": self.accepted,
             "defendedIncidents": self.defended,
             "totalDeaths": self.deaths,
             "levels": dict(self.levels),
@@ -168,7 +158,7 @@ class Run:
                               if (building, level, deadline) not in self.targets_reached],
         }
 
-    def resolve_incident(self, incident: str, day: int, decision_accepted: bool) -> None:
+    def resolve_incident(self, incident: str, day: int) -> None:
         is_defended = incident_defended(incident, self.levels, self.damaged)
         if is_defended:
             self.defended += 1
@@ -188,8 +178,6 @@ class Run:
                 self.damage(building, newly_damaged)
 
         base = BASE_LOSS[incident] * (0.2 if is_defended else 1.0)
-        if incident == "flood" and decision_accepted:
-            base *= 1.5
         akut_level = 0 if "akut" in self.damaged else self.levels["akut"]
         factor = max(0.0, (1.0 - self.awareness * 0.006) * (1.0 - akut_level * 0.1))
         deaths = min(self.population, rounded(base * factor))
@@ -236,32 +224,31 @@ def scenarios() -> list[Policy]:
         Policy("leader: defend all and answer two quizzes", [
             ("fire", 2, 4), ("infrastructure", 2, 9), ("housing", 2, 14),
             ("school", 2, 14), ("akut", 2, 14), ("breakwater", 3, 19),
-        ], quiz_days=(4, 6), decision="reject"),
-        Policy("rich: save cash and accept the flood offer", decision="accept"),
+        ], quiz_days=(4, 6)),
+        Policy("rich: save cash without educating or defending"),
         Policy("concrete: defend every event, keep awareness low, spend on resilience", [
             ("fire", 2, 4), ("infrastructure", 2, 9), ("housing", 2, 14),
             ("school", 2, 14), ("akut", 3, 14), ("breakwater", 3, 19),
-        ], decision="reject"),
+        ]),
         Policy("camp: learn, keep defenses selective, repair after the flood and quake", [
             ("fire", 2, 4), ("infrastructure", 2, 9), ("school", 2, 14), ("akut", 3, 14),
-        ], quiz_days=(4, 6), decision="reject", repair_after_events=("akut", "housing")),
+        ], quiz_days=(4, 6), repair_after_events=("akut", "housing")),
         Policy("fallback: educate and strengthen response, but leave protection incomplete", [
             ("school", 2, 14), ("akut", 3, 14),
-        ], quiz_days=(4, 6), decision="reject"),
+        ], quiz_days=(4, 6)),
         Policy("leader plus housing 3 and school 3 after core defenses", [
             ("fire", 2, 4), ("infrastructure", 2, 9), ("housing", 2, 14),
             ("school", 2, 14), ("akut", 2, 14), ("breakwater", 3, 19),
             ("housing", 3, 20), ("school", 3, 20),
-        ], quiz_days=(4, 6), decision="reject"),
+        ], quiz_days=(4, 6)),
     ]
 
 
 def run_random_policy(seed: int) -> Run:
-    """Random affordable purchases, capped quizzes, a coin-flip decision, and optional repairs."""
+    """Random affordable purchases, capped quizzes, and optional repairs; no riverbed event."""
     rng = random.Random(seed)
     run = Run(f"random spending seed {seed}")
     quiz_count = 0
-    accepted = rng.random() < .5
     for day in range(1, 21):
         daily_purchases = rng.choices((0, 1, 2, 3), weights=(5, 55, 35, 5), k=1)[0]
         for _ in range(daily_purchases):
@@ -280,16 +267,9 @@ def run_random_policy(seed: int) -> Run:
             run.quiz_count += 1
             run.quiz_days_used.append(day)
 
-        if day == 7:
-            run.accepted = accepted
-            if accepted:
-                run.cash += 150
-            else:
-                run.awareness = min(SCHOOL_CAP[run.levels["school"] - 1], run.awareness + 5)
-
         incident = next((name for name, event_day in DAYS.items() if event_day == day), None)
         if incident is not None:
-            run.resolve_incident(incident, day, accepted)
+            run.resolve_incident(incident, day)
             if run.damaged and rng.random() < .6:
                 affordable_repairs = [building for building in run.damaged
                                       if run.cash >= REPAIR_COSTS[building]]
@@ -318,7 +298,7 @@ def randomized_summary(seed_count: int = 500) -> dict:
             "dailyPurchaseCountWeightsFor0to3": [5, 55, 35, 5],
             "maximumQuizAnswers": 2,
             "perDayQuizAttemptProbability": .2,
-            "decision": "random 50/50 accept or reject",
+            "riverbedEvent": "removed",
             "perIncidentRepairAttemptProbability": .6,
         },
         "meanUnprotectedIncidents": round(sum(failed_counts) / seed_count, 3),
@@ -360,8 +340,7 @@ def build_report() -> dict:
             "housingIncomeMultipliers": list(HOUSING_MULTIPLIER), "dailyMigration": 30,
             "dailyIncomePerResident": 0.1, "housingDamageIncomeMultiplier": 0.5,
             "damagePreservesPurchasedLevel": True,
-            "decisionAcceptCash": 150, "decisionRejectAwareness": 5,
-            "acceptedFloodLossMultiplier": 1.5, "damagedAkutMitigationLevel": 0,
+            "riverbedEvent": "removed", "damagedAkutMitigationLevel": 0,
             "casualtyFormula": "round(base * (1 - awareness*0.006) * (1 - activeAkutLevel*0.10))",
         },
         "cardThresholds": {"richCash": 900, "richDeaths": 240, "concreteDefended": 3,

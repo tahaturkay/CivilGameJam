@@ -72,11 +72,11 @@ static class JurySessionValidation
             var scene=EditorSceneManager.OpenScene(path);
             foreach(var controller in IslandSceneSetup.Components<DisasterController>(scene))
             {
-                controller.afetSuresi=8;controller.selSuYuksekligi=controller.kuruZeminY+.30f;
+                controller.afetSuresi=8;controller.selSuYuksekligi=controller.kuruZeminY+.52f;
                 controller.tsunamiSuYuksekligi=controller.kuruZeminY+.62f;Record(controller);
             }
             foreach(var ui in IslandSceneSetup.Components<UIManager>(scene))
-                if(ui.GetComponent<DereYatagiKarari>()==null)ui.gameObject.AddComponent<DereYatagiKarari>();
+                if(ui.GetComponent<DereYatagiKarari>()!=null)UnityEngine.Object.DestroyImmediate(ui.GetComponent<DereYatagiKarari>());
             var camera=IslandSceneSetup.Components<Camera>(scene).FirstOrDefault(c=>c.CompareTag("MainCamera"));
             if(camera!=null&&camera.GetComponent<IslandPerformanceBudget>()==null)camera.gameObject.AddComponent<IslandPerformanceBudget>();
             EditorSceneManager.MarkSceneDirty(scene);EditorSceneManager.SaveScene(scene);

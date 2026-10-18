@@ -91,7 +91,7 @@ public static partial class IslandLayoutInstaller
                 }
                 Cube(model,"SahaOrtaCizgi",new Vector3(0,.23f,-5.5f),new Vector3(.1f,.025f,4.8f),Cream);
                 Flag(model,new Vector3(-9,.2f,-3),5.5f);
-                Label(model,"OkulTabelasi","ADA OKULU",new Vector3(0,2.55f,-.86f),.20f,RoofDark);
+                Label(model,"OkulTabelasi","ODTÜ",new Vector3(0,2.55f,-.86f),.25f,RoofDark);
                 for(int i=0;i<3;i++)Tree(model,"OkulAgaci",new Vector3(8.7f,.17f,-6+i*3),2.9f,1);
             }
             else BuildInfrastructure(model,level);
@@ -220,8 +220,7 @@ public static partial class IslandLayoutInstaller
     static void Flag(Transform parent,Vector3 pos,float h)
     {
         Beam(parent,"BayrakDiregi",pos,pos+Vector3.up*h,.09f,Stone);
-        Cube(parent,"Bayrak",pos+new Vector3(.75f,h-.55f,0),new Vector3(1.5f,.9f,.045f),new Color32(178,45,40,255));
-        Cube(parent,"BayrakIsareti",pos+new Vector3(.65f,h-.55f,-.04f),new Vector3(.30f,.30f,.035f),Cream);
+        AddOdtuFlagCloth(parent,pos+new Vector3(.75f,h-.55f,0));
     }
     static void Bench(Transform parent,Vector3 pos,float yaw=0)
     {
@@ -242,7 +241,7 @@ public static partial class IslandLayoutInstaller
             FlowerBed(hall,new Vector3(i*7.9f,.2f,2),1.4f,11,i+1);
             Bench(hall,new Vector3(i*5,.24f,-7),i<0?90:-90);
         }
-        Label(hall,"BelediyeTabela","BELEDİYE",new Vector3(0,3.2f,-4.05f),.23f,RoofDark);
+        Label(hall,"BelediyeTabela","KALKANLI MUHTARLIĞI",new Vector3(0,3.2f,-4.05f),.15f,RoofDark);
         CombineVisuals(hall,"BelediyeMeydanDetay");
         Transform park=Group(parent,"Park",new Vector3(-17,.1f,0));
         Cube(park,"ParkCim",Vector3.zero,new Vector3(14,.12f,20),GrassDark);

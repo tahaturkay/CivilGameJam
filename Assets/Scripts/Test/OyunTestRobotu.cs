@@ -16,6 +16,12 @@ public class OyunTestRobotu : MonoBehaviour
     int gecen, kalan;
     float eskiGunSuresi;
 
+    void OnDisable()
+    {
+        if (eskiGunSuresi > 0) DengeAyarlari.Aktif.birGunSuresi = eskiGunSuresi;
+        Time.timeScale = 1f;
+    }
+
     void Start()
     {
         Application.runInBackground = true;
@@ -207,6 +213,10 @@ public class OyunTestRobotu : MonoBehaviour
         gm.farkindalikYuzdesi = 40f;
         int nufus0 = gm.nufus;
         int beklenenVefat = Mathf.RoundToInt(120f * (1f - 40f * d.farkindalikEtkisi) * (1f - 1 * d.akutEtkisi));
+        // Manual incidents run while only the calendar is held. HUD pause now freezes hazards too.
+        clock.enabled = false;
+        gm.kullaniciDurdurdu = false;
+        FindAnyObjectByType<IslandSimulationPause>()?.ApplyPause();
         Time.timeScale = 6f;
         afet.AfetBaslat(0);
         sinir = Time.realtimeSinceStartup + 30f;
@@ -296,6 +306,7 @@ public class OyunTestRobotu : MonoBehaviour
         }
         gm.gun = d.toplamGun - 1;
         gm.kullaniciDurdurdu = false;
+        clock.enabled = true;
         Time.timeScale = 6f;
         sinir = Time.realtimeSinceStartup + 40f;
         while (!gm.afetOlduMu && Time.realtimeSinceStartup < sinir) yield return null;

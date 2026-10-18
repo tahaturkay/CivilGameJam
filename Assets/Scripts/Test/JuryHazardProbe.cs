@@ -43,7 +43,7 @@ public sealed class JuryHazardProbe : MonoBehaviour
             foreach(var b in FindObjectsByType<BuildingVisuals>(FindObjectsSortMode.None)){b.EnableLocalDamage();if(b.binaTuru==BinaTuru.TemelBina&&weakened==null)weakened=b;}
             gm.kullaniciDurdurdu=true;gm.gun=1;gm.nufus=1000;
             gm.HasarVer(BinaTuru.TemelBina,AfetTuru.Yangin);gm.LevelAyarla(BinaTuru.TemelBina,3);weakened.MarkLocalDamage(AfetTuru.Yangin);
-            yield return null;disaster.AfetBaslat(2);
+            yield return null;disaster.AfetBaslat(2);gm.kullaniciDurdurdu=false;
             while(disaster.AfetDevamEdiyorMu)yield return null;
             bool healthyIntact=true;foreach(var b in FindObjectsByType<BuildingVisuals>(FindObjectsSortMode.None))
                 if(b.binaTuru==BinaTuru.TemelBina&&b!=weakened)healthyIntact&=!b.IsDamaged;
@@ -59,7 +59,7 @@ public sealed class JuryHazardProbe : MonoBehaviour
             timer.SetValue(clock,DengeAyarlari.Aktif.birGunSuresi*.3f);
             yield return null;yield return null;
             AfetTuru hazard=DengeAyarlari.Aktif.afetler[index].afet;
-            disaster.AfetBaslat(index);float deadline=Time.realtimeSinceStartup+15;
+            disaster.AfetBaslat(index);gm.kullaniciDurdurdu=false;float deadline=Time.realtimeSinceStartup+15;
             bool captured=false,impactCaptured=false,impact=false,wet=false,swept=false;float minClearance=float.PositiveInfinity;long drawTotal=0,batchTotal=0;int frames=0;double frameMs=0;
             while(disaster.AfetDevamEdiyorMu&&Time.realtimeSinceStartup<deadline)
             {

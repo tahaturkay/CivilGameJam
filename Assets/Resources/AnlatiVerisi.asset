@@ -61,13 +61,13 @@ MonoBehaviour:
     yonlendirme: "Yakla\u015Fan ya\u011Fmurlar i\xE7in Altyap\u0131'y\u0131 g\xFC\xE7lendir."
     duygu: "...\xE7\xFCnk\xFC \xF6nce zemin kattaki be\u015Fikler suya g\xF6m\xFCl\xFCr."
   - afet: 2
-    yonlendirme: "Konut, Okul, AKUT ve \u0130tfaiye en az Seviye 2 olmal\u0131."
+    yonlendirme: "Konut, ODT\xDC, AKUT ve \u0130tfaiye en az Seviye 2 olmal\u0131."
     duygu: "...\xE7\xFCnk\xFC deprem haber vermez; bina ya haz\u0131rd\u0131r ya de\u011Fildir."
   - afet: 3
     yonlendirme: "K\u0131y\u0131y\u0131 korumak i\xE7in Deniz Seti'ni Seviye 3'e \xE7\u0131kar."
     duygu: "...\xE7\xFCnk\xFC deniz \xE7ekildi\u011Finde ka\xE7mak i\xE7in \xE7ok ge\xE7 olur."
   ilkIpucu: "Bir binaya t\u0131kla; yap\u0131n\u0131n g\xF6revini ve bir sonraki seviyeyi ayn\u0131 kartta g\xF6rebilirsin."
-  okulIpucu: "Okulda k\u0131sa bir quiz \xE7\xF6z; do\u011Fru bilgi, afet an\u0131nda hayat kurtar\u0131r."
+  okulIpucu: "ODT\xDC'de k\u0131sa bir quiz \xE7\xF6z; do\u011Fru bilgi, afet an\u0131nda hayat kurtar\u0131r."
   okulDuygu: "...\xE7\xFCnk\xFC Ay\u015Fe \xD6\u011Fretmen'in s\u0131n\u0131f\u0131 deprem \xE7antas\u0131 nedir bilmiyor."
   onarimIpucu: "Hasarl\u0131 yap\u0131ya t\u0131kla ve onar; yollar a\xE7\u0131l\u0131nca \u015Fehir yeniden hareket eder."
   kararGunu: 7
