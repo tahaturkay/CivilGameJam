@@ -2239,7 +2239,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MainMenu
   oyunSahnesi: MainScene
   ayarlarPaneli: {fileID: 1657517761}
-  oyunBasligi: "D\u0130REN\xC7L\u0130\n\u015EEH\u0130R"
+  oyunBasligi: "KALKAN'l\u0131"
 --- !u!114 &2008031562
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -15,7 +15,7 @@ public class MainMenu : MonoBehaviour
 {
     public string oyunSahnesi = "MainScene";
     public SettingsPanel ayarlarPaneli;
-    public string oyunBasligi = "DİRENÇLİ ŞEHİR";
+    public string oyunBasligi = "KALKAN'lı";
 
     private RectTransform menuCard;
     private GameObject rehberModal;
@@ -84,10 +84,20 @@ public class MainMenu : MonoBehaviour
         cardShadow.effectDistance = new Vector2(8f, -10f);
 
         // 3) Overlapping Ribbon Banner at Top ("DİRENÇLİ ŞEHİR")
-        CivicUI.CreateRibbon(
+        RectTransform kurdele = CivicUI.CreateRibbon(
             menuCard, oyunBasligi,
             CivicUI.RibbonBlue, CivicUI.RibbonBlueLip, CivicUI.RibbonBlueTail,
             font, 70f, 60f);
+
+        // Oyun adı tek satır ve kurdelenin ortasında, menü başlığı olduğu için normal kurdele yazısından büyük
+        var baslik = kurdele.Find("RibbonTitle")?.GetComponent<TMP_Text>();
+        if (baslik != null)
+        {
+            baslik.textWrappingMode = TextWrappingModes.NoWrap;
+            baslik.fontSizeMax = 50f;
+            baslik.characterSpacing = 10f;
+            baslik.alignment = TextAlignmentOptions.Center;
+        }
 
         // Subtitle / Eyebrow Motto
         var eyebrow = CivicUI.Text(

@@ -13,6 +13,8 @@ static class OtomatikTest
     const string BaslatDosyasi = "Temp/otomatik_test_baslat";
     const string AktifAnahtari = "OtomatikTest.Aktif";
     const string OlcumAnahtari = "OtomatikTest.Olcum";
+    const string FotoAnahtari = "OtomatikTest.Foto";
+    const string TrailerAnahtari = "OtomatikTest.Trailer"; // "", "tam" ya da "onizleme"
     static double sonKontrol;
 
     static OtomatikTest()
@@ -32,6 +34,15 @@ static class OtomatikTest
         bool olcum = sahne != null && sahne.Trim().StartsWith("olcum:");
         if (olcum) sahne = sahne.Trim().Substring("olcum:".Length);
         SessionState.SetBool(OlcumAnahtari, olcum);
+        // "foto:" ile başlarsa sahne açılır, birkaç saniye sonra ekran görüntüsü alınır (Logs/Ekran_<sahne>.png)
+        bool foto = sahne != null && sahne.Trim().StartsWith("foto:");
+        if (foto) sahne = sahne.Trim().Substring("foto:".Length);
+        SessionState.SetBool(FotoAnahtari, foto);
+        // "trailer:" tam çekim (her kare + ses), "trailer-onizleme:" saniyede bir kare (Logs/TrailerKareler)
+        string trailer = "";
+        if (sahne != null && sahne.Trim().StartsWith("trailer-onizleme:")) { trailer = "onizleme"; sahne = sahne.Trim().Substring("trailer-onizleme:".Length); }
+        else if (sahne != null && sahne.Trim().StartsWith("trailer:")) { trailer = "tam"; sahne = sahne.Trim().Substring("trailer:".Length); }
+        SessionState.SetString(TrailerAnahtari, trailer);
         if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
 
         // An interrupted Play run can leave in-memory ScriptableObject test values behind.
@@ -64,7 +75,10 @@ static class OtomatikTest
 
         if (durum == PlayModeStateChange.EnteredPlayMode)
         {
-            if (SessionState.GetBool(OlcumAnahtari, false)) new GameObject("PerformansOlcumu").AddComponent<PerformansOlcumu>();
+            string trailer = SessionState.GetString(TrailerAnahtari, "");
+            if (trailer != "") { TrailerRobotu.Onizleme = trailer == "onizleme"; new GameObject("TrailerRobotu").AddComponent<TrailerRobotu>(); }
+            else if (SessionState.GetBool(FotoAnahtari, false)) new GameObject("EkranGoruntusu").AddComponent<EkranGoruntusu>();
+            else if (SessionState.GetBool(OlcumAnahtari, false)) new GameObject("PerformansOlcumu").AddComponent<PerformansOlcumu>();
             else new GameObject("OyunTestRobotu").AddComponent<OyunTestRobotu>();
         }
         else if (durum == PlayModeStateChange.EnteredEditMode)
