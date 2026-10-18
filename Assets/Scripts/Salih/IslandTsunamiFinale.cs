@@ -3,21 +3,26 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.UI;
 
-/// <summary>Two late arrivals outside the seawall; cinematic presentation does not replace disaster accounting.</summary>
+/// <summary>The final scheduled tsunami is presented once through the two harbor visitors.</summary>
 [DefaultExecutionOrder(500)]
 [DisallowMultipleComponent]
 public sealed class IslandTsunamiFinale : MonoBehaviour
 {
     static IslandTsunamiFinale active;
-    public static bool BlocksInterface => active!=null&&active.IsPlaying;
+    public static bool BlocksInterface => active!=null&&(active.IsPlaying||active.IsComplete);
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetStatics(){active=null;}
 
     public string CurrentStage {get;private set;}="Dormant";
     public bool HasPlayed {get;private set;}
     public bool IsPlaying {get;private set;}
+    public bool IsComplete {get;private set;}
+    public bool WaveFillsScreen {get;private set;}
+    public float FadeAmount => blackout!=null?blackout.color.a:0;
+    public Vector3 SunsetDirection {get;private set;}
     public Transform Boat {get;private set;}
     public Transform VisitorA {get;private set;}
     public Transform VisitorB {get;private set;}
@@ -27,23 +32,26 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
     public float ImpactGap {get;private set;}=float.PositiveInfinity;
     public bool CanPlay => ResolveHarbor()&&Camera.main!=null&&controller!=null&&controller.tsunamiDalgasi!=null;
 
-    Transform harbor,markers,mooring,approach,standA,standB,exitA,exitB,deckA,deckB,deckExit;
+    Transform harbor,markers,mooring,approach,approachTurn,standA,standB,exitA,exitB,deckA,deckB,deckExit;
     DisasterController controller;
     GameManager gm;
     Camera view;
     IslandCameraController navigation;
+    IslandWeather weather;
+    IslandFinaleSunDisc sunsetDisc;
     IslandSirenAudio siren;
-    GameObject visitorsRoot,overlayRoot;
+    GameObject visitorsRoot,overlayRoot,waveFace;
+    Mesh waveFaceMesh;
+    Material waveFaceMaterial;
     Canvas overlayCanvas;
-    Image blackout;
+    Image blackout,topBand,bottomBand;
     TMP_Text endingTitle,endingLine;
     Renderer[] waveRenderers,originalWaveRenderers,visitorARenderers;
     bool[] originalWaveVisibility;
-    bool savedCamera,savedCursor,navigationEnabled,oldOrthographic,effectsDone,approachStarted,approachShot;
-    Vector3 oldCameraPosition;
+    bool savedCamera,savedCursor,navigationEnabled,oldOrthographic,effectsDone;
+    Vector3 oldCameraPosition,waveScale;
     Quaternion oldCameraRotation;
-    float oldSize,oldFov,oldNear,oldFar,approachElapsed,waveElapsed,desiredGap=60;
-    const float ApproachDuration=6f,WaveDuration=5.35f;
+    float oldSize,oldFov,oldNear,oldFar,desiredGap=105,storyElapsed,curtainAmount;
     readonly List<HudState> hud=new List<HudState>();
     sealed class HudState {public CanvasGroup group;public float alpha;public bool interactable,raycasts;}
 
@@ -54,7 +62,6 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
         siren=IslandSirenAudio.Instance;
         if(siren==null)siren=new GameObject("TsunamiFinaliSirenSesi").AddComponent<IslandSirenAudio>();
     }
-
     bool ResolveHarbor()
     {
         if(harbor!=null&&Boat!=null)return true;
@@ -63,7 +70,7 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
         harbor=city.transform.Find("SabitAlanlar/Liman");if(harbor==null)return false;
         markers=harbor.Find("CinematicMarkers");Boat=harbor.Find("BalikciTeknesi");
         if(markers==null||Boat==null){harbor=null;Boat=null;return false;}
-        mooring=markers.Find("BoatMooring");approach=markers.Find("BoatApproachOrigin");
+        mooring=markers.Find("BoatMooring");approach=markers.Find("BoatApproachOrigin");approachTurn=markers.Find("BoatApproachTurn");
         standA=markers.Find("CharacterStandA");standB=markers.Find("CharacterStandB");
         exitA=markers.Find("PierDisembarkA");exitB=markers.Find("PierDisembarkB");
         deckA=Boat.Find("DeckMarkers/PassengerA");deckB=Boat.Find("DeckMarkers/PassengerB");deckExit=Boat.Find("DeckMarkers/DeckExit");
@@ -72,60 +79,15 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
         Boat.SetPositionAndRotation(approach.position,approach.rotation);
         return true;
     }
-
     void Update()
     {
         if(gm==null)gm=GameManager.Instance;
-        if(!ResolveHarbor()||gm==null)return;
         if(overlayCanvas!=null)overlayCanvas.enabled=!PauseMenu.DurdurulduMu;
-        if(IsPlaying||approachShot)Cursor.visible=PauseMenu.DurdurulduMu;
-        int day=IslandDisasterCalendar.TsunamiDay;
-        if(!HasPlayed&&!IsPlaying&&gm.gun==day-1)
-        {
-            if(!approachStarted)
-            {
-                approachStarted=true;EnsureVisitors();CurrentStage="BoatApproach";
-                if(Camera.main!=null){SavePresentation();approachShot=true;}
-            }
-            if(!SimulationPaused())
-            {
-                approachElapsed=Mathf.Min(ApproachDuration,approachElapsed+Time.deltaTime*Mathf.Clamp(gm.hizCarpani,1,3));
-                BoatApproachProgress=approachElapsed/ApproachDuration;
-                Boat.position=Vector3.Lerp(approach.position,mooring.position,Mathf.SmoothStep(0,1,BoatApproachProgress));
-                Boat.rotation=mooring.rotation;
-                if(approachShot)FrameBoatApproach();
-            }
-            if(BoatApproachProgress>=1)
-            {
-                CurrentStage="Moored";
-                if(approachShot){RestorePresentation();approachShot=false;}
-            }
-        }
-        else if(approachShot&&!IsPlaying){RestorePresentation();approachShot=false;}
-        if(!IsPlaying&&visitorsRoot!=null&&!HasPlayed)PlaceOnDeck();
-        if(CurrentStage=="AwaitReport"&&gm.afetOlduMu)
-        {
-            var report=FindAnyObjectByType<AfetRaporu>();
-            if(report!=null&&report.panel!=null&&report.panel.activeSelf)
-            {if(overlayRoot!=null)overlayRoot.SetActive(false);CurrentStage="Complete";}
-        }
+        if(IsPlaying||IsComplete)Cursor.visible=PauseMenu.DurdurulduMu;
+        // Day 19 belongs to evacuation and normal city play. The arrival starts only
+        // inside the existing day-20 disaster coroutine, never as a second tsunami.
     }
-
-    bool SimulationPaused()=>IslandSimulationPause.IsPaused||(gm!=null&&(gm.oyunDurduMu||gm.oyunBittiMi));
-
-    void FrameBoatApproach()
-    {
-        // The harbor sits outside the normal city framing: briefly show the actual arrival,
-        // then return smoothly so the remaining warning day stays playable.
-        Vector3 focus=(approach.position+mooring.position)*.5f+Vector3.up;
-        Vector3 position=focus+new Vector3(18,35,-28);
-        Quaternion rotation=Quaternion.LookRotation(focus-position);
-        float u=BoatApproachProgress;
-        float blend=Mathf.SmoothStep(0,1,Mathf.Min(u/.17f,(1-u)/.17f));
-        view.orthographic=true;view.orthographicSize=Mathf.Lerp(oldSize,26,blend);
-        view.transform.SetPositionAndRotation(Vector3.Lerp(oldCameraPosition,position,blend),Quaternion.Slerp(oldCameraRotation,rotation,blend));
-    }
-
+    bool SimulationPaused()=>IslandSimulationPause.IsPaused||(gm!=null&&gm.oyunDurduMu);
     void EnsureVisitors()
     {
         if(visitorsRoot!=null)return;
@@ -141,7 +103,6 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
     }
     void PlaceOnDeck()
     {
-        if(VisitorA==null)return;
         VisitorA.SetPositionAndRotation(deckA.position,deckA.rotation);
         VisitorB.SetPositionAndRotation(deckB.position,deckB.rotation);
     }
@@ -149,86 +110,125 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
     public IEnumerator Play(IEnumerator physicalTsunami)
     {
         if(HasPlayed||!CanPlay){yield return physicalTsunami;yield break;}
-        if(approachShot){RestorePresentation();approachShot=false;}
         active=this;IsPlaying=true;HasPlayed=true;gm=GameManager.Instance;
-        EnsureVisitors();Boat.SetPositionAndRotation(mooring.position,mooring.rotation);BoatApproachProgress=1;PlaceOnDeck();
+        Boat.SetPositionAndRotation(approach.position,approach.rotation);EnsureVisitors();
         SavePresentation();BuildOverlay();CreateWave();
+        weather=FindAnyObjectByType<IslandWeather>();
+        Vector3 towardFriend=Quaternion.AngleAxis(10,Vector3.up)*Vector3.ProjectOnPlane(standB.position-standA.position,Vector3.up).normalized;
+        SunsetDirection=(towardFriend+Vector3.up*.075f).normalized;
+        if(weather!=null)weather.SetCinematicSunset(true,SunsetDirection);
+        sunsetDisc=new GameObject("IskeleGunBatimi").AddComponent<IslandFinaleSunDisc>();
+        sunsetDisc.Configure(towardFriend,standA.position);
+        EnsureSiren();
         bool completed=false;
         try
         {
-            Vector3 startA=VisitorA.position,startB=VisitorB.position,boatExit=deckExit.position;
-            Vector3 harborFocus=(standA.position+Boat.position)*.5f;
-            Vector3 establishing=harborFocus+new Vector3(11,9,-13);
             view.orthographic=false;view.fieldOfView=58;view.nearClipPlane=.06f;view.farClipPlane=Mathf.Max(oldFar,500);
-            view.transform.SetPositionAndRotation(establishing,Quaternion.LookRotation(harborFocus+Vector3.up*.8f-establishing));
-            yield return Shot("Disembarking",3f,u=>
+            CinematicWave.gameObject.SetActive(true);SetWaveGap(105);
+            Vector3 opening=standA.position+new Vector3(6,18,7);
+            Quaternion openingLook=Quaternion.LookRotation(Vector3.Lerp(Boat.position,standA.position,.28f)+Vector3.up*2-opening);
+            Vector3 dockCamera=standA.position+new Vector3(12,8,-14);
+            Quaternion dockLook=Quaternion.LookRotation((standA.position+mooring.position)*.5f+Vector3.up-dockCamera);
+            yield return Shot("BoatApproach",6f,u=>
             {
-                WalkOff(VisitorA,startA,boatExit,exitA.position,standA.position,Mathf.Clamp01(u/ .82f));
+                float t=Mathf.SmoothStep(0,1,u);BoatApproachProgress=t;
+                Vector3 control=approachTurn!=null?approachTurn.position:(approach.position+mooring.position)*.5f+Vector3.right*10;
+                Boat.position=(1-t)*(1-t)*approach.position+2*(1-t)*t*control+t*t*mooring.position;
+                Boat.rotation=Quaternion.Slerp(approach.rotation,mooring.rotation,Mathf.SmoothStep(0,1,Mathf.InverseLerp(.25f,.95f,u)));
+                PlaceOnDeck();SetWaveGap(Mathf.Lerp(105,45,t));
+                float enter=Mathf.SmoothStep(0,1,Mathf.Clamp01(u/.22f));
+                float orbit=Mathf.SmoothStep(0,1,Mathf.InverseLerp(.42f,1,u));
+                Vector3 position=Vector3.Lerp(opening,dockCamera,orbit);
+                Quaternion rotation=Quaternion.Slerp(openingLook,dockLook,orbit);
+                view.transform.SetPositionAndRotation(Vector3.Lerp(oldCameraPosition,position,enter),Quaternion.Slerp(oldCameraRotation,rotation,enter));
+            });
+            Boat.SetPositionAndRotation(mooring.position,mooring.rotation);PlaceOnDeck();
+            Vector3 startA=VisitorA.position,startB=VisitorB.position,boatExit=deckExit.position;
+            Vector3 closeDock=dockCamera+new Vector3(-2,-1.5f,2);
+            yield return Shot("Disembarking",3.2f,u=>
+            {
+                WalkOff(VisitorA,startA,boatExit,exitA.position,standA.position,Mathf.Clamp01(u/.82f));
                 WalkOff(VisitorB,startB,boatExit,exitB.position,standB.position,Mathf.Clamp01((u-.14f)/.82f));
+                SetWaveGap(Mathf.Lerp(45,34,Mathf.SmoothStep(0,1,u)));
+                Vector3 p=Vector3.Lerp(dockCamera,closeDock,Mathf.SmoothStep(0,1,u));
+                view.transform.SetPositionAndRotation(p,Quaternion.LookRotation((standA.position+mooring.position)*.5f+Vector3.up-p));
             });
             VisitorA.SetPositionAndRotation(standA.position,standA.rotation);VisitorB.SetPositionAndRotation(standB.position,standB.rotation);
-            SetGait(VisitorA,0);SetGait(VisitorB,0);
-            var fillObject=new GameObject("IskeleYumusakYuzIsigi");fillObject.transform.SetParent(visitorsRoot.transform,false);
-            fillObject.transform.position=(standA.position+standB.position)*.5f+new Vector3(0,2.4f,.6f);
-            var fill=fillObject.AddComponent<Light>();fill.type=LightType.Point;fill.range=8;fill.intensity=4;
-            fill.color=new Color(.88f,.94f,1);fill.shadows=UnityEngine.LightShadows.None;
-            EnsureSiren();
-            siren.PlayCue();CinematicWave.gameObject.SetActive(true);effectsDone=false;
-            StartCoroutine(PhysicalEffects(physicalTsunami));
-            waveElapsed=0;WaveApproachProgress=0;desiredGap=60;
-            yield return Shot("Warning",.55f,u=>UpdateWaveTime());
-            foreach(var r in visitorARenderers)if(r!=null)r.enabled=false;
-            view.fieldOfView=64;
+            SetGait(VisitorA,0);SetGait(VisitorB,0);AddFaceFill();
+            siren.PlayCue();effectsDone=false;StartCoroutine(PhysicalEffects(physicalTsunami));
             Vector3 eye=standA.position+Vector3.up*1.39f;
-            // Look past the starboard side: the moored cabin must not obscure the threat.
             Quaternion seaLook=Quaternion.LookRotation(new Vector3(.7f,.11f,-1));
-            view.transform.SetPositionAndRotation(eye,seaLook);
-            yield return Shot("ViewWave",1.9f,u=>{UpdateWaveTime();view.transform.SetPositionAndRotation(eye,seaLook);});
+            Vector3 warningPosition=view.transform.position;Quaternion warningLook=view.transform.rotation;
+            yield return Shot("Warning",.9f,u=>
+            {
+                float t=Mathf.SmoothStep(0,1,u);SetWaveGap(Mathf.Lerp(34,30,t));
+                view.transform.SetPositionAndRotation(Vector3.Lerp(warningPosition,eye,t),Quaternion.Slerp(warningLook,seaLook,t));
+                view.fieldOfView=Mathf.Lerp(58,64,t);
+                if(u>.55f)foreach(var r in visitorARenderers)if(r!=null)r.enabled=false;
+            });
+            yield return Shot("ViewWave",1.5f,u=>{SetWaveGap(Mathf.Lerp(30,22,Mathf.SmoothStep(0,1,u)));view.transform.SetPositionAndRotation(eye,seaLook);});
             Quaternion friendLook=Quaternion.LookRotation(VisitorB.position+Vector3.up*1.31f-eye);
             Quaternion friendStart=VisitorB.rotation;
             Quaternion mutualLook=Quaternion.LookRotation(Vector3.ProjectOnPlane(standA.position-standB.position,Vector3.up));
-            yield return Shot("LookAtFriend",1.35f,u=>
+            yield return Shot("LookAtFriend",1.8f,u=>
             {
-                UpdateWaveTime();float turn=Mathf.SmoothStep(0,1,Mathf.Clamp01(u/.48f));
+                SetWaveGap(Mathf.Lerp(22,10,Mathf.SmoothStep(0,1,u)));float turn=Mathf.SmoothStep(0,1,Mathf.Clamp01(u/.52f));
                 view.transform.SetPositionAndRotation(eye,Quaternion.Slerp(seaLook,friendLook,turn));
                 VisitorB.rotation=Quaternion.Slerp(friendStart,mutualLook,turn);
             });
-            yield return Shot("FinalWave",1.55f,u=>
+            CreateWaveFace();
+            yield return Shot("FinalWave",1.8f,u=>
             {
-                UpdateWaveTime();float turn=Mathf.SmoothStep(0,1,Mathf.Clamp01(u/.43f));
+                SetWaveGap(Mathf.Lerp(10,.70f,Mathf.SmoothStep(0,1,u)));float turn=Mathf.SmoothStep(0,1,Mathf.Clamp01(u/.52f));
                 view.transform.SetPositionAndRotation(eye,Quaternion.Slerp(friendLook,seaLook,turn));
                 VisitorB.rotation=Quaternion.Slerp(mutualLook,standB.rotation,turn);
+                CinematicWave.localScale=Vector3.Scale(waveScale,new Vector3(1,Mathf.Lerp(1,1.9f,Mathf.SmoothStep(0,1,u)),1));
+                // The breaking face rolls across the lens, extending the same water surface
+                // beyond every screen edge. No sky triangle, dock edge or letterbox remains.
+                SetWaveFace(Mathf.SmoothStep(0,1,Mathf.InverseLerp(.62f,1,u)));
             });
-            WaveApproachProgress=1;desiredGap=.70f;PositionWave();
-            CurrentStage="CutToBlack";blackout.color=Color.black;siren.StopCue();
-            // A hard cut before contact leaves the outcome implied; no ragdolls or extra deaths are injected.
-            yield return null;
-            endingTitle.gameObject.SetActive(true);endingLine.gameObject.SetActive(true);
-            yield return Shot("Title",1.6f,u=>
+            SetWaveFace(1);endingTitle.gameObject.SetActive(true);endingLine.gameObject.SetActive(true);
+            yield return Shot("Title",2.2f,u=>
             {
                 endingTitle.alpha=Mathf.SmoothStep(0,1,Mathf.Clamp01(u*3));
-                endingLine.alpha=Mathf.SmoothStep(0,1,Mathf.Clamp01((u-.15f)*3));
+                endingLine.alpha=Mathf.SmoothStep(0,1,Mathf.Clamp01((u-.12f)*3));
             });
-            while(!effectsDone){if(SimulationPaused()){yield return null;continue;}yield return null;}
-            completed=true;
+            var music=MusicPlayer.Instance!=null?MusicPlayer.Instance.GetComponent<AudioSource>():null;
+            float musicVolume=music!=null?music.volume:0;
+            yield return Shot("FadeToBlack",3f,u=>
+            {
+                float fade=Mathf.SmoothStep(0,1,u);blackout.color=new Color(0,0,0,fade);
+                endingTitle.alpha=endingLine.alpha=1-Mathf.SmoothStep(0,1,Mathf.InverseLerp(.1f,.85f,u));
+                if(music!=null)music.volume=musicVolume*(1-fade);
+            });
+            while(!effectsDone)yield return null;
+            if(music!=null)music.Stop();
+            siren.StopCue();blackout.color=Color.black;endingTitle.alpha=endingLine.alpha=0;
+            IsComplete=true;CurrentStage="Complete";completed=true;
         }
         finally
         {
-            if(siren!=null)siren.StopCue();
-            RestorePresentation();IsPlaying=false;if(active==this)active=null;
-            if(CinematicWave!=null){Destroy(CinematicWave.gameObject);CinematicWave=null;}
-            if(visitorsRoot!=null){visitorsRoot.SetActive(false);}
+            if(siren!=null)siren.StopCue();IsPlaying=false;
             if(completed)
             {
-                CurrentStage="AwaitReport";
-                // Keep a black backing until the real report has appeared on the following frame.
-                if(endingTitle!=null)endingTitle.gameObject.SetActive(false);
-                if(endingLine!=null)endingLine.gameObject.SetActive(false);
+                // Hold the completed black composition. The controller still records the
+                // normal defense/damage/casualty result, then ends without opening a report.
+                if(visitorsRoot!=null)visitorsRoot.SetActive(false);
             }
-            else if(overlayRoot!=null)overlayRoot.SetActive(false);
+            else
+            {
+                RestorePresentation();if(active==this)active=null;
+                if(overlayRoot!=null)overlayRoot.SetActive(false);
+            }
         }
     }
-
+    void AddFaceFill()
+    {
+        var fillObject=new GameObject("IskeleYumusakYuzIsigi");fillObject.transform.SetParent(visitorsRoot.transform,false);
+        fillObject.transform.position=(standA.position+standB.position)*.5f+new Vector3(0,2.4f,.6f);
+        var fill=fillObject.AddComponent<Light>();fill.type=LightType.Point;fill.range=8;fill.intensity=3;
+        fill.color=new Color(1,.85f,.69f);fill.shadows=LightShadows.None;
+    }
     IEnumerator PhysicalEffects(IEnumerator effects){try{yield return effects;}finally{effectsDone=true;}}
     IEnumerator Shot(string stage,float duration,Action<float> animate)
     {
@@ -236,18 +236,24 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
         while(elapsed<duration)
         {
             if(SimulationPaused()){yield return null;continue;}
-            elapsed=Mathf.Min(duration,elapsed+Time.deltaTime);animate(elapsed/duration);yield return null;
+            elapsed=Mathf.Min(duration,elapsed+Time.deltaTime);storyElapsed+=Time.deltaTime;
+            if(sunsetDisc!=null)
+            {
+                sunsetDisc.SetProgress(Mathf.Clamp01(storyElapsed/19));
+                SunsetDirection=(sunsetDisc.transform.position-standA.position).normalized;
+                if(weather!=null)weather.SetCinematicSunset(true,SunsetDirection);
+            }
+            animate(elapsed/duration);yield return null;
         }
         animate(1);
     }
-    void UpdateWaveTime()
+    void SetWaveGap(float gap)
+    {desiredGap=gap;WaveApproachProgress=Mathf.InverseLerp(105,.70f,gap);PositionWave();}
+    void LateUpdate()
     {
-        waveElapsed=Mathf.Min(WaveDuration,waveElapsed+Time.deltaTime);
-        WaveApproachProgress=waveElapsed/WaveDuration;
-        desiredGap=Mathf.Lerp(60,.70f,Mathf.SmoothStep(0,1,WaveApproachProgress));
-        PositionWave();
+        if(IsPlaying&&CinematicWave!=null&&CinematicWave.gameObject.activeSelf)PositionWave();
+        if(waveFace!=null&&curtainAmount>0)FrameWaveFace();
     }
-    void LateUpdate(){if(IsPlaying&&CinematicWave!=null&&CinematicWave.gameObject.activeSelf)PositionWave();}
     void PositionWave()
     {
         if(waveRenderers==null||waveRenderers.Length==0||CinematicWave==null)return;
@@ -260,15 +266,45 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
         var source=controller.tsunamiDalgasi;
         originalWaveRenderers=source.GetComponentsInChildren<Renderer>(true);
         originalWaveVisibility=new bool[originalWaveRenderers.Length];
-        // Clone before hiding the normal wave. Both use the existing sea materials and mesh design.
         var copy=Instantiate(source.gameObject);copy.name="FinalSahnesiDenizDalgasi";
         CinematicWave=copy.transform;CinematicWave.SetParent(transform,false);
-        CinematicWave.SetPositionAndRotation(new Vector3(standA.position.x,-.575f,standA.position.z-65),source.rotation);
+        CinematicWave.SetPositionAndRotation(new Vector3(standA.position.x,-.575f,standA.position.z-110),source.rotation);waveScale=CinematicWave.localScale;
         waveRenderers=copy.GetComponentsInChildren<Renderer>(true);
         foreach(var r in waveRenderers)r.enabled=true;
         foreach(var c in copy.GetComponentsInChildren<Collider>(true))c.enabled=false;
         for(int i=0;i<originalWaveRenderers.Length;i++){originalWaveVisibility[i]=originalWaveRenderers[i].enabled;originalWaveRenderers[i].enabled=false;}
         copy.SetActive(false);
+    }
+    void CreateWaveFace()
+    {
+        waveFace=new GameObject("DalganinKamerayiSaranYuzu",typeof(MeshFilter),typeof(MeshRenderer));
+        waveFace.transform.SetParent(view.transform,false);
+        // An overscanned breaking-water face, sharing the visible wave's ocean material.
+        // It is world geometry, so the final blue frame remains animated ocean water.
+        waveFaceMesh=new Mesh{name="FinalDalgaYuzu"};
+        waveFaceMesh.vertices=new[]{new Vector3(-.5f,-.5f,0),new Vector3(-.5f,.5f,0),new Vector3(.5f,.5f,0),new Vector3(.5f,-.5f,0)};
+        waveFaceMesh.triangles=new[]{0,1,2,0,2,3};waveFaceMesh.RecalculateBounds();
+        waveFace.GetComponent<MeshFilter>().sharedMesh=waveFaceMesh;
+        var renderer=waveFace.GetComponent<MeshRenderer>();
+        waveFaceMaterial=new Material(waveRenderers[0].sharedMaterial){name="FinalDenizDokusuYakinPlan"};
+        // The lens is less than a metre from the sheet. Preserve the ocean palette and
+        // animation while keeping its water detail readable at this close-up scale.
+        if(waveFaceMaterial.HasProperty("_WaveScale"))waveFaceMaterial.SetFloat("_WaveScale",5.5f);
+        renderer.sharedMaterial=waveFaceMaterial;
+        renderer.shadowCastingMode=ShadowCastingMode.Off;renderer.receiveShadows=false;
+        waveFace.SetActive(false);
+    }
+    void SetWaveFace(float amount)
+    {
+        curtainAmount=amount;WaveFillsScreen=amount>=.999f;
+        if(waveFace!=null){waveFace.SetActive(amount>0);FrameWaveFace();}
+        Color bands=new Color(0,0,0,1-amount);topBand.color=bottomBand.color=bands;
+    }
+    void FrameWaveFace()
+    {
+        float depth=.6f,height=2*depth*Mathf.Tan(view.fieldOfView*.5f*Mathf.Deg2Rad)*1.12f;
+        waveFace.transform.localPosition=new Vector3(0,-height*(1-curtainAmount),depth);
+        waveFace.transform.localRotation=Quaternion.identity;waveFace.transform.localScale=new Vector3(height*view.aspect,height,1);
     }
     static void WalkOff(Transform person,Vector3 start,Vector3 boatExit,Vector3 pier,Vector3 stand,float u)
     {
@@ -285,7 +321,6 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
         if(a!=null)a.localRotation=Quaternion.Euler(swing,0,0);if(b!=null)b.localRotation=Quaternion.Euler(-swing,0,0);
         if(c!=null)c.localRotation=Quaternion.Euler(-swing*.8f,0,0);if(d!=null)d.localRotation=Quaternion.Euler(swing*.8f,0,0);
     }
-
     void SavePresentation()
     {
         view=Camera.main;navigation=view.GetComponent<IslandCameraController>();navigationEnabled=navigation!=null&&navigation.enabled;
@@ -304,6 +339,7 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
     }
     void RestorePresentation()
     {
+        if(weather!=null)weather.SetCinematicSunset(false,Vector3.up);
         if(savedCamera&&view!=null)
         {
             view.transform.SetPositionAndRotation(oldCameraPosition,oldCameraRotation);view.orthographic=oldOrthographic;
@@ -319,24 +355,28 @@ public sealed class IslandTsunamiFinale : MonoBehaviour
         overlayRoot=new GameObject("TsunamiFinaliSunumu",typeof(RectTransform),typeof(Canvas),typeof(CanvasScaler));
         overlayCanvas=overlayRoot.GetComponent<Canvas>();overlayCanvas.renderMode=RenderMode.ScreenSpaceOverlay;overlayCanvas.sortingOrder=90;
         var scaler=overlayRoot.GetComponent<CanvasScaler>();scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=new Vector2(1920,1080);scaler.matchWidthOrHeight=.5f;
-        var top=CivicUI.Box("UstSinemaBandi",overlayRoot.transform,Color.black,false);Band(top.rectTransform,true);
-        var bottom=CivicUI.Box("AltSinemaBandi",overlayRoot.transform,Color.black,false);Band(bottom.rectTransform,false);
-        blackout=CivicUI.Box("TemasOncesiKesme",overlayRoot.transform,Color.clear,false);CivicUI.Fill(blackout.rectTransform);
-        endingTitle=CivicUI.Text("OyunSonuBasligi",blackout.transform,"OYUN SONU",64,new Color32(247,236,211,255),TurkishTMPFontSupport.DisplayFont);
+        topBand=CivicUI.RawBox("UstSinemaBandi",overlayRoot.transform,Color.black,false);Band(topBand.rectTransform,true);
+        bottomBand=CivicUI.RawBox("AltSinemaBandi",overlayRoot.transform,Color.black,false);Band(bottomBand.rectTransform,false);
+        blackout=CivicUI.RawBox("DalgaSiyahaSolma",overlayRoot.transform,Color.clear,false);CivicUI.Fill(blackout.rectTransform);
+        endingTitle=CivicUI.Text("OyunSonuBasligi",overlayRoot.transform,"OYUN SONU",64,new Color32(247,236,211,255),TurkishTMPFontSupport.DisplayFont);
         endingTitle.alignment=TextAlignmentOptions.Center;endingTitle.enableAutoSizing=true;endingTitle.fontSizeMin=28;endingTitle.fontSizeMax=64;
         var rt=endingTitle.rectTransform;rt.anchorMin=new Vector2(.12f,.46f);rt.anchorMax=new Vector2(.88f,.62f);rt.offsetMin=rt.offsetMax=Vector2.zero;
-        endingLine=CivicUI.Text("FinalMesaji",blackout.transform,"UYARILAR HAYAT KURTARIR",22,new Color32(199,175,130,255),TurkishTMPFontSupport.PreferredFont);
+        endingLine=CivicUI.Text("FinalMesaji",overlayRoot.transform,"UYARILAR HAYAT KURTARIR",22,new Color32(199,175,130,255),TurkishTMPFontSupport.PreferredFont);
         endingLine.alignment=TextAlignmentOptions.Center;rt=endingLine.rectTransform;rt.anchorMin=new Vector2(.15f,.36f);rt.anchorMax=new Vector2(.85f,.44f);rt.offsetMin=rt.offsetMax=Vector2.zero;
-        endingTitle.alpha=endingLine.alpha=0;
-        endingTitle.gameObject.SetActive(false);endingLine.gameObject.SetActive(false);
+        endingTitle.alpha=endingLine.alpha=0;endingTitle.gameObject.SetActive(false);endingLine.gameObject.SetActive(false);
     }
     static void Band(RectTransform rt,bool top)
     {rt.anchorMin=new Vector2(0,top?.93f:0);rt.anchorMax=new Vector2(1,top?1:.07f);rt.offsetMin=rt.offsetMax=Vector2.zero;}
-
     void OnDisable()
     {
-        StopAllCoroutines();RestorePresentation();if(siren!=null)siren.StopCue();IsPlaying=false;if(active==this)active=null;
+        StopAllCoroutines();RestorePresentation();if(siren!=null)siren.StopCue();IsPlaying=IsComplete=false;if(active==this)active=null;
         if(overlayRoot!=null)overlayRoot.SetActive(false);if(CinematicWave!=null)Destroy(CinematicWave.gameObject);
+        if(waveFace!=null)Destroy(waveFace);if(sunsetDisc!=null)Destroy(sunsetDisc.gameObject);
     }
-    void OnDestroy(){if(visitorsRoot!=null)Destroy(visitorsRoot);if(overlayRoot!=null)Destroy(overlayRoot);}
+    void OnDestroy()
+    {
+        if(visitorsRoot!=null)Destroy(visitorsRoot);if(overlayRoot!=null)Destroy(overlayRoot);
+        if(waveFaceMesh!=null)Destroy(waveFaceMesh);
+        if(waveFaceMaterial!=null)Destroy(waveFaceMaterial);
+    }
 }

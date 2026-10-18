@@ -80,6 +80,7 @@ public sealed class IslandCityLife : MonoBehaviour
         public int targetNode;
         public float speed;
         public float emergencySpeed;
+        public float tsunamiEvacuationSpeed;
         public float gaitPhase;
         public float waitRemaining;
         public bool hasInitialLeg;
@@ -188,7 +189,7 @@ public sealed class IslandCityLife : MonoBehaviour
     public int PanickedAssemblyCount { get; private set; }
     public int SweptCitizenCount {get{int n=0;foreach(var a in citizens)if(a.waterDriftBlend>0)n++;return n;}}
     public int DisplacedVehicleCount {get{int n=0;foreach(var a in vehicles)if(a.displaced)n++;return n;}}
-    public bool TrafficBlocked => incidentActive || (gameManager != null && gameManager.altyapiHasarli);
+    public bool TrafficBlocked => incidentActive || tsunamiShelterOrdered || (gameManager != null && gameManager.altyapiHasarli);
     public int VehicleCount { get { return vehicles.Count; } }
     public int TrafficSignalCount { get { return trafficJunctions == null ? 0 : trafficJunctions.Length * 2; } }
     public int TrafficCrossingCount { get; private set; }
@@ -1029,7 +1030,17 @@ public sealed class IslandCityLife : MonoBehaviour
             actor.reachedGoal=false;actor.waitRemaining=0;
             actor.shelterHouse=NearestHouse(actor.root.position);
             if(actor.shelterHouse!=null)
+            {
                 PlanRouteToWorldPoint(actor,actor.shelterHouse.transform.position+new Vector3(0,0,-3));
+                // Keep the existing street route, but finish the warning evacuation within
+                // the 12-second economic day (speed buttons and pause still apply normally).
+                Vector3 previous=actor.root.position;
+                float distance=0;
+                if(actor.hasInitialLeg){distance+=HorizontalDistance(previous,actor.initialLegTarget);previous=actor.initialLegTarget;}
+                foreach(int node in actor.path){distance+=HorizontalDistance(previous,roadNodePositions[node]);previous=roadNodePositions[node];}
+                distance+=HorizontalDistance(previous,actor.worldGoal);
+                actor.tsunamiEvacuationSpeed=Mathf.Max(actor.emergencySpeed,distance/7f);
+            }
         }
     }
 
@@ -1361,6 +1372,8 @@ public sealed class IslandCityLife : MonoBehaviour
     private bool AdvanceCitizen(CitizenActor actor, float deltaTime)
     {
         float speed = actor.mode == CityLifeMode.Normal ? actor.speed : actor.mode==CityLifeMode.Panic ? 7f : actor.emergencySpeed;
+        if(tsunamiShelterOrdered&&actor.mode==CityLifeMode.Shelter)
+            speed=Mathf.Max(speed,actor.tsunamiEvacuationSpeed);
         if (actor.hasInitialLeg)
         {
             if (!MoveCitizen(actor, actor.initialLegTarget, speed, deltaTime)) return true;

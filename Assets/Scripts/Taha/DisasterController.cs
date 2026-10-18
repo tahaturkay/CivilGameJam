@@ -151,6 +151,9 @@ public class DisasterController : MonoBehaviour
             gm.afetOzeti += AfetRaporu.AfetAdi(afet.afet) + ": " + (SavunmaYeterli
                 ? afet.afet==AfetTuru.Yangin?"Kontrol altına alındı":"Korundu" : "Hasar aldı") + " (" + vefat + " vefat)\n";
             gm.afetOlduMu = true;
+            var ending=GetComponent<IslandTsunamiFinale>();
+            if(afet.afet==AfetTuru.Tsunami&&ending!=null&&ending.IsComplete)
+                gm.AfetSonrasiDevam();
         }
         finally
         {
@@ -159,7 +162,7 @@ public class DisasterController : MonoBehaviour
             if(afet.afet==AfetTuru.Yangin&&gm.afetOlduMu)FireAwaitingReport=true;
             else EfektleriTemizle();
             AfetDevamEdiyorMu = gm.afetSuruyor = false;
-            if (MusicPlayer.Instance != null) MusicPlayer.Instance.NormalMuzigeDon();
+            if (MusicPlayer.Instance != null&&!gm.oyunBittiMi) MusicPlayer.Instance.NormalMuzigeDon();
         }
     }
 

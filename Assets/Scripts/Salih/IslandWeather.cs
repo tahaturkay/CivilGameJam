@@ -16,6 +16,16 @@ public class IslandWeather : MonoBehaviour
     public float DuskAmount {get;private set;}
     public bool IsNight => NightAmount>=.5f;
     public bool DisasterDaylightActive {get;private set;}
+    public bool CinematicSunsetActive {get;private set;}
+    Vector3 cinematicSunDirection;
+    float cinematicSunsetBlend;
+
+    /// <summary>The harbor finale authors a sunset without changing other disaster palettes.</summary>
+    public void SetCinematicSunset(bool active,Vector3 towardSun)
+    {
+        CinematicSunsetActive=active;
+        if(towardSun.sqrMagnitude>.001f)cinematicSunDirection=towardSun.normalized;
+    }
     EconomyAndTime dayClock;
 
     Light sun;
@@ -135,6 +145,10 @@ public class IslandWeather : MonoBehaviour
         DisasterDaylightActive=daylight>=.999f;
         solar=new IslandSolarCycle.Sample(solar.night*(1-daylight),solar.dawn*(1-daylight),solar.dusk*(1-daylight),
             Mathf.Lerp(solar.elevation,55,daylight),Mathf.LerpAngle(solar.azimuth,-25,daylight));
+        cinematicSunsetBlend=Mathf.MoveTowards(cinematicSunsetBlend,CinematicSunsetActive?1:0,Time.deltaTime/1.8f);
+        if(cinematicSunsetBlend>0)
+            solar=new IslandSolarCycle.Sample(Mathf.Lerp(solar.night,0,cinematicSunsetBlend),
+                solar.dawn*(1-cinematicSunsetBlend),Mathf.Lerp(solar.dusk,1,cinematicSunsetBlend),solar.elevation,solar.azimuth);
         NightAmount=solar.night;DawnAmount=solar.dawn;DuskAmount=solar.dusk;
         Shader.SetGlobalFloat("_IslandNight",NightAmount);
         Shader.SetGlobalFloat("_IslandStorm",storm);
@@ -155,6 +169,8 @@ public class IslandWeather : MonoBehaviour
         if(sun!=null)
         {
             sun.transform.rotation=Quaternion.Euler(solar.elevation,solar.azimuth,0);
+            if(cinematicSunsetBlend>0)
+                sun.transform.rotation=Quaternion.Slerp(sun.transform.rotation,Quaternion.LookRotation(-cinematicSunDirection),cinematicSunsetBlend);
             sun.color=Color.Lerp(Color.Lerp(sunTint,cool,storm*.55f),warm,warmth*.48f);
             sun.intensity=sunIntensity*Mathf.Lerp(1,.30f,NightAmount)*Mathf.Lerp(1,.78f,twilight)*(1-storm*.55f-warmth*.08f)+flash*.8f;
         }
@@ -222,7 +238,7 @@ public class IslandWeather : MonoBehaviour
             for(int i=0;i<runtimeProfile.components.Count;i++)if(runtimeProfile.components[i]!=null)Destroy(runtimeProfile.components[i]);
             Destroy(runtimeProfile);
         }
-        initialized=false;storm=warmth=0;manualDisaster=null;
+        initialized=false;storm=warmth=0;manualDisaster=null;CinematicSunsetActive=false;cinematicSunsetBlend=0;
     }
     void OnEnable(){if(Application.isPlaying&&initialized==false)storm=warmth=0;}
 }

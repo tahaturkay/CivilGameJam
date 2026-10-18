@@ -107,219 +107,116 @@ public sealed class TsunamiFinaleProbe : MonoBehaviour
 
     IEnumerator RunScenario()
     {
-        gm = GameManager.Instance;
-        clock = FindAnyObjectByType<EconomyAndTime>();
-        disaster = FindAnyObjectByType<DisasterController>();
-        city = FindAnyObjectByType<IslandCityLife>();
-        weather = FindAnyObjectByType<IslandWeather>();
-        finale = FindAnyObjectByType<IslandTsunamiFinale>();
-        siren = IslandSirenAudio.Instance;
-        report = FindAnyObjectByType<AfetRaporu>(FindObjectsInactive.Include);
-        gameOver = FindAnyObjectByType<OyunSonu>(FindObjectsInactive.Include);
-        hint = FindAnyObjectByType<IpucuSistemi>(FindObjectsInactive.Include);
-        pauseMenu = FindAnyObjectByType<PauseMenu>(FindObjectsInactive.Include);
-        mainCamera = Camera.main;
-
-        Check(gm != null && clock != null && disaster != null && city != null && finale != null,
-            "MainScene has the live game, city, disaster controller and finale");
-        Check(report != null && gameOver != null && hint != null && pauseMenu != null,
-            "The existing disaster report, game-over report, tutorial and pause menu are present");
-        Check(mainCamera != null && weather != null && IslandSirenAudio.Instance != null,
-            "Main camera, weather and runtime siren component are present");
-        if (gm == null || clock == null || disaster == null || city == null || finale == null ||
-            report == null || gameOver == null || hint == null || pauseMenu == null || mainCamera == null || weather == null)
-            yield break;
-
-        clock.enabled = false;
-        gm.gun = 1;
-        gm.hizCarpani = 1;
-        gm.nufus = 1000;
-        gm.para = 10000;
-        gm.farkindalikYuzdesi = 0;
-        gm.akutLevel = 1;
-        gm.kullaniciDurdurdu = false;
-        gm.oyunDurduMu = false;
-        gm.afetSuruyor = false;
-        gm.afetOlduMu = false;
-        gm.oyunBittiMi = false;
-        gm.kazandiMi = false;
-        pauseMenu.Devam();
-        FindAnyObjectByType<IslandSimulationPause>()?.ApplyPause();
-        Time.timeScale = 1f;
-        yield return null;
-        yield return null;
-
-        int tsunamiDay = IslandDisasterCalendar.TsunamiDay;
-        Check(tsunamiDay > 1 && tsunamiDay == DengeAyarlari.Aktif.toplamGun,
-            "The authored tsunami remains the final scheduled day");
-        if (tsunamiDay <= 1) yield break;
-
-        gm.LevelAyarla(BinaTuru.DenizSeti, strongDefense ? 3 : 1);
-        gm.HasarliAyarla(BinaTuru.DenizSeti, false);
-        gm.LevelAyarla(BinaTuru.Akut, 1);
-        gm.HasarliAyarla(BinaTuru.Akut, false);
-
-        FieldInfo dayCounter = Field(clock, "gunSayaci");
-        Check(dayCounter != null, "The real day clock exposes its runtime time-of-day counter to the focused probe");
-        if (dayCounter == null) yield break;
-        dayCounter.SetValue(clock, DengeAyarlari.Aktif.birGunSuresi * .995f);
-        gm.gun = tsunamiDay - 1;
-        mooring = city.transform.Find("SabitAlanlar/Liman/CinematicMarkers/BoatMooring");
-        Check(finale.CanPlay && mooring != null, "Installed harbor markers make the real finale playable");
-        if (!finale.CanPlay || mooring == null) yield break;
-
-        Check(!finale.HasPlayed && !finale.IsPlaying && !IslandTsunamiFinale.BlocksInterface,
-            "Finale has not started and the ordinary HUD stays available on the warning day");
-        float boatDeadline = Time.realtimeSinceStartup + 12f;
-        bool checkedBoatPause = false;
-        while (Time.realtimeSinceStartup < boatDeadline && finale.CurrentStage != "Moored")
+        gm=GameManager.Instance;clock=FindAnyObjectByType<EconomyAndTime>();
+        disaster=FindAnyObjectByType<DisasterController>();city=FindAnyObjectByType<IslandCityLife>();
+        weather=FindAnyObjectByType<IslandWeather>();finale=FindAnyObjectByType<IslandTsunamiFinale>();
+        report=FindAnyObjectByType<AfetRaporu>(FindObjectsInactive.Include);
+        gameOver=FindAnyObjectByType<OyunSonu>(FindObjectsInactive.Include);
+        hint=FindAnyObjectByType<IpucuSistemi>(FindObjectsInactive.Include);
+        pauseMenu=FindAnyObjectByType<PauseMenu>(FindObjectsInactive.Include);mainCamera=Camera.main;
+        Check(gm!=null&&clock!=null&&disaster!=null&&city!=null&&finale!=null&&weather!=null&&mainCamera!=null,
+            "Real MainScene managers, weather, camera and finale are present");
+        if(gm==null||clock==null||disaster==null||city==null||finale==null||weather==null||mainCamera==null)yield break;
+        clock.enabled=false;gm.gun=1;gm.hizCarpani=1;gm.nufus=1000;gm.para=10000;gm.farkindalikYuzdesi=0;
+        gm.akutLevel=1;gm.kullaniciDurdurdu=gm.oyunDurduMu=gm.afetSuruyor=gm.afetOlduMu=gm.oyunBittiMi=gm.kazandiMi=false;
+        pauseMenu.Devam();FindAnyObjectByType<IslandSimulationPause>()?.ApplyPause();Time.timeScale=1;
+        yield return null;yield return null;
+        int day=IslandDisasterCalendar.TsunamiDay;
+        Check(day==20&&DengeAyarlari.Aktif.toplamGun==20,"Tsunami and game ending retain the authored day-20 schedule");
+        gm.LevelAyarla(BinaTuru.DenizSeti,strongDefense?3:1);gm.HasarliAyarla(BinaTuru.DenizSeti,false);
+        gm.LevelAyarla(BinaTuru.Akut,1);gm.HasarliAyarla(BinaTuru.Akut,false);
+        Field(clock,"gunSayaci").SetValue(clock,0f);gm.gun=19;
+        yield return null;yield return null;
+        Check(finale.CanPlay,"Installed sailboat and harbor markers make the finale playable");
+        if(!finale.CanPlay)yield break;
+        var supplied=AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Assets/Taha/LowPolyGemi.prefab");
+        Check(supplied!=null&&finale.Boat.GetComponentInChildren<MeshFilter>().sharedMesh==supplied.GetComponentInChildren<MeshFilter>().sharedMesh,
+            "The harbor uses the supplied LowPolyGemi mesh and original palette");
+        Check(city.TsunamiShelterOrdered&&city.CurrentMode==IslandCityLife.CityLifeMode.Shelter,
+            "Day 19 orders every resident and animal to shelter regardless of awareness");
+        float evacuationStarted=Time.time;
+        while(city.ShelteredCount<city.LivingActorCount&&Time.time-evacuationStarted<11f)yield return null;
+        Check(city.ShelteredCount==city.LivingActorCount&&Time.time-evacuationStarted<12,
+            "Every resident and animal naturally reaches shelter before day 19 ends (seconds="+(Time.time-evacuationStarted).ToString("F2")+")");
+        Check(finale.CurrentStage=="Dormant"&&!finale.HasPlayed&&!IslandTsunamiFinale.BlocksInterface&&mainCamera.orthographic,
+            "Day 19 keeps the ordinary city camera; no boat escort or duplicate tsunami plays");
+        Check(city.TrafficBlocked,"The warned city also stops ordinary traffic");
+        gm.gun=20;
+        float deadline=Time.realtimeSinceStartup+38;
+        bool boatPaused=false,warningPaused=false,friendChecked=false,arrivalChecked=false,titleChecked=false;
+        bool fadeIncreasing=true;float previousFade=0;
+        while(!finale.IsComplete&&Time.realtimeSinceStartup<deadline)
         {
             Observe();
-            if (!checkedBoatPause && finale.CurrentStage == "BoatApproach")
+            if(finale.CurrentStage=="BoatApproach"&&finale.BoatApproachProgress>.12f&&!boatPaused)
             {
-                checkedBoatPause = true;
-                yield return VerifyPauseAtBoat();
+                boatPaused=true;yield return VerifyPauseAtBoat();
+                Check(finale.CinematicWave.gameObject.activeSelf&&finale.CinematicWave.GetComponentInChildren<Renderer>().bounds.max.z<finale.Boat.position.z,
+                    "Boat approaches the pier with the tsunami visibly following behind it");
             }
+            if(finale.CurrentStage=="Disembarking"&&!arrivalChecked)
+            {
+                arrivalChecked=true;
+                Check(finale.BoatApproachProgress>=.999f&&finale.VisitorA!=null&&finale.VisitorB!=null,
+                    "The supplied boat docks with the original two visitors aboard");
+                Check(weather.CinematicSunsetActive&&weather.DuskAmount>.95f&&!weather.IsNight,
+                    "The arrival uses a visible sunset instead of the disaster-day noon override");
+                Check(city.ShelteredCount==city.LivingActorCount,"The city remains fully sheltered on day 20");
+            }
+            if(finale.CurrentStage=="Warning"&&!warningPaused)
+            {warningPaused=true;yield return VerifyPauseAtWarning();}
+            if(finale.CurrentStage=="LookAtFriend"&&!friendChecked)
+            {
+                friendChecked=true;float progress=finale.WaveApproachProgress;
+                yield return new WaitForSeconds(1f);
+                Vector3 towardFriend=finale.VisitorB.position+Vector3.up*1.31f-mainCamera.transform.position;
+                Check(Vector3.Dot(mainCamera.transform.forward,towardFriend.normalized)>.95f,
+                    "The eye-level camera smoothly turns to the companion");
+                Check(finale.WaveApproachProgress>progress+.01f,"The wave keeps approaching throughout the mutual glance");
+                Check(Vector3.Dot(Vector3.ProjectOnPlane(towardFriend,Vector3.up).normalized,Vector3.ProjectOnPlane(finale.SunsetDirection,Vector3.up).normalized)>.98f,
+                    "The setting sun is positioned behind the companion in the glance shot");
+            }
+            if(finale.CurrentStage=="Title"&&!titleChecked)
+            {
+                titleChecked=true;
+                Check(finale.WaveFillsScreen&&finale.FadeAmount<.001f,"The title appears over full-frame blue wave water before black fading");
+                var face=mainCamera.transform.Find("DalganinKamerayiSaranYuzu");
+                Vector3 low=mainCamera.WorldToViewportPoint(face.TransformPoint(new Vector3(-.5f,-.5f,0)));
+                Vector3 high=mainCamera.WorldToViewportPoint(face.TransformPoint(new Vector3(.5f,.5f,0)));
+                Check(low.x<0&&low.y<0&&high.x>1&&high.y>1,"The breaking-water face overscans all four edges, leaving no sky or dock gap");
+            }
+            if(finale.CurrentStage=="FadeToBlack")
+            {fadeIncreasing&=finale.FadeAmount+.001f>=previousFade;previousFade=finale.FadeAmount;}
             yield return null;
         }
-        Observe();
-
-        Check(stages.Contains("BoatApproach") && stages.Contains("Moored") && finale.BoatApproachProgress >= .999f,
-            "The harbor boat moves in on day 19 and reaches its mooring");
-        Check(finale.VisitorA != null && finale.VisitorB != null && finale.VisitorA.gameObject.activeInHierarchy && finale.VisitorB.gameObject.activeInHierarchy &&
-              Vector3.Distance(finale.VisitorA.position, finale.Boat.position) < 14f && Vector3.Distance(finale.VisitorB.position, finale.Boat.position) < 14f,
-            "Both named visitors arrive on the moored fishing boat");
-        Check(city.TsunamiShelterOrdered && city.CurrentMode == IslandCityLife.CityLifeMode.Shelter,
-            "The prior-day tsunami warning sends residents and animals to shelter");
-        Check(weather.DisasterDaylightActive && !weather.IsNight,
-            "The approach and warning day stay visibly in daylight");
-        Check(mainCamera.orthographic && !finale.IsPlaying &&
-              mainCamera.GetComponent<IslandCameraController>() != null && mainCamera.GetComponent<IslandCameraController>().enabled,
-            "The city camera and navigation are restored after the day-19 harbor escort");
-        yield return Capture("Logs/TsunamiFinale_" + branchName + "_Boat.png");
-
-        if (!checkedBoatPause)
-        {
-            Check(false, "Space pause was exercised during the boat approach");
-        }
-
-        gm.gun = tsunamiDay;
-        float startDeadline = Time.realtimeSinceStartup + 3f;
-        while (!finale.IsPlaying && Time.realtimeSinceStartup < startDeadline)
-        {
-            Observe();
-            yield return null;
-        }
-        Observe();
-        Check(finale.HasPlayed && finale.IsPlaying && IslandTsunamiFinale.BlocksInterface,
-            "The real tsunami day starts one blocking cinematic and cannot replay it");
-        Check(!report.panel.activeSelf && !gameOver.panel.activeSelf && !hint.serit.activeSelf,
-            "No report, game-over card or tutorial covers the opening shot");
-        Check(city.ShelteredCount == city.LivingActorCount,
-            "All residents and animals are inside safe buildings before the tsunami arrives");
-
-        bool checkedWarningPause = false;
-        bool checkedView = false;
-        bool checkedFriend = false;
-        bool checkedWaveRenderer = false;
-        float previousLookProgress = -1f;
-        float lookProgressAfterWait = -1f;
-        float reportDeadline = Time.realtimeSinceStartup + 22f;
-        while (Time.realtimeSinceStartup < reportDeadline && !report.panel.activeSelf)
-        {
-            Observe();
-
-            if (finale.CurrentStage == "Warning" && !checkedWarningPause)
-            {
-                checkedWarningPause = true;
-                yield return VerifyPauseAtWarning();
-            }
-            if (finale.CurrentStage == "ViewWave" && !checkedView)
-            {
-                checkedView = true;
-                Vector3 toWave = finale.CinematicWave.position - mainCamera.transform.position;
-                Check(!mainCamera.orthographic && Vector3.Dot(mainCamera.transform.forward, toWave.normalized) > .72f,
-                    "First point-of-view shot looks directly toward the visible tsunami");
-            }
-            if (finale.CurrentStage == "LookAtFriend" && !checkedFriend)
-            {
-                checkedFriend = true;
-                previousLookProgress = finale.WaveApproachProgress;
-                yield return new WaitForSecondsRealtime(.65f);
-                Vector3 toFriend = finale.VisitorB.position + Vector3.up * 1.3f - mainCamera.transform.position;
-                Check(!mainCamera.orthographic && Vector3.Dot(mainCamera.transform.forward, toFriend.normalized) > .55f,
-                    "The camera completes its turn from the wave to the companion");
-                lookProgressAfterWait = finale.WaveApproachProgress;
-                Check(lookProgressAfterWait > previousLookProgress + .02f,
-                    "The tsunami keeps closing in while the visitors look at each other");
-            }
-            if ((finale.CurrentStage == "FinalWave" || finale.CurrentStage == "CutToBlack") && !checkedWaveRenderer)
-            {
-                checkedWaveRenderer = true;
-                bool cinematicVisible = finale.CinematicWave != null && finale.CinematicWave.gameObject.activeInHierarchy &&
-                                        finale.CinematicWave.GetComponentsInChildren<Renderer>(true).Any(r => r.enabled);
-                bool normalHidden = disaster.tsunamiDalgasi == null || !disaster.tsunamiDalgasi.GetComponentsInChildren<Renderer>(true).Any(r => r.enabled);
-                Check(cinematicVisible && normalHidden,
-                    "The cinematic water is visible while the normal gameplay wave is hidden");
-            }
-
-            if (finale.CurrentStage == "CutToBlack")
-            {
-                closestImpactGap = Mathf.Min(closestImpactGap, finale.ImpactGap);
-                Check(finale.ImpactGap > 0f && finale.ImpactGap <= 1.1f && finale.VisitorA != null && finale.VisitorB != null,
-                    "A hard cut stops the approaching crest close to, but before, the two visitors");
-            }
-            if (finale.CurrentStage == "Title")
-                yield return CaptureOnce("Title", "Logs/TsunamiFinale_" + branchName + "_Title.png");
-
-            if (IslandTsunamiFinale.BlocksInterface)
-                uiStayedHidden &= !report.panel.activeSelf && !gameOver.panel.activeSelf && !hint.serit.activeSelf;
-            sawWater |= disaster.FloodSurfaceY > disaster.kuruZeminY + .1f;
-            sawImpact |= disaster.TsunamiImpactTriggered;
-            if (finale.ImpactGap > 0 && finale.ImpactGap < closestImpactGap) closestImpactGap = finale.ImpactGap;
-            yield return null;
-        }
-        Observe();
-
-        Check(checkedWarningPause, "ESC pauses and resumes the active siren shot without advancing it");
-        Check(checkedView && checkedFriend && stages.Contains("FinalWave"),
-            "The visitor scene follows the wave, companion glance, and final return to the wave");
-        Check(checkedWaveRenderer && sawImpact,
-            "The real tsunami still runs its existing seawall impact during the cutscene");
-        Check(uiStayedHidden, "No report, game-over card or tutorial appears over any cinematic frame");
-        Check(stages.Contains("Title"), "The ending title appears after the pre-impact cut");
-        Check(report.panel.activeSelf && !gameOver.panel.activeSelf && !IslandTsunamiFinale.BlocksInterface,
-            "The ordinary tsunami report appears only after the title and releases interface blocking");
-        if (!report.panel.activeSelf) yield break;
-        Check(sawWater == !strongDefense,
-            "The existing seawall branch keeps its original flood-water outcome (protected=" + strongDefense + ")");
-
-        yield return Capture("Logs/TsunamiFinale_" + branchName + "_TsunamiReport.png");
-        Check(gm.sonAfetTuru == AfetTuru.Tsunami && gm.sonSavunmaYeterli == strongDefense &&
-              gm.sonHasarliBinaSayisi == disaster.DamagedInstanceCount,
-            "The existing tsunami report keeps the actual defense and structure-damage results");
-
-        var tsunami = DengeAyarlari.Aktif.afetler.First(a => a.afet == AfetTuru.Tsunami);
-        float baseLoss = tsunami.bazKayip * (strongDefense ? DengeAyarlari.Aktif.savunmaYeterliCarpani : 1f);
-        float protection = (1f - gm.farkindalikYuzdesi * DengeAyarlari.Aktif.farkindalikEtkisi) *
-                           (1f - (gm.akutHasarli ? 0 : gm.akutLevel) * DengeAyarlari.Aktif.akutEtkisi);
-        int expectedLoss = Mathf.Min(1000, Mathf.RoundToInt(baseLoss * Mathf.Clamp01(protection)));
-        Check(gm.sonVefatSayisi == expectedLoss,
-            "The cutscene adds no deaths or changes to the existing casualty formula");
-
-        report.Devam();
-        yield return null;
-        yield return null;
-        Check(gm.oyunBittiMi && gameOver.panel.activeSelf && finale.CurrentStage == "Complete",
-            "Continuing from the tsunami report opens the existing final game report in order");
-        Check(!report.panel.activeSelf && !IslandTsunamiFinale.BlocksInterface,
-            "The game-over report follows the tsunami report without a duplicate overlay");
-        yield return Capture("Logs/TsunamiFinale_" + branchName + "_GameOver.png");
-
-        Check(HasOrderedStages(new[] { "BoatApproach", "Moored", "Disembarking", "Warning", "ViewWave", "LookAtFriend", "FinalWave", "CutToBlack", "Title" }),
-            "Recorded scene stages follow the complete authored order: " + string.Join(" → ", stageOrder));
-        Check(Mathf.Abs(closestImpactGap - .70f) < .03f,
-            "Closest recorded cinematic impact gap remains 0.70 world units");
+        yield return null;yield return null;Observe();
+        Check(boatPaused&&warningPaused,"Both Space and ESC pause paths were exercised in the cinematic");
+        Check(arrivalChecked&&friendChecked&&titleChecked,"Arrival, disembarkation, mutual glance and blue-water title were shown");
+        Check(fadeIncreasing&&stages.Contains("FadeToBlack")&&finale.FadeAmount>.999f,"The blue wave darkens smoothly to complete black");
+        Check(finale.IsComplete&&!finale.IsPlaying&&IslandTsunamiFinale.BlocksInterface,"The completed ending holds black and keeps ordinary panels blocked");
+        Check(gm.oyunBittiMi&&!gm.afetOlduMu&&!disaster.AfetDevamEdiyorMu,"The real disaster finishes accounting and ends the game without requesting a report");
+        Check(uiStayedHidden&&!report.panel.activeSelf&&!gameOver.panel.activeSelf&&!hint.serit.activeSelf,"No disaster report, final report, tutorial or player card interrupts the ending");
+        Check(sawImpact&&sawWater==!strongDefense,"The existing seawall impact and protected/unprotected flood outcomes are preserved");
+        Check(gm.sonAfetTuru==AfetTuru.Tsunami&&gm.sonSavunmaYeterli==strongDefense&&gm.sonHasarliBinaSayisi==disaster.DamagedInstanceCount,
+            "Normal tsunami defense and local damage results are still recorded");
+        var tsunami=DengeAyarlari.Aktif.afetler.First(a=>a.afet==AfetTuru.Tsunami);
+        float baseLoss=tsunami.bazKayip*(strongDefense?DengeAyarlari.Aktif.savunmaYeterliCarpani:1);
+        float protection=(1-gm.farkindalikYuzdesi*DengeAyarlari.Aktif.farkindalikEtkisi)*(1-(gm.akutHasarli?0:gm.akutLevel)*DengeAyarlari.Aktif.akutEtkisi);
+        Check(gm.sonVefatSayisi==Mathf.Min(1000,Mathf.RoundToInt(baseLoss*Mathf.Clamp01(protection))),"The cinematic adds no artificial deaths to the established casualty formula");
+        Check(HasOrderedStages(new[]{"BoatApproach","Disembarking","Warning","ViewWave","LookAtFriend","FinalWave","Title","FadeToBlack","Complete"}),
+            "The authored one-day cinematic follows the complete shot order: "+string.Join(" → ",stageOrder));
+        var title=FindObjectsByType<TMPro.TMP_Text>(FindObjectsSortMode.None).FirstOrDefault(t=>t.name=="OyunSonuBasligi");
+        Check(title!=null&&title.alpha<.001f,"The ending title fades completely with the water");
+        yield return new WaitForSecondsRealtime(1.1f);
+        Check(finale.CurrentStage=="Complete"&&finale.FadeAmount>.999f&&!report.panel.activeSelf&&!gameOver.panel.activeSelf,"The terminal black frame remains stable without advancing to any other screen");
+        yield return Capture("Logs/TsunamiFinale_"+branchName+"_Complete.png");
+        yield return new WaitForEndOfFrame();
+        var pixels=new Texture2D(Screen.width,Screen.height,TextureFormat.RGB24,false);
+        pixels.ReadPixels(new Rect(0,0,Screen.width,Screen.height),0,0);pixels.Apply();
+        bool black=true;
+        foreach(Vector2 point in new[]{new Vector2(.01f,.01f),new Vector2(.99f,.01f),new Vector2(.01f,.99f),new Vector2(.99f,.99f),new Vector2(.5f,.5f)})
+        {Color color=pixels.GetPixel((int)(point.x*(Screen.width-1)),(int)(point.y*(Screen.height-1)));black&=Mathf.Max(color.r,color.g,color.b)<.01f;}
+        Destroy(pixels);Check(black,"Rendered final centre and all corners are genuinely black");
     }
 
     IEnumerator VerifyPauseAtBoat()
@@ -350,6 +247,9 @@ public sealed class TsunamiFinaleProbe : MonoBehaviour
 
         yield return SendEscapeKey();
         yield return null;
+        // AudioSource.Pause reaches the audio device asynchronously. Sample its clock
+        // after that short handoff, rather than comparing across a DSP buffer boundary.
+        yield return new WaitForSecondsRealtime(.08f);
         bool paused = PauseMenu.DurdurulduMu && Mathf.Approximately(Time.timeScale, 0f);
         string pausedStage = finale.CurrentStage;
         float pausedWaveProgress = finale.WaveApproachProgress;
@@ -362,8 +262,9 @@ public sealed class TsunamiFinaleProbe : MonoBehaviour
                       (audioSource == null || audioSource.timeSamples == pausedSamples);
         yield return SendEscapeKey();
         yield return null;
-        Check(audibleCue && oldSamples >= 0 && paused && frozen && !PauseMenu.DurdurulduMu && Time.timeScale > 0f,
-            "ESC pauses and resumes the siren, camera shot and advancing wave together");
+        bool resumed=!PauseMenu.DurdurulduMu&&Time.timeScale>0f;
+        Check(audibleCue && oldSamples >= 0 && paused && frozen && resumed,
+            "ESC pauses and resumes the siren, camera shot and advancing wave together (cue="+audibleCue+", paused="+paused+", frozen="+frozen+", resumed="+resumed+")");
         if (finale.WaveApproachProgress > oldWaveProgress)
             output.AppendLine("INFO Warning wave progress resumed after ESC.");
     }
@@ -380,8 +281,8 @@ public sealed class TsunamiFinaleProbe : MonoBehaviour
             stages.Add(stage);
             output.AppendLine("STAGE " + stage + " boat=" + finale.BoatApproachProgress.ToString("F2") +
                               " wave=" + finale.WaveApproachProgress.ToString("F2") + " gap=" + finale.ImpactGap.ToString("F2"));
-            if (stage == "BoatApproach" || stage == "Moored" || stage == "Disembarking" || stage == "Warning" ||
-                stage == "ViewWave" || stage == "LookAtFriend" || stage == "FinalWave" || stage == "CutToBlack" || stage == "Title")
+            if (stage == "BoatApproach" || stage == "Disembarking" || stage == "Warning" ||
+                stage == "ViewWave" || stage == "LookAtFriend" || stage == "FinalWave" || stage == "Title" || stage == "FadeToBlack")
                 StartCoroutine(CaptureOnce(stage, "Logs/TsunamiFinale_" + branchName + "_" + stage + ".png"));
         }
 
@@ -409,7 +310,7 @@ public sealed class TsunamiFinaleProbe : MonoBehaviour
     IEnumerator CaptureOnce(string key, string path)
     {
         if (!capturedStages.Add(key)) yield break;
-        float delay=key=="ViewWave"?.8f:key=="LookAtFriend"?.85f:key=="FinalWave"?1.25f:key=="Title"?.8f:key=="Disembarking"?1.8f:0;
+        float delay=key=="BoatApproach"?3f:key=="ViewWave"?.8f:key=="LookAtFriend"?1.15f:key=="FinalWave"?1.5f:key=="Title"?.9f:key=="FadeToBlack"?1.5f:key=="Disembarking"?1.8f:0;
         if(delay>0)yield return new WaitForSeconds(delay);
         yield return new WaitForEndOfFrame();
         ScreenCapture.CaptureScreenshot(path);
